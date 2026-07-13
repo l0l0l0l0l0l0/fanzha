@@ -48,10 +48,10 @@ pnpm build            # 产出 web-build/app.js（minify + sourcemap）
 
 ```bash
 pnpm build            # 先构建
-pnpm deploy           # 推送 web-build/ 到 gh-pages 分支
+pnpm deploy:web       # 推送 web-build/ 到 gh-pages 分支
 ```
 
-`pnpm deploy` 会把 `web-build/` 目录内容推送到 `gh-pages` 分支根目录。部署完成后约 1-2 分钟生效。
+`pnpm deploy:web` 会把 `web-build/` 目录内容推送到 `gh-pages` 分支根目录。部署完成后约 1-2 分钟生效。
 
 访问地址：`https://<你的用户名>.github.io/<仓库名>/`
 

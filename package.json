@@ -8,7 +8,7 @@
     "build": "node esbuild.config.mjs",
     "check": "tsc --noEmit",
     "preview": "npx --yes serve web-build -l 5173",
-    "deploy": "gh-pages -d web-build -m \"deploy: web build\""
+    "deploy:web": "gh-pages -d web-build -m \"deploy: web build\""
   },
   "devDependencies": {
     "esbuild": "^0.28.1",
