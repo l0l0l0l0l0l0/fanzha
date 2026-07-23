@@ -40,6 +40,24 @@ export abstract class GameEngine {
     return this.paused;
   }
 
+  /**
+   * 同步驱动入口（由场景在 updateGame 中调用，替代独立 RAF）。
+   * 与 SceneDirector 主循环同帧执行，消除双 RAF 撕裂闪烁。
+   * 暂停时跳过 update（渲染仍可继续，由 stepRender 控制）。
+   */
+  stepUpdate(dt: number): void {
+    if (this.paused) return;
+    this.update(dt);
+  }
+
+  /**
+   * 同步渲染入口（由场景在 renderGame 中、blitContain 之前调用）。
+   * 保证引擎画布在场景读取前已完成本帧绘制，杜绝撕裂。
+   */
+  stepRender(): void {
+    this.render();
+  }
+
   destroy(): void {
     this.running = false;
     if (this.rafId) cancelAnimationFrame(this.rafId);
@@ -73,7 +91,12 @@ export abstract class GameEngine {
     }
     const dt = Math.min(0.05, (ts - this.lastTs) / 1000);
     this.lastTs = ts;
-    this.update(dt);
-    this.render();
+    // 单帧异常兜底：避免引擎 update/render 抛错导致整个 RAF 链中断
+    try {
+      this.update(dt);
+      this.render();
+    } catch (err) {
+      console.error(`[GameEngine] frame error in ${this.constructor.name}`, err);
+    }
   };
 }

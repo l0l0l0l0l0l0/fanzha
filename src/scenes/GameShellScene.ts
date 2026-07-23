@@ -13,11 +13,18 @@ import { drawIcon } from "@/ui/icons";
 import { playSfx, setMuted } from "@/engine/Audio";
 import { platformStore } from "@/store/platformStore";
 import { HubScene } from "./HubScene";
+import { FxLayer } from "@/engine/fx";
+import { onKeyDown, offKeyDown, type KeyListener } from "@/platform/web";
 
 export abstract class GameShellScene extends Scene {
   protected paused = false;
   protected confirmExit = false;
   protected pressedButton: string | null = null;
+  /** 外壳动画时钟（秒），用于警灯条等周期动效（子类自有 t 用于游戏逻辑） */
+  private shellT = 0;
+  /** 全局特效层：子类可通过 this.fx 触发震屏/飘字/闪光/冲击环/粒子爆发 */
+  protected fx = new FxLayer();
+  private keyCb: KeyListener | null = null;
 
   abstract getGameTitle(): string;
   abstract getGameSubtitle(): string;
@@ -28,11 +35,17 @@ export abstract class GameShellScene extends Scene {
 
   update(dt: number): void {
     super.update(dt);
+    this.shellT += dt;
+    this.fx.update(dt);
     if (!this.paused) this.updateGame(dt);
   }
 
   render(ctx: CanvasRenderingContext2D, screenW: number, screenH: number): void {
+    ctx.save();
+    if (this.fx.shaking) ctx.translate(this.fx.shakeX, this.fx.shakeY);
     this.renderGame(ctx, screenW, screenH);
+    ctx.restore();
+    this.fx.renderOverlay(ctx, screenW, screenH);
     this.renderTopBar(ctx, screenW);
     this.renderBottomBar(ctx, screenW, screenH);
     drawScanlineOverlay(ctx, screenW, screenH);
@@ -42,6 +55,31 @@ export abstract class GameShellScene extends Scene {
     }
     if (this.confirmExit) {
       this.renderExitModal(ctx, screenW, screenH);
+    }
+  }
+
+  enter(params?: Record<string, unknown>): void {
+    super.enter(params);
+    this.keyCb = (key: string) => this.onKey(key);
+    onKeyDown(this.keyCb);
+  }
+
+  exit(): void {
+    super.exit();
+    if (this.keyCb) { offKeyDown(this.keyCb); this.keyCb = null; }
+  }
+
+  /** 全局快捷键：Esc 返回确认 / P 暂停 / M 静音 */
+  protected onKey(key: string): void {
+    if (key === "Escape") {
+      if (!this.confirmExit) { this.confirmExit = true; playSfx("click"); }
+    } else if (key === "p" || key === "P") {
+      this.paused = !this.paused;
+      playSfx("click");
+    } else if (key === "m" || key === "M") {
+      platformStore.toggleSound();
+      setMuted(!platformStore.state.settings.sound);
+      playSfx("click");
     }
   }
 
@@ -59,6 +97,19 @@ export abstract class GameShellScene extends Scene {
     ctx.fillRect(0, 0, screenW, 48);
     ctx.fillStyle = Theme.colors.bg.line;
     ctx.fillRect(0, 47, screenW, 1);
+    ctx.restore();
+
+    // 警灯条：左红右蓝交替闪烁（4Hz）
+    const phase = Math.floor(this.shellT * 4) % 2 === 0;
+    ctx.save();
+    const halfW = screenW / 2;
+    ctx.fillStyle = phase ? "#E5353B" : "#1B5FCC";
+    ctx.shadowColor = ctx.fillStyle;
+    ctx.shadowBlur = 6;
+    ctx.fillRect(0, 0, halfW, 2);
+    ctx.fillStyle = phase ? "#1B5FCC" : "#E5353B";
+    ctx.shadowColor = ctx.fillStyle;
+    ctx.fillRect(halfW, 0, halfW, 2);
     ctx.restore();
 
     // 返回按钮

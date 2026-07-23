@@ -15,6 +15,9 @@ let mainCanvas: HTMLCanvasElement | null = null;
 
 export function createCanvas(): GameCanvas {
   if (!mainCanvas) {
+    if (typeof document === "undefined") {
+      throw new Error("createCanvas requires a DOM environment");
+    }
     const c = document.createElement("canvas");
     c.id = "game-canvas";
     c.style.position = "fixed";
@@ -57,9 +60,9 @@ function invalidateSystemInfoCache(): void {
 
 export function getSystemInfo(): SystemInfo {
   if (cachedSystemInfo) return cachedSystemInfo;
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  const dpr = window.devicePixelRatio || 1;
+  const w = Math.max(1, window.innerWidth || 0);
+  const h = Math.max(1, window.innerHeight || 0);
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
   cachedSystemInfo = {
     screenWidth: w,
     screenHeight: h,
@@ -196,10 +199,37 @@ export function offTouchCancel(cb: TouchListener): void {
 
 type ResizeListener = () => void;
 const resizeSet = new Set<ResizeListener>();
-window.addEventListener("resize", () => {
-  invalidateSystemInfoCache();
-  resizeSet.forEach((cb) => cb());
-});
+// rAF 节流：拖拽缩放窗口时避免每帧多次重算画布尺寸
+let resizeRaf = 0;
+let pendingResize = false;
+window.addEventListener(
+  "resize",
+  () => {
+    invalidateSystemInfoCache();
+    if (resizeRaf) return;
+    pendingResize = true;
+    resizeRaf = requestAnimationFrame(() => {
+      resizeRaf = 0;
+      if (!pendingResize) return;
+      pendingResize = false;
+      resizeSet.forEach((cb) => {
+        try { cb(); } catch (e) { console.warn("[resize] listener failed", e); }
+      });
+    });
+  },
+  { passive: true }
+);
+// 立即响应一次 orientationchange（移动端旋转）
+window.addEventListener(
+  "orientationchange",
+  () => {
+    invalidateSystemInfoCache();
+    resizeSet.forEach((cb) => {
+      try { cb(); } catch (e) { console.warn("[orientation] listener failed", e); }
+    });
+  },
+  { passive: true }
+);
 
 export function onResize(cb: ResizeListener): void {
   resizeSet.add(cb);
@@ -291,6 +321,66 @@ export function onShareAppMessage(_cb: () => { title: string; imageUrl?: string 
   // Web 上无对应能力，noop
 }
 
+/**
+ * 将 canvas 转 Blob（用于战报图分享/下载）
+ */
+export function canvasToBlob(canvas: HTMLCanvasElement, type = "image/png", quality?: number): Promise<Blob | null> {
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), type, quality);
+  });
+}
+
+/**
+ * 通过创建 <a download> 触发文件下载
+ */
+export function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.style.display = "none";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  // 延迟释放，避免下载未完成
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+/**
+ * 分享带图片（Web Share API + files）
+ * 若浏览器不支持文件分享，回退到下载
+ */
+export async function shareImageWithFallback(opts: {
+  title: string;
+  text: string;
+  blob: Blob;
+  filename: string;
+}): Promise<"shared" | "downloaded" | "copied"> {
+  const nav = navigator as any;
+  const file = new File([opts.blob], opts.filename, { type: opts.blob.type });
+  // 优先尝试 Web Share API + 文件
+  if (typeof nav.canShare === "function" && nav.canShare({ files: [file] }) && typeof nav.share === "function") {
+    try {
+      await nav.share({ title: opts.title, text: opts.text, files: [file] });
+      return "shared";
+    } catch {
+      // 用户取消或失败，回退到下载
+    }
+  }
+  // 回退 1：下载图片
+  try {
+    downloadBlob(opts.blob, opts.filename);
+    return "downloaded";
+  } catch {
+    // 回退 2：复制文本
+    if (nav.clipboard?.writeText) {
+      await nav.clipboard.writeText(`${opts.title}\n${opts.text}`);
+      return "copied";
+    }
+  }
+  return "downloaded";
+}
+
 // ============ 振动 ============
 
 export function vibrateShort(): void {
@@ -355,4 +445,19 @@ export function error(...args: unknown[]): void {
 
 export function exitMiniProgram(): void {
   console.log("[exitMiniProgram] Web 上无法退出，请直接关闭标签页");
+}
+
+// ============ 键盘 ============
+
+export type KeyListener = (key: string, e: KeyboardEvent) => void;
+const keyDownSet = new Set<KeyListener>();
+window.addEventListener("keydown", (e) => {
+  keyDownSet.forEach((cb) => cb(e.key, e));
+});
+
+export function onKeyDown(cb: KeyListener): void {
+  keyDownSet.add(cb);
+}
+export function offKeyDown(cb: KeyListener): void {
+  keyDownSet.delete(cb);
 }

@@ -9,8 +9,8 @@ import {
   offTouchMove,
   offTouchEnd,
   offTouchCancel,
-  getSystemInfo,
 } from "@/platform/web";
+import { viewport } from "@/platform/viewport";
 import { consumedTouchIds } from "./touchState";
 
 export interface Pointer {
@@ -73,22 +73,18 @@ export class InputManager {
   }
 
   /**
-   * 屏幕逻辑坐标 → 引擎画布本地坐标（letterbox 逆变换）
-   * 引擎画布固定分辨率（如 480x800），显示时按 contain 模式缩放居中
+   * 窗口 CSS 坐标 → 引擎画布本地坐标（复合 letterbox 逆变换）
+   * 委托给 viewport 单例，正确处理桌面端居中竖屏舞台：
+   *   client → 414×896 逻辑（舞台 contain 逆变换）→ 引擎画布（414×896 contain 逆变换）
+   * 手机端舞台 = 全屏，退化为原单级 contain，行为不变。
    */
   private toLocal(clientX: number, clientY: number): { x: number; y: number } {
-    const info = getSystemInfo();
-    const screenW = info.screenWidth;
-    const screenH = info.screenHeight;
-    const canvasW = this.canvas.width;
-    const canvasH = this.canvas.height;
-    const scale = Math.min(screenW / canvasW, screenH / canvasH);
-    const offsetX = (screenW - canvasW * scale) / 2;
-    const offsetY = (screenH - canvasH * scale) / 2;
-    return {
-      x: (clientX - offsetX) / scale,
-      y: (clientY - offsetY) / scale,
-    };
+    return viewport.clientToEngineLocal(
+      clientX,
+      clientY,
+      this.canvas.width,
+      this.canvas.height
+    );
   }
 
   private bind(): void {

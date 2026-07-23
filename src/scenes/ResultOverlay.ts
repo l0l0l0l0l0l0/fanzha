@@ -14,7 +14,13 @@ import { getGame } from "@/data/games";
 import { TIPS } from "@/data/tips";
 import { platformStore } from "@/store/platformStore";
 import { shareAppMessage, vibrateShort } from "@/platform/web";
+import { canvasToBlob, shareImageWithFallback } from "@/platform/web";
+import { renderBattleReportCanvas } from "@/utils/battleReport";
 import { playSfx } from "@/engine/Audio";
+import { ParticleSystem } from "@/engine/Particle";
+import { postFX } from "@/engine/PostFX";
+import { roundRect } from "@/engine/Renderer";
+import type { Achievement } from "@/data/achievements";
 import type { GameResultPayload } from "@/types";
 
 export interface ResultOverlayCallbacks {
@@ -22,6 +28,8 @@ export interface ResultOverlayCallbacks {
   onBack?: () => void;
   onNext?: () => void;
   nextLabel?: string;
+  /** 游戏专属额外统计渲染回调：返回绘制内容的高度（px），用于加高面板 */
+  renderExtraStats?: (ctx: CanvasRenderingContext2D, x: number, y: number, w: number) => number;
 }
 
 export class ResultOverlay {
@@ -32,6 +40,19 @@ export class ResultOverlay {
   private enterT = 0;
   private pulse = 0;
   private pressedButton: string | null = null;
+  /** 分数滚动显示值（lerp 向真实值） */
+  private displayedScore = 0;
+  private particles = new ParticleSystem();
+  /** 失败 glitch 只触发一次的守门 */
+  private lostGlitchDone = false;
+  /** 本局新解锁的成就列表（由 recordGame 返回） */
+  private unlockedAchievements: Achievement[] = [];
+  /** 是否破纪录（在 recordOnce 前捕获） */
+  private isNewRecord = false;
+  /** v2：分享状态 */
+  private shareState: "idle" | "busy" | "done" = "idle";
+  private shareMessage = "";
+  private shareStateUntil = 0;
 
   constructor(director: SceneDirector, result: GameResultPayload, cb: ResultOverlayCallbacks = {}) {
     this.director = director;
@@ -44,17 +65,62 @@ export class ResultOverlay {
     if (this.recorded) return;
     this.recorded = true;
     const r = this.result;
-    platformStore.recordGame({
+    // 捕获是否破纪录（recordGame 会更新 bestScores）
+    const prevBest = platformStore.state.bestScores[r.gameId] || 0;
+    this.isNewRecord = r.score > prevBest && r.score > 0;
+    // 完整字段传入，触发各种成就判定
+    this.unlockedAchievements = platformStore.recordGame({
       gameId: r.gameId,
       score: r.score,
       busted: r.bustedCount ?? 0,
       durationSec: 0,
+      win: r.win,
+      wave: r.wave,
+      destroyRate: r.destroyRate,
     });
+    if (this.unlockedAchievements.length > 0) {
+      playSfx("good");
+    }
   }
 
   update(dt: number): void {
     this.enterT = Math.min(1, this.enterT + dt * 4);
     this.pulse += dt;
+    // 分数滚动 lerp
+    this.displayedScore += (this.result.score - this.displayedScore) * Math.min(1, dt * 6);
+    // 粒子更新
+    this.particles.update(dt);
+    // 胜利彩屑：从屏幕顶部飘落
+    if (this.result.win && this.enterT > 0.5) {
+      const screenW = this.director.screenWidth;
+      const palette = ["#FFD666", "#00E5FF", "#52C41A", "#FF7A1A"];
+      for (let i = 0; i < 2; i++) {
+        this.particles.spawn({
+          x: Math.random() * screenW,
+          y: -10,
+          count: 1,
+          speed: 60 + Math.random() * 40,
+          life: 2 + Math.random(),
+          size: 3 + Math.random() * 2,
+          color: palette[Math.floor(Math.random() * palette.length)],
+          type: "debris",
+          gravity: 80,
+          friction: 0.99,
+          angle: Math.PI / 2 + (Math.random() - 0.5) * 0.6,
+        });
+      }
+    }
+    // 失败 glitch：只触发一次
+    if (!this.result.win && this.enterT > 0.3 && !this.lostGlitchDone) {
+      this.lostGlitchDone = true;
+      postFX.glitch(0.6, 3);
+      postFX.flash("#E5353B", 0.3, 3);
+    }
+    // v2：分享状态超时复位
+    if (this.shareState === "done" && this.pulse > this.shareStateUntil) {
+      this.shareState = "idle";
+      this.shareMessage = "";
+    }
   }
 
   /** 是否已激活（有 result 即激活） */
@@ -66,6 +132,8 @@ export class ResultOverlay {
     const rects = this.getButtonRects(screenW, screenH);
 
     if (type === "start") {
+      // 分享进行中时禁止重复点击
+      if (this.shareState === "busy") return true;
       for (const [name, rect] of Object.entries(rects)) {
         if (hitTest(x, y, rect)) { this.pressedButton = name; return true; }
       }
@@ -80,10 +148,7 @@ export class ResultOverlay {
         else if (pressed === "next" && this.cb.onNext) this.cb.onNext();
         else if (pressed === "back" && this.cb.onBack) this.cb.onBack();
         else if (pressed === "share") {
-          const game = getGame(this.result.gameId);
-          shareAppMessage({
-            title: `我在《${game.title}》中${this.result.win ? "识破" : "挑战"}了 ${this.result.bustedCount ?? this.result.wave ?? 0} 次诈骗，得分 ${this.result.score}。全民反诈，天下无诈！`,
-          });
+          this.handleShare();
         }
         return true;
       }
@@ -92,11 +157,51 @@ export class ResultOverlay {
     return true;
   }
 
+  /** v2：处理分享 — 生成战报图并调用 Web Share / 下载 */
+  private async handleShare(): Promise<void> {
+    if (this.shareState === "busy") return;
+    this.shareState = "busy";
+    this.shareMessage = "生成战报...";
+    try {
+      const canvas = renderBattleReportCanvas({
+        result: this.result,
+        unlockedAchievements: this.unlockedAchievements,
+      });
+      const blob = await canvasToBlob(canvas, "image/png");
+      if (!blob) {
+        throw new Error("canvasToBlob 返回空");
+      }
+      const game = getGame(this.result.gameId);
+      const filename = `anti-fraud-${this.result.gameId}-${Date.now()}.png`;
+      const text = `我在《${game.title}》中${this.result.win ? "识破" : "挑战"}了 ${this.result.bustedCount ?? this.result.wave ?? 0} 次诈骗，得分 ${this.result.score}。全民反诈，天下无诈！`;
+      const result = await shareImageWithFallback({
+        title: "反诈战报 · ANTI-FRAUD ARCADE",
+        text,
+        blob,
+        filename,
+      });
+      this.shareMessage = result === "shared" ? "已分享"
+        : result === "downloaded" ? "已保存到下载"
+        : "已复制到剪贴板";
+      postFX.flash(Theme.colors.neon.DEFAULT, 0.3);
+    } catch (e) {
+      console.warn("[share] 战报生成失败", e);
+      // 回退到纯文本分享
+      const game = getGame(this.result.gameId);
+      shareAppMessage({
+        title: `我在《${game.title}》中${this.result.win ? "识破" : "挑战"}了 ${this.result.bustedCount ?? this.result.wave ?? 0} 次诈骗，得分 ${this.result.score}。全民反诈，天下无诈！`,
+      });
+      this.shareMessage = "已复制文本";
+    }
+    this.shareState = "done";
+    this.shareStateUntil = this.pulse + 2.5; // 显示 2.5s
+  }
+
   private getButtonRects(screenW: number, screenH: number): Record<string, Rect> {
     const w = Math.min(340, screenW - 32);
-    const h = 420;
+    const h = Math.min(this.panelH, screenH - 16);
     const px = (screenW - w) / 2;
-    const py = (screenH - h) / 2;
+    const py = Math.max(8, (screenH - h) / 2);
     const pad = 16;
     const btnW = (w - pad * 3) / 2;
     const btnH = 38;
@@ -116,6 +221,19 @@ export class ResultOverlay {
     return rects;
   }
 
+  /** 面板高度：有新解锁成就时加高 60 像素以容纳成就行；有额外统计时按实测高度加高（首帧用默认 180） */
+  private get panelH(): number {
+    let h = this.unlockedAchievements.length > 0 ? 480 : 420;
+    if (this.cb.renderExtraStats) {
+      // 首帧 extraStatsH=0，使用默认估值 180；后续帧使用实测高度
+      h += this.extraStatsH > 0 ? this.extraStatsH + 16 : 180;
+    }
+    return h;
+  }
+
+  /** 额外统计区域高度（renderExtraStats 返回值的缓存） */
+  private extraStatsH = 0;
+
   render(ctx: CanvasRenderingContext2D, screenW: number, screenH: number): void {
     const game = getGame(this.result.gameId);
     const accent = game.accent;
@@ -128,9 +246,9 @@ export class ResultOverlay {
     ctx.globalAlpha = t;
 
     const w = Math.min(340, screenW - 32);
-    const h = 420;
+    const h = Math.min(this.panelH, screenH - 16);
     const px = (screenW - w) / 2;
-    const py = (screenH - h) / 2 - 20 * (1 - t);
+    const py = Math.max(8, (screenH - h) / 2 - 20 * (1 - t));
 
     drawPanel(ctx, px, py, w, h, { borderColor: withAlpha(accent, 0.6), cut: 10 });
 
@@ -155,9 +273,18 @@ export class ResultOverlay {
     ctx.font = `700 28px ${Theme.fonts.display}`;
     ctx.fillStyle = titleColor;
     ctx.shadowColor = withAlpha(titleColor, 0.4);
-    ctx.shadowBlur = 16;
+    ctx.shadowBlur = 16 + Math.sin(this.pulse * 3) * 6;
     ctx.fillText(this.result.win ? "战斗胜利" : "战斗结束", px + w / 2, py + 36);
     ctx.restore();
+
+    // 新纪录闪烁徽章（在标题右下方）
+    if (this.isNewRecord) {
+      const blink = 0.6 + 0.4 * Math.sin(this.pulse * 6);
+      ctx.save();
+      ctx.globalAlpha = blink;
+      drawBadge(ctx, px + w - 96, py + 22, "★ NEW RECORD", "rgba(255,214,102,0.22)", "#FFD666");
+      ctx.restore();
+    }
 
     // 统计卡片
     const cardW = (w - 16 * 3) / 2;
@@ -174,7 +301,7 @@ export class ResultOverlay {
         ? `${Math.round(this.result.destroyRate * 100)}%`
         : `${this.result.bustedCount ?? 0}`;
     drawStatCard(ctx, px + 16, cardY, cardW, cardH, {
-      label: "本局得分", value: this.result.score.toLocaleString(), color: accent,
+      label: "本局得分", value: Math.floor(this.displayedScore).toLocaleString(), color: accent,
     });
     drawStatCard(ctx, px + 16 * 2 + cardW, cardY, cardW, cardH, {
       label: statLabel, value: statValue, color: accent,
@@ -220,6 +347,68 @@ export class ResultOverlay {
     drawBadge(ctx, px + 28, badgeY, "96110 报警咨询", "rgba(229,53,59,0.2)", Theme.colors.warn.DEFAULT);
     drawBadge(ctx, px + 28 + 120, badgeY, "国家反诈中心 APP", "rgba(27,95,204,0.2)", Theme.colors.neon.DEFAULT);
 
+    // 成就解锁行（如有）：错落入场，金色发光
+    if (this.unlockedAchievements.length > 0) {
+      const achY = tipY + tipH + 8;
+      const achH = 56;
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, Math.max(0, (t - 0.4) / 0.4));
+      // 背景框
+      clipPanel(ctx, px + 16, achY, w - 32, achH, 8);
+      ctx.fillStyle = "rgba(255,214,102,0.08)";
+      ctx.fillRect(px + 16, achY, w - 32, achH);
+      ctx.restore();
+      ctx.save();
+      ctx.fillStyle = "#FFD666";
+      ctx.fillRect(px + 16, achY, 3, achH);
+      ctx.restore();
+      drawIcon(ctx, "award", px + 28, achY + 10, 12, "#FFD666");
+      drawHudLabel(ctx, px + 44, achY + 12, `本局解锁 ${this.unlockedAchievements.length} 项成就`, "#FFD666");
+      // 成就芯片行
+      let chipX = px + 28;
+      const chipY = achY + 30;
+      for (let i = 0; i < this.unlockedAchievements.length; i++) {
+        const a = this.unlockedAchievements[i];
+        // 入场延迟
+        const chipP = Math.min(1, Math.max(0, (t - 0.5 - i * 0.08) / 0.3));
+        if (chipP <= 0) continue;
+        ctx.save();
+        ctx.globalAlpha = chipP;
+        const chipText = a.name;
+        ctx.font = `700 11px ${Theme.fonts.body}`;
+        const textW = ctx.measureText(chipText).width;
+        const chipW = textW + 30;
+        if (chipX + chipW > px + w - 16) break; // 超出面板宽度则截断
+        // 胶囊背景
+        ctx.fillStyle = withAlpha(a.color, 0.18);
+        ctx.strokeStyle = withAlpha(a.color, 0.7);
+        ctx.lineWidth = 1;
+        roundRect(ctx, chipX, chipY, chipW, 20, 10);
+        ctx.fill();
+        ctx.stroke();
+        // 图标
+        drawIcon(ctx, a.icon, chipX + 4, chipY + 3, 14, a.color);
+        // 文字
+        ctx.fillStyle = a.color;
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+        ctx.fillText(chipText, chipX + 22, chipY + 10);
+        ctx.restore();
+        chipX += chipW + 6;
+      }
+    }
+
+    // 游戏专属额外统计（如反诈详细数据）
+    if (this.cb.renderExtraStats) {
+      const statsY = this.unlockedAchievements.length > 0
+        ? tipY + tipH + 8 + 56 + 8
+        : tipY + tipH + 8;
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, Math.max(0, (t - 0.5) / 0.4));
+      this.extraStatsH = this.cb.renderExtraStats(ctx, px + 16, statsY, w - 32);
+      ctx.restore();
+    }
+
     // 按钮组
     const rects = this.getButtonRects(screenW, screenH);
     const btnW = (w - 16 * 3) / 2;
@@ -241,9 +430,40 @@ export class ResultOverlay {
       variant: "ghost", accent: Theme.colors.ink.muted, pressed: this.pressedButton === "back",
     });
     drawButton(ctx, rects.share.x, rects.share.y, btnW, btnH, "", {
-      variant: "ghost", accent: Theme.colors.neon.DEFAULT, pressed: this.pressedButton === "share",
+      variant: "ghost",
+      accent: this.shareState === "done" ? Theme.colors.safe.DEFAULT : Theme.colors.neon.DEFAULT,
+      pressed: this.pressedButton === "share",
     });
-    drawIcon(ctx, "share", rects.share.x + btnW / 2 - 8, rects.share.y + btnH / 2 - 8, 16, Theme.colors.neon.DEFAULT);
+    if (this.shareState === "idle") {
+      drawIcon(ctx, "share", rects.share.x + btnW / 2 - 8, rects.share.y + btnH / 2 - 8, 16, Theme.colors.neon.DEFAULT);
+    } else if (this.shareState === "busy") {
+      // 旋转加载指示器
+      ctx.save();
+      const cx = rects.share.x + btnW / 2;
+      const cy = rects.share.y + btnH / 2;
+      const r = 8;
+      ctx.strokeStyle = Theme.colors.neon.DEFAULT;
+      ctx.lineWidth = 2;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      const start = this.pulse * 6;
+      ctx.arc(cx, cy, r, start, start + Math.PI * 1.4);
+      ctx.stroke();
+      ctx.restore();
+    } else {
+      // done：勾选图标 + 文字
+      drawIcon(ctx, "check", rects.share.x + btnW / 2 - 22, rects.share.y + btnH / 2 - 8, 16, Theme.colors.safe.DEFAULT);
+      ctx.save();
+      ctx.font = `700 11px ${Theme.fonts.mono}`;
+      ctx.fillStyle = Theme.colors.safe.DEFAULT;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(this.shareMessage, rects.share.x + btnW / 2 - 4, rects.share.y + btnH / 2 + 1);
+      ctx.restore();
+    }
+
+    // 粒子层（彩屑叠在面板之上）
+    this.particles.render(ctx);
 
     ctx.restore();
   }

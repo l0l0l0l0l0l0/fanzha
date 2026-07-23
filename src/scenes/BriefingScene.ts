@@ -6,23 +6,26 @@ import { Scene } from "@/ui/Scene";
 import type { SceneDirector } from "@/ui/SceneDirector";
 import { Theme, withAlpha } from "@/ui/Theme";
 import {
-  drawBackground, drawPanel, drawButton, drawScanlineOverlay,
+  drawBackground, drawPanel, drawButton,
   drawHudLabel, hitTest, type Rect,
 } from "@/ui/widgets";
 import { drawIcon, drawLogo } from "@/ui/icons";
 import { getGame } from "@/data/games";
 import { playSfx } from "@/engine/Audio";
+import { postFX } from "@/engine/PostFX";
 import type { GameId } from "@/types";
 import { FraudBusterScene } from "./FraudBusterScene";
 import { ManagerDeployScene } from "./ManagerDeployScene";
 import { ThunderScene } from "./ThunderScene";
-import { BombIslandSelectScene } from "./BombIslandSelectScene";
+import { BombIslandBattleScene } from "./BombIslandBattleScene";
+import { QuizFightScene } from "./QuizFightScene";
 
 const GAME_SCENE_FACTORIES: Record<GameId, (d: SceneDirector) => Scene> = {
   "fraud-buster": (d) => new FraudBusterScene(d),
   manager: (d) => new ManagerDeployScene(d),
   thunder: (d) => new ThunderScene(d),
-  "bomb-island": (d) => new BombIslandSelectScene(d),
+  "bomb-island": (d) => new BombIslandBattleScene(d),
+  "quiz-fight": (d) => new QuizFightScene(d),
 };
 
 export class BriefingScene extends Scene {
@@ -31,6 +34,7 @@ export class BriefingScene extends Scene {
   private countdownTimer = 0;
   private entered = false;
   private pressedButton: string | null = null;
+  private flashedFinalCountdown = false;
 
   enter(params?: Record<string, unknown>): void {
     super.enter(params);
@@ -38,12 +42,18 @@ export class BriefingScene extends Scene {
     this.countdown = 3;
     this.countdownTimer = 0;
     this.entered = false;
+    this.flashedFinalCountdown = false;
   }
 
   update(dt: number): void {
     super.update(dt);
     if (this.entered || !this.gameId) return;
     this.countdownTimer += dt;
+    // 倒计时最后 1 秒：警告闪屏
+    if (this.countdown <= 1 && !this.flashedFinalCountdown) {
+      this.flashedFinalCountdown = true;
+      postFX.flash(Theme.colors.warn.DEFAULT, 0.15, 3);
+    }
     if (this.countdownTimer >= 1) {
       this.countdownTimer -= 1;
       this.countdown -= 1;
@@ -65,6 +75,9 @@ export class BriefingScene extends Scene {
     const game = this.gameId ? getGame(this.gameId) : null;
     if (!game) return;
     const accent = game.accent;
+    // 入场动画：淡入 + 上移
+    const t = Math.min(1, this.enterT * 2.5);
+    const slideY = 40 * (1 - t);
 
     drawBackground(ctx, screenW, screenH);
 
@@ -76,6 +89,11 @@ export class BriefingScene extends Scene {
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, screenW, screenH);
     ctx.restore();
+
+    // 入场淡入包裹
+    ctx.save();
+    ctx.globalAlpha = t;
+    ctx.translate(0, slideY);
 
     // 顶部导航栏
     ctx.save();
@@ -150,6 +168,23 @@ export class BriefingScene extends Scene {
     ctx.shadowBlur = 8;
     ctx.fillText(game.title, panelX + 80, y + 22);
     ctx.restore();
+
+    // 右上角水印：96110 反诈专线标识
+    ctx.save();
+    ctx.font = `700 11px ${Theme.fonts.mono}`;
+    ctx.fillStyle = withAlpha(Theme.colors.warn.DEFAULT, 0.55);
+    ctx.textAlign = "right";
+    ctx.textBaseline = "top";
+    ctx.shadowColor = withAlpha(Theme.colors.warn.DEFAULT, 0.3);
+    ctx.shadowBlur = 6;
+    ctx.fillText("☎ 96110 反诈专线", panelX + panelW - 16, y + 8);
+    ctx.shadowBlur = 0;
+    // 下方小字：来源标注
+    ctx.font = `400 9px ${Theme.fonts.mono}`;
+    ctx.fillStyle = withAlpha(Theme.colors.ink.dim, 0.7);
+    ctx.fillText("遇诈即拨 · 全天 24h", panelX + panelW - 16, y + 24);
+    ctx.restore();
+
     y += iconBox + 20;
 
     // 描述
@@ -219,7 +254,24 @@ export class BriefingScene extends Scene {
       subText: `ENTER ${game.subtitle}`,
     });
 
-    drawScanlineOverlay(ctx, screenW, screenH);
+    // 水印级反诈装饰横幅：F01-F70 代表性 emoji + 反诈标语
+    ctx.save();
+    const watermarkY = y + btnH + 18;
+    // 居中反诈 emoji 横幅（取图鉴中代表性图标）
+    ctx.font = `18px ${Theme.fonts.body}`;
+    ctx.fillStyle = withAlpha(Theme.colors.ink.dim, 0.45);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    const emojis = "🚔 🐷 💰 📞 📈 👤 📜 🎮 🎁 🔞 🤖 🚑 🤲 ⌨ 💕 🧧 🎫 🪖 🪙 🛠 🪪 🎓";
+    ctx.fillText(emojis, screenW / 2, watermarkY);
+    // 下方小字：反诈口号
+    ctx.font = `400 9px ${Theme.fonts.mono}`;
+    ctx.fillStyle = withAlpha(Theme.colors.neon.DEFAULT, 0.5);
+    ctx.fillText("// F01-F70 · 全民反诈 · 天下无诈 //", screenW / 2, watermarkY + 18);
+    ctx.restore();
+
+    // 关闭入场淡入包裹
+    ctx.restore();
   }
 
   private drawWrappedText(

@@ -59,30 +59,31 @@ export const GAMES: GameMeta[] = [
     icon: "rocket",
     cover: "ship",
     description:
-      "驾驶警务执法号穿越冒充公检法舰队，自动开火击破诈骗敌人，拾取道具升级火力，与“假警察局长”Boss 决战。致敬《雷霆战机》。",
+      "驾驶警务执法号穿越电信诈骗舰队，自动开火击破杀猪盘、冒充客服等诈骗敌人，拾取国家反诈APP、不接境外来电等强力反诈道具，积累积分晋升反诈称号，与“诈骗集团首脑”Boss 决战。致敬《雷霆战机》。",
     briefing: {
-      type: "冒充公检法诈骗",
+      type: "跨境电信诈骗集团",
       points: [
         "公检法不会通过电话办案",
         "不存在所谓“安全账户”",
         "不会被要求转账“自证清白”",
+        "凡是要验证码、密码的全部是诈骗",
       ],
       hotline: "96110",
     },
   },
   {
     id: "bomb-island",
-    title: "炸岛",
-    subtitle: "BOMB ISLAND",
-    tagline: "远程打击境外电诈园区",
-    tags: ["弹道投掷", "关卡挑战", "摧毁爽感"],
+    title: "诈园区",
+    subtitle: "SCAM PARK",
+    tagline: "自动炮击围攻境外电诈园区",
+    tags: ["自动炮击", "无尽波次", "道具连招"],
     difficulty: 3,
     accent: "#FF7A1A",
     accentSoft: "rgba(255, 122, 26, 0.18)",
     icon: "bomb",
     cover: "bomb",
     description:
-      "扮演反诈正义联盟炮兵指挥官，调整角度与力度发射炮弹，摧毁境外电诈园区的核心建筑，每关解锁新武器。",
+      "反诈意大利炮自动连续炮击境外电诈园区，左侧道具栏释放反诈炮弹/96110震慑/警方突击/反诈APP光束等连招，过载槽充满后火力全开。无尽波次，园区逐级升级。",
     briefing: {
       type: "境外电诈园区",
       points: [
@@ -91,6 +92,30 @@ export const GAMES: GameMeta[] = [
         "12308 中国领事保护热线 24 小时",
       ],
       hotline: "12308",
+    },
+  },
+  {
+    id: "quiz-fight",
+    title: "反诈答题 PK",
+    subtitle: "QUIZ FIGHT",
+    tagline: "1v1 对战 5 大电诈头目",
+    tags: ["1v1 对战", "回合制", "大招连招"],
+    difficulty: 3,
+    accent: "#FF00E5",
+    accentSoft: "rgba(255, 0, 229, 0.18)",
+    icon: "crosshair",
+    cover: "quiz",
+    description:
+      "逐关挑战 5 位电诈反派——业余骗子、客服骗子、投资导师、假警官、电诈头目。8 秒内答对反诈题造成伤害，答错自损；累计大招槽可双倍伤害并回血。致敬《答题对战》玩法。",
+    briefing: {
+      type: "反诈知识 1v1 对战",
+      points: [
+        "5 关递进难度：从刷单骗子到境外电诈首脑",
+        "答对越快，伤害越高（速度加成）",
+        "大招槽满后启用：双倍伤害 + 回血 15",
+        "96110 是反诈劝阻专线，遇到可疑来电立即拨打",
+      ],
+      hotline: "96110",
     },
   },
 ];

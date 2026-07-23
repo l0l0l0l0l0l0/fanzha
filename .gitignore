@@ -18,6 +18,10 @@ web-build/app.js.map
 
 # gh-pages 缓存
 .gh-pages-cache
+gh-pages-deploy/
+
+# 误嵌入的仓库副本（含浏览器缓存等，勿入库）
+fanzha/
 
 # Editor directories and files
 .vscode/*

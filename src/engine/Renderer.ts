@@ -1,3 +1,5 @@
+import { Theme } from "@/ui/Theme";
+
 export interface DrawTextOpts {
   font?: string;
   size: number;
@@ -76,7 +78,7 @@ export function drawText(
   opts: DrawTextOpts
 ): void {
   const {
-    font = '"Noto Sans SC", sans-serif',
+    font = Theme.fonts.body,
     size,
     color,
     weight = "700",
@@ -111,7 +113,7 @@ export function wrapText(
   lineHeight: number,
   opts: DrawTextOpts
 ): number {
-  const { font = '"Noto Sans SC", sans-serif', size, weight = "500", color, align = "left", baseline = "top" } = opts;
+  const { font = Theme.fonts.body, size, weight = "500", color, align = "left", baseline = "top" } = opts;
   ctx.save();
   ctx.font = `${weight} ${size}px ${font}`;
   ctx.textAlign = align;

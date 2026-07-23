@@ -8,7 +8,9 @@ export type IconName =
   | "arrowLeft" | "arrowRight" | "pause" | "play" | "volumeOn" | "volumeOff"
   | "home" | "trash" | "phone" | "alert" | "shield" | "heart" | "zap"
   | "bomb" | "lock" | "check" | "x" | "info" | "trophy" | "rotate" | "share"
-  | "star" | "clock" | "award" | "book" | "users" | "crosshair" | "target";
+  | "star" | "clock" | "award" | "book" | "users" | "crosshair" | "target"
+  | "gift" | "calendar" | "coin" | "energy" | "fragment" | "download" | "story"
+  | "chevronRight" | "flag" | "flame" | "lightning";
 
 export function drawIcon(
   ctx: CanvasRenderingContext2D,
@@ -341,6 +343,171 @@ export function drawIcon(
       ctx.stroke();
       ctx.beginPath();
       ctx.arc(cx, cy, r * 0.08, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    // ===== v2 新增图标 =====
+    case "gift":
+      // 礼物盒 + 蝴蝶结
+      ctx.fillRect(cx - r * 0.4, cy - r * 0.1, r * 0.8, r * 0.5);
+      ctx.beginPath();
+      ctx.rect(cx - r * 0.4, cy + r * 0.05, r * 0.8, r * 0.4);
+      ctx.stroke();
+      ctx.fillRect(cx - r * 0.4, cy - r * 0.2, r * 0.8, r * 0.15);
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - r * 0.2);
+      ctx.lineTo(cx, cy + r * 0.45);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - r * 0.25);
+      ctx.quadraticCurveTo(cx - r * 0.3, cy - r * 0.45, cx - r * 0.15, cy - r * 0.25);
+      ctx.quadraticCurveTo(cx, cy - r * 0.15, cx, cy - r * 0.25);
+      ctx.quadraticCurveTo(cx + r * 0.3, cy - r * 0.45, cx + r * 0.15, cy - r * 0.25);
+      ctx.quadraticCurveTo(cx, cy - r * 0.15, cx, cy - r * 0.25);
+      ctx.stroke();
+      break;
+    case "calendar":
+      ctx.beginPath();
+      ctx.rect(cx - r * 0.4, cy - r * 0.35, r * 0.8, r * 0.7);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx - r * 0.4, cy - r * 0.15);
+      ctx.lineTo(cx + r * 0.4, cy - r * 0.15);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx - r * 0.25, cy - r * 0.45);
+      ctx.lineTo(cx - r * 0.25, cy - r * 0.25);
+      ctx.moveTo(cx + r * 0.25, cy - r * 0.45);
+      ctx.lineTo(cx + r * 0.25, cy - r * 0.25);
+      ctx.stroke();
+      // 日期点阵
+      ctx.fillStyle = color;
+      for (let i = 0; i < 3; i++) {
+        for (let j = 0; j < 3; j++) {
+          ctx.beginPath();
+          ctx.arc(cx - r * 0.2 + j * r * 0.2, cy + r * 0.0 + i * r * 0.12, r * 0.04, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      break;
+    case "coin":
+      ctx.beginPath();
+      ctx.arc(cx, cy, r * 0.45, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(cx, cy, r * 0.35, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.font = `700 ${size * 0.45}px ${Theme.fonts.display}`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("¥", cx, cy + 1);
+      break;
+    case "energy":
+      // 闪电能量
+      ctx.beginPath();
+      ctx.moveTo(cx + r * 0.05, cy - r * 0.45);
+      ctx.lineTo(cx - r * 0.3, cy + r * 0.05);
+      ctx.lineTo(cx - r * 0.05, cy + r * 0.05);
+      ctx.lineTo(cx - r * 0.1, cy + r * 0.45);
+      ctx.lineTo(cx + r * 0.3, cy - r * 0.1);
+      ctx.lineTo(cx + r * 0.05, cy - r * 0.1);
+      ctx.closePath();
+      ctx.fill();
+      break;
+    case "fragment":
+      // 菱形碎片
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - r * 0.45);
+      ctx.lineTo(cx + r * 0.35, cy);
+      ctx.lineTo(cx, cy + r * 0.45);
+      ctx.lineTo(cx - r * 0.35, cy);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - r * 0.45);
+      ctx.lineTo(cx, cy + r * 0.45);
+      ctx.moveTo(cx - r * 0.35, cy);
+      ctx.lineTo(cx + r * 0.35, cy);
+      ctx.stroke();
+      break;
+    case "download":
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - r * 0.4);
+      ctx.lineTo(cx, cy + r * 0.15);
+      ctx.moveTo(cx - r * 0.25, cy - r * 0.05);
+      ctx.lineTo(cx, cy + r * 0.25);
+      ctx.lineTo(cx + r * 0.25, cy - r * 0.05);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx - r * 0.4, cy + r * 0.35);
+      ctx.lineTo(cx + r * 0.4, cy + r * 0.35);
+      ctx.stroke();
+      break;
+    case "story":
+      // 书卷 + 五角星
+      ctx.beginPath();
+      ctx.moveTo(cx - r * 0.4, cy - r * 0.25);
+      ctx.lineTo(cx, cy - r * 0.15);
+      ctx.lineTo(cx + r * 0.4, cy - r * 0.25);
+      ctx.lineTo(cx + r * 0.4, cy + r * 0.35);
+      ctx.lineTo(cx, cy + r * 0.45);
+      ctx.lineTo(cx - r * 0.4, cy + r * 0.35);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - r * 0.15);
+      ctx.lineTo(cx, cy + r * 0.45);
+      ctx.stroke();
+      // 五角星
+      ctx.beginPath();
+      for (let i = 0; i < 5; i++) {
+        const a = (i * 4 * Math.PI) / 5 - Math.PI / 2;
+        const px = cx + Math.cos(a) * r * 0.15;
+        const py = cy + r * 0.15 + Math.sin(a) * r * 0.15;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fill();
+      break;
+    case "chevronRight":
+      ctx.beginPath();
+      ctx.moveTo(cx - r * 0.15, cy - r * 0.35);
+      ctx.lineTo(cx + r * 0.25, cy);
+      ctx.lineTo(cx - r * 0.15, cy + r * 0.35);
+      ctx.stroke();
+      break;
+    case "flag":
+      ctx.beginPath();
+      ctx.moveTo(cx - r * 0.3, cy - r * 0.45);
+      ctx.lineTo(cx - r * 0.3, cy + r * 0.45);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx - r * 0.3, cy - r * 0.4);
+      ctx.lineTo(cx + r * 0.35, cy - r * 0.25);
+      ctx.lineTo(cx + r * 0.15, cy - r * 0.05);
+      ctx.lineTo(cx + r * 0.35, cy + r * 0.15);
+      ctx.lineTo(cx - r * 0.3, cy + r * 0.05);
+      ctx.closePath();
+      ctx.fill();
+      break;
+    case "flame":
+      ctx.beginPath();
+      ctx.moveTo(cx, cy + r * 0.45);
+      ctx.bezierCurveTo(cx - r * 0.4, cy + r * 0.25, cx - r * 0.3, cy - r * 0.1, cx - r * 0.1, cy - r * 0.2);
+      ctx.bezierCurveTo(cx - r * 0.05, cy, cx + r * 0.05, cy - r * 0.05, cx + r * 0.05, cy - r * 0.3);
+      ctx.bezierCurveTo(cx + r * 0.25, cy - r * 0.15, cx + r * 0.4, cy + r * 0.1, cx + r * 0.3, cy + r * 0.3);
+      ctx.bezierCurveTo(cx + r * 0.25, cy + r * 0.45, cx, cy + r * 0.5, cx, cy + r * 0.45);
+      ctx.closePath();
+      ctx.fill();
+      break;
+    case "lightning":
+      ctx.beginPath();
+      ctx.moveTo(cx + r * 0.1, cy - r * 0.5);
+      ctx.lineTo(cx - r * 0.3, cy + r * 0.1);
+      ctx.lineTo(cx, cy + r * 0.1);
+      ctx.lineTo(cx - r * 0.1, cy + r * 0.5);
+      ctx.lineTo(cx + r * 0.3, cy - r * 0.1);
+      ctx.lineTo(cx, cy - r * 0.1);
+      ctx.closePath();
       ctx.fill();
       break;
   }

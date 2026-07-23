@@ -1,45 +1,494 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="theme-color" content="#0A1929" />
-  <title>反诈街机</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body {
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background: #0A1929;
-      font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
-      -webkit-tap-highlight-color: transparent;
-    }
-    canvas {
-      display: block;
-      touch-action: none;
-    }
-    #loading {
-      position: fixed;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #00E5FF;
-      font-size: 18px;
-      font-weight: 700;
-      letter-spacing: 2px;
-      text-shadow: 0 0 12px rgba(0, 229, 255, 0.5);
-      animation: pulse 1.2s ease-in-out infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 0.6; }
-      50% { opacity: 1; }
-    }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0A1929" />
+<title>反诈街机 · 滚动飞越引导页</title>
+<meta name="description" content="向下滚动，摄像机穿越反诈微缩世界——指挥中心、四款反诈游戏舞台，一镜到底。" />
+<style>
+  /* ============================ theme ============================ */
+  :root{
+    --bg:#0A1929;
+    --bg-2:#06101c;
+    --ink:#F0F4FF;
+    --ink-soft:#8FA6C7;
+    --accent:#00E5FF;
+    --police:#1B5FCC;
+    --warn:#E5353B;
+    --gold:#FFD666;
+    --font-display:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
+    --font-mono:"JetBrains Mono","SFMono-Regular",Consolas,monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:var(--bg);color:var(--ink);font-family:var(--font-display)}
+  body{position:relative}
+  a{color:inherit;text-decoration:none}
+  ::selection{background:var(--accent);color:#001016}
+
+  /* scroll height is set by JS = N * 100vh */
+  #scroller{position:relative;width:100%}
+
+  /* ============================ sticky viewport ============================ */
+  #viewport{
+    position:sticky;top:0;height:100vh;height:100dvh;width:100%;
+    overflow:hidden;background:var(--bg-2);
+  }
+
+  /* ============================ scene layers ============================ */
+  .scene{
+    position:absolute;inset:0;
+    opacity:0;will-change:opacity,transform;
+    background:radial-gradient(120% 90% at 50% 40%,var(--sc-glow,rgba(0,229,255,.12)) 0%,var(--bg-2) 62%);
+  }
+  .scene__img{
+    position:absolute;inset:0;
+    background-size:cover;background-position:center;
+    will-change:transform,opacity;
+    opacity:0;transition:opacity .9s ease;
+    transform:scale(1.08) translateZ(0);
+  }
+  .scene__img.is-loaded{opacity:1}
+  /* color-grade + blend each scene into the world palette */
+  .scene__grade{
+    position:absolute;inset:0;mix-blend-mode:multiply;
+    background:linear-gradient(180deg,rgba(10,25,41,.10),rgba(6,16,28,.55) 60%,rgba(6,16,28,.92));
+  }
+  .scene__glow{
+    position:absolute;inset:0;mix-blend-mode:screen;opacity:.5;
+    background:radial-gradient(120% 80% at 50% 42%,var(--sc-accent,#00E5FF) 0%,transparent 52%);
+  }
+  .scene__vignette{
+    position:absolute;inset:0;
+    background:radial-gradient(130% 100% at 50% 50%,transparent 52%,rgba(0,0,0,.55) 100%);
+  }
+
+  /* ============================ atmosphere (fixed overlays) ============================ */
+  .fx{position:absolute;inset:0;pointer-events:none;z-index:6}
+  .fx__grid{
+    position:absolute;inset:-2px;
+    background-image:
+      linear-gradient(rgba(0,229,255,.05) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(0,229,255,.05) 1px,transparent 1px);
+    background-size:48px 48px;
+    mask:radial-gradient(120% 90% at 50% 45%,#000 35%,transparent 85%);
+    -webkit-mask:radial-gradient(120% 90% at 50% 45%,#000 35%,transparent 85%);
+  }
+  .fx__scan{
+    position:absolute;inset:0;
+    background:repeating-linear-gradient(0deg,rgba(0,0,0,0) 0 2px,rgba(0,0,0,.10) 2px 3px);
+    mix-blend-mode:multiply;opacity:.6;
+  }
+  .fx__scan::after{
+    content:"";position:absolute;left:0;right:0;height:28vh;top:-28vh;
+    background:linear-gradient(180deg,transparent,rgba(0,229,255,.06),transparent);
+    animation:sweep 7.2s linear infinite;
+  }
+  @keyframes sweep{to{transform:translateY(160vh)}}
+  .fx__noise{
+    position:absolute;inset:0;opacity:.05;mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='.6'/></svg>");
+  }
+  .fx__vignette{
+    position:absolute;inset:0;
+    box-shadow:inset 0 0 200px 40px rgba(0,0,0,.7);
+  }
+
+  /* corner HUD brackets */
+  .hud{position:absolute;inset:0;pointer-events:none;z-index:7}
+  .hud b{position:absolute;width:26px;height:26px;border:2px solid rgba(0,229,255,.5)}
+  .hud .tl{top:18px;left:18px;border-right:0;border-bottom:0}
+  .hud .tr{top:18px;right:18px;border-left:0;border-bottom:0}
+  .hud .bl{bottom:18px;left:18px;border-right:0;border-top:0}
+  .hud .br{bottom:18px;right:18px;border-left:0;border-top:0}
+
+  /* ============================ top bar ============================ */
+  .topbar{
+    position:fixed;top:0;left:0;right:0;z-index:20;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:18px clamp(18px,4vw,56px);
+    background:linear-gradient(180deg,rgba(6,16,28,.72),transparent);
+    pointer-events:none;
+  }
+  .topbar > *{pointer-events:auto}
+  .brand{display:flex;align-items:center;gap:12px;font-weight:900;letter-spacing:1px}
+  .brand__mark{
+    width:30px;height:30px;border:2px solid var(--accent);border-radius:6px;
+    display:grid;place-items:center;position:relative;
+    box-shadow:0 0 16px rgba(0,229,255,.4),inset 0 0 8px rgba(0,229,255,.3);
+  }
+  .brand__mark::after{content:"";width:10px;height:10px;background:var(--accent);border-radius:2px;box-shadow:0 0 10px var(--accent)}
+  .brand__name{font-size:18px}
+  .brand__name small{display:block;font-family:var(--font-mono);font-size:9px;font-weight:500;letter-spacing:3px;color:var(--ink-soft);margin-top:-2px}
+  .topcta{
+    font-family:var(--font-mono);font-size:12px;letter-spacing:2px;
+    padding:10px 18px;border:1px solid var(--accent);color:var(--accent);
+    border-radius:4px;background:rgba(0,229,255,.06);
+    box-shadow:0 0 18px rgba(0,229,255,.18);transition:.25s;
+  }
+  .topcta:hover{background:var(--accent);color:#001016;box-shadow:0 0 26px rgba(0,229,255,.6)}
+
+  /* ============================ progress rail ============================ */
+  .rail{
+    position:fixed;right:clamp(14px,2.6vw,34px);top:50%;transform:translateY(-50%);
+    z-index:18;display:flex;flex-direction:column;gap:14px;align-items:flex-end;
+  }
+  .rail__dot{
+    position:relative;display:flex;align-items:center;gap:10px;
+    color:var(--ink-soft);font-family:var(--font-mono);font-size:10px;letter-spacing:1px;
+    cursor:pointer;transition:.3s;
+  }
+  .rail__dot span{opacity:0;transform:translateX(6px);transition:.3s;white-space:nowrap}
+  .rail__dot::before{
+    content:"";width:9px;height:9px;border:1px solid var(--ink-soft);border-radius:50%;
+    transition:.3s;
+  }
+  .rail__dot:hover span,.rail__dot.is-active span{opacity:1;transform:none}
+  .rail__dot:hover::before{border-color:var(--accent)}
+  .rail__dot.is-active{color:var(--ink)}
+  .rail__dot.is-active::before{
+    background:var(--accent);border-color:var(--accent);
+    box-shadow:0 0 12px var(--accent);transform:scale(1.25);
+  }
+
+  /* ============================ copy ============================ */
+  .copy{
+    position:absolute;z-index:9;
+    left:clamp(22px,6vw,96px);right:clamp(22px,8vw,120px);
+    bottom:clamp(70px,12vh,140px);
+    max-width:640px;
+    opacity:0;transform:translateY(28px);
+    transition:opacity .6s cubic-bezier(.2,.7,.2,1),transform .6s cubic-bezier(.2,.7,.2,1);
+    will-change:opacity,transform;
+  }
+  .copy.is-in{opacity:1;transform:none}
+  .copy__eyebrow{
+    display:inline-flex;align-items:center;gap:10px;
+    font-family:var(--font-mono);font-size:11px;letter-spacing:3px;
+    color:var(--sc-accent,var(--accent));text-transform:uppercase;margin-bottom:14px;
+  }
+  .copy__eyebrow::before{content:"";width:26px;height:1px;background:currentColor;box-shadow:0 0 8px currentColor}
+  .copy__title{
+    font-size:clamp(40px,7vw,86px);line-height:.96;font-weight:900;letter-spacing:-1px;
+    text-shadow:0 6px 40px rgba(0,0,0,.6);
+  }
+  .copy__title em{font-style:normal;color:var(--sc-accent,var(--accent));text-shadow:0 0 28px currentColor}
+  .copy__body{
+    margin-top:18px;font-size:clamp(15px,1.5vw,18px);line-height:1.7;color:var(--ink-soft);
+    max-width:46ch;
+  }
+  .copy__tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+  .copy__tag{
+    font-family:var(--font-mono);font-size:10px;letter-spacing:1px;
+    padding:6px 11px;border:1px solid rgba(255,255,255,.16);border-radius:3px;
+    color:var(--ink);background:rgba(255,255,255,.03);
+  }
+  .copy__cta{display:flex;flex-wrap:wrap;gap:14px;margin-top:28px}
+  .btn{
+    display:inline-flex;align-items:center;gap:10px;
+    font-weight:800;font-size:15px;letter-spacing:1px;
+    padding:15px 28px;border-radius:5px;transition:.25s;cursor:pointer;border:1px solid transparent;
+  }
+  .btn--primary{
+    background:var(--sc-accent,var(--accent));color:#001016;
+    box-shadow:0 0 30px var(--sc-glow,rgba(0,229,255,.55));
+  }
+  .btn--primary:hover{filter:brightness(1.08);transform:translateY(-2px);box-shadow:0 0 44px var(--sc-glow,rgba(0,229,255,.7))}
+  .btn--ghost{border-color:rgba(240,244,255,.3);color:var(--ink);background:rgba(255,255,255,.02)}
+  .btn--ghost:hover{border-color:var(--ink);background:rgba(255,255,255,.07)}
+  .btn .arrow{transition:transform .25s}
+  .btn:hover .arrow{transform:translateX(4px)}
+
+  /* scroll hint */
+  .hint{
+    position:absolute;left:50%;bottom:26px;transform:translateX(-50%);z-index:10;
+    display:flex;flex-direction:column;align-items:center;gap:8px;
+    font-family:var(--font-mono);font-size:10px;letter-spacing:3px;color:var(--ink-soft);
+    transition:opacity .5s;
+  }
+  .hint__mouse{width:22px;height:34px;border:1.5px solid var(--ink-soft);border-radius:12px;position:relative}
+  .hint__mouse::after{content:"";position:absolute;left:50%;top:6px;width:3px;height:7px;border-radius:2px;background:var(--accent);transform:translateX(-50%);animation:wheel 1.6s ease-in-out infinite}
+  @keyframes wheel{0%{opacity:0;transform:translate(-50%,0)}40%{opacity:1}100%{opacity:0;transform:translate(-50%,12px)}}
+
+  /* bottom hotline strip */
+  .hotline{
+    position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:10;
+    font-family:var(--font-mono);font-size:10px;letter-spacing:2px;color:var(--ink-soft);
+    display:flex;gap:18px;align-items:center;
+  }
+  .hotline b{color:var(--warn);font-weight:700;letter-spacing:1px}
+
+  /* reduced motion */
+  @media (prefers-reduced-motion: reduce){
+    .scene__img{transform:none!important}
+    .fx__scan::after,.hint__mouse::after{animation:none}
+    .copy{transition:opacity .3s}
+  }
+
+  /* mobile */
+  @media (max-width:860px){
+    .rail{display:none}
+    .copy{left:20px;right:20px;bottom:84px;max-width:none}
+    .copy__title{font-size:clamp(34px,11vw,60px)}
+    .hud b{width:18px;height:18px}
+    .topbar{padding:14px 18px}
+    .brand__name{font-size:15px}
+    .topcta{font-size:10px;padding:8px 12px}
+    .hotline{font-size:9px;gap:12px}
+  }
+</style>
 </head>
 <body>
-  <div id="loading">正在启动反诈街机…</div>
-  <script src="./app.js"></script>
+  <div id="scroller">
+    <div id="viewport">
+      <!-- scenes injected here -->
+      <div class="fx">
+        <div class="fx__grid"></div>
+        <div class="fx__scan"></div>
+        <div class="fx__noise"></div>
+        <div class="fx__vignette"></div>
+      </div>
+      <div class="hud"><b class="tl"></b><b class="tr"></b><b class="bl"></b><b class="br"></b></div>
+
+      <header class="topbar">
+        <a class="brand" href="#scene-0">
+          <span class="brand__mark"></span>
+          <span class="brand__name">反诈街机<small>ANTI-FRAUD ARCADE</small></span>
+        </a>
+        <a class="topcta" href="./game.html">进入街机 →</a>
+      </header>
+
+      <nav class="rail" id="rail"></nav>
+
+      <div class="hint" id="hint">
+        <span>SCROLL TO FLY IN</span>
+        <span class="hint__mouse"></span>
+      </div>
+
+      <div class="hotline">
+        <span>反诈热线 <b>96110</b></span>
+        <span>·</span>
+        <span>领事保护 <b>12308</b></span>
+        <span>·</span>
+        <span>举报 <b>12321</b></span>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  "use strict";
+  const IMG_BASE = "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image";
+  const img = (prompt, size="landscape_16_9") =>
+    IMG_BASE + "?prompt=" + encodeURIComponent(prompt) + "&image_size=" + size;
+
+  // shared style preamble for a cohesive world
+  const STYLE = "isometric tilt-shift miniature diorama, cyber police terminal aesthetic, " +
+    "matte low-poly 3D render, dramatic cinematic lighting, dark navy police-blue background, " +
+    "neon cyan glow, scanline texture, highly detailed, no text, no letters, no logos, no people, centered composition";
+
+  const SECTIONS = [
+    {
+      id:"cmd", label:"指挥中心", accent:"#00E5FF", glow:"rgba(0,229,255,.55)",
+      img: img("Futuristic anti-fraud police command center control room, large holographic earth globe with glowing red alert hotspots, curved wall of glowing data screens showing global network traffic maps and radar sweeps, dark police-blue color scheme with neon cyan highlights. "+STYLE),
+      eyebrow:"全民反诈 · 天下无诈",
+      title:"反诈<em>街机</em>",
+      body:"一座可滚动飞越的反诈微缩世界。向下滚动，摄像机将从指挥中心起飞，一镜到底潜入四款反诈游戏的舞台。",
+      tags:["4 款游戏","沉浸飞越","反诈科普"]
+    },
+    {
+      id:"fb", label:"反诈判断", accent:"#1AD670", glow:"rgba(26,214,112,.5)",
+      img: img("A giant glowing smartphone floating in dark space, chat bubbles and warning alert cards bursting out of the screen in all directions, neon green and red scam-alert accents, dark cyber background with glow. "+STYLE),
+      eyebrow:"Game 01 · 限时判断",
+      title:"是男人就<em>反诈</em>",
+      body:"诈骗情境卡片如雪片飞来，4 秒内判断举报或通过。扛过的波数越多，越“是男人”。致敬《是男人就下 100 层》。",
+      tags:["无尽挑战","30 波","反诈科普"]
+    },
+    {
+      id:"mgr", label:"战术部署", accent:"#FFB020", glow:"rgba(255,176,32,.5)",
+      img: img("Tactical command war room with a glowing holographic sand table, neat grid of agent figurine stands around a 3x3 battle grid, holographic enemy unit projections, gold and police-blue accents, dark tactical room. "+STYLE),
+      eyebrow:"Game 02 · 策略部署",
+      title:"反诈<em>职业经理人</em>",
+      body:"招募 6 名反诈探员，拖拽部署到 3×3 战位，自动开火拦截杀猪盘敌人，点击技能图标释放大招。",
+      tags:["实时塔防","探员养成","杀猪盘战场"]
+    },
+    {
+      id:"th", label:"雷霆射击", accent:"#00E5FF", glow:"rgba(0,229,255,.55)",
+      img: img("Vertical sci-fi space battle, a small sleek police fighter ship ascending through a fleet of dark angular enemy scam ships, neon cyan laser beams and glowing projectile bullet-hell patterns, deep space starfield background. "+STYLE),
+      eyebrow:"Game 03 · 竖屏射击",
+      title:"雷霆<em>反诈</em>",
+      body:"驾驶警务执法号穿越电信诈骗舰队，自动开火，拾取国家反诈 APP 等强力道具，与诈骗集团首脑 Boss 决战。",
+      tags:["弹幕躲避","Boss 战","反诈道具"]
+    },
+    {
+      id:"park", label:"园区炮击", accent:"#FF7A1A", glow:"rgba(255,122,26,.55)",
+      img: img("A fortified overseas telecom-fraud industrial park compound under artillery bombardment, concrete buildings with satellite dishes and antennas, defensive perimeter walls, fiery orange explosions and smoke plumes, desert surroundings. "+STYLE),
+      eyebrow:"Game 04 · 自动炮击",
+      title:"诈<em>园区</em>",
+      body:"反诈炮兵自动连续炮击境外电诈园区，释放炸弹/导弹/火雨/激光连招，过载槽满即火力全开，无尽波次园区逐级升级。",
+      tags:["无尽波次","道具连招","境外电诈"]
+    },
+    {
+      id:"end", label:"登入", accent:"#1B5FCC", glow:"rgba(27,95,204,.55)",
+      img: img("Triumphant anti-fraud alliance headquarters, a glowing shield emblem hologram rising from the center, beacon of light rays piercing upward into the sky, dark background with radiant blue and cyan glow, heroic cinematic lighting. "+STYLE),
+      eyebrow:"全民反诈联盟",
+      title:"准备好<em>登入</em>了吗？",
+      body:"四款游戏，一条反诈链路。识破套路，守护钱包。可疑来电，立即拨打 96110。",
+      tags:["96110 反诈热线","12308 领事保护"],
+      cta:true
+    }
+  ];
+
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const N = SECTIONS.length;
+  const viewport = document.getElementById("viewport");
+  const scroller = document.getElementById("scroller");
+  const rail = document.getElementById("rail");
+  const hint = document.getElementById("hint");
+
+  // ---- build scene layers + copy + rail ----
+  const scenes = [];
+  SECTIONS.forEach((s, i) => {
+    const el = document.createElement("div");
+    el.className = "scene";
+    el.style.setProperty("--sc-accent", s.accent);
+    el.style.setProperty("--sc-glow", s.glow);
+
+    const pic = document.createElement("div");
+    pic.className = "scene__img is-loading";
+    pic.style.backgroundImage = "url('"+s.img+"')";
+    el.appendChild(pic);
+
+    const grade = document.createElement("div"); grade.className="scene__grade"; el.appendChild(grade);
+    const glow = document.createElement("div"); glow.className="scene__glow"; el.appendChild(glow);
+    const vig = document.createElement("div"); vig.className="scene__vignette"; el.appendChild(vig);
+
+    // copy
+    const copy = document.createElement("div");
+    copy.className = "copy";
+    copy.innerHTML =
+      '<div class="copy__eyebrow">'+s.eyebrow+'</div>'+
+      '<h2 class="copy__title">'+s.title+'</h2>'+
+      '<p class="copy__body">'+s.body+'</p>'+
+      (s.tags.length?'<div class="copy__tags">'+s.tags.map(t=>'<span class="copy__tag">'+t+'</span>').join("")+'</div>':'')+
+      (s.cta?'<div class="copy__cta">'+
+        '<a class="btn btn--primary" href="./game.html">进入反诈街机 <span class="arrow">→</span></a>'+
+        '<a class="btn btn--ghost" href="tel:96110">拨打 96110</a>'+
+      '</div>':'');
+    el.appendChild(copy);
+
+    viewport.appendChild(el);
+    scenes.push({el, pic, copy, s});
+
+    // rail dot
+    const d = document.createElement("a");
+    d.className = "rail__dot";
+    d.href = "#scene-"+i;
+    d.innerHTML = "<span>"+s.label+"</span>";
+    d.addEventListener("click", (e)=>{ e.preventDefault(); scrollToScene(i); });
+    rail.appendChild(d);
+  });
+
+  // preload → fade image in (fallback gradient stays if it fails)
+  scenes.forEach(({pic,s})=>{
+    const t = new Image();
+    const done = ()=>pic.classList.add("is-loaded");
+    t.onload = done;
+    t.onerror = done;
+    t.src = s.img;
+  });
+
+  // ---- scroll math ----
+  // total scroll = N * 100vh. Scene j is FOCAL at scroll = j*vh (j = 0..N-1),
+  // so the last scene's focal sits exactly at the max scrollable position.
+  // Each scene dwells alone for |d|<=0.4, crossfades to the neighbour in 0.4..0.6.
+  let vh = window.innerHeight;
+  function setHeight(){
+    vh = window.innerHeight;
+    scroller.style.height = (N * vh) + "px";
+  }
+  setHeight();
+
+  const smoothstep = (a,b,x)=>{ x=Math.max(0,Math.min(1,(x-a)/(b-a))); return x*x*(3-2*x); };
+  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+
+  // lerp smoothing (desktop pointer only, non-reduced)
+  const smooth = window.matchMedia("(hover:hover) and (pointer:fine)").matches && !reduce;
+  let cur = 0, tgt = 0, rafId = 0;
+
+  function frame(){
+    cur += (tgt - cur) * 0.14;
+    if(Math.abs(tgt-cur) < 0.05){ cur = tgt; paint(cur); rafId = 0; return; }
+    paint(cur);
+    rafId = requestAnimationFrame(frame);
+  }
+
+  function paint(scrollY){
+    const max = (N-1) * vh;
+    const y = clamp(scrollY, 0, max);
+    const sPos = y / vh;                 // continuous scene position 0..N-1
+    const activeIdx = clamp(Math.round(sPos), 0, N-1);
+
+    hint.style.opacity = sPos > 0.3 ? 0 : 1;
+
+    for(let j=0;j<N;j++){
+      const sc = scenes[j];
+      const d = sPos - j;                // signed distance from scene j's focal
+      const ad = Math.abs(d);
+      let op;
+      if(ad <= 0.4) op = 1;
+      else if(d > 0.4 && d < 0.6) op = 1 - smoothstep(0.4, 0.6, d);
+      else if(d < -0.4 && d > -0.6) op = smoothstep(-0.6, -0.4, d);
+      else op = 0;
+      sc.el.style.opacity = op < 0.001 ? "0" : op > 0.999 ? "1" : op.toFixed(3);
+
+      // Ken Burns: continuous push-in across the scene's visible life (d -0.5..0.5)
+      let kb = ad <= 0.6 ? 1.06 + (d + 0.5) * 0.12 : 1.06;
+      kb = clamp(kb, 1.04, 1.2);
+
+      // copy visible near focal (covers first & last scene at the scroll extremes)
+      sc.copy.classList.toggle("is-in", ad < 0.42);
+
+      if(!reduce){
+        const pan = (j === activeIdx) ? d * 10 : 0;
+        sc.pic.style.transform = "scale("+kb.toFixed(4)+") translateX("+pan.toFixed(2)+"px)";
+      }
+    }
+
+    const dots = rail.children;
+    for(let k=0;k<dots.length;k++){
+      dots[k].classList.toggle("is-active", k===activeIdx);
+    }
+  }
+
+  function onScroll(){
+    tgt = window.scrollY || window.pageYOffset;
+    if(!smooth){ paint(tgt); }
+    else if(!rafId){ rafId = requestAnimationFrame(frame); }
+  }
+
+  function scrollToScene(i){
+    const y = clamp(i, 0, N-1) * vh;
+    window.scrollTo({ top: y, behavior: reduce ? "auto" : "smooth" });
+  }
+
+  let rt;
+  window.addEventListener("resize", ()=>{
+    clearTimeout(rt);
+    rt = setTimeout(()=>{ setHeight(); onScroll(); }, 120);
+  }, {passive:true});
+  window.addEventListener("scroll", onScroll, {passive:true});
+
+  // keyboard nav
+  window.addEventListener("keydown", (e)=>{
+    const i = Math.round((window.scrollY/vh));
+    if(e.key==="ArrowDown"||e.key==="PageDown"){ e.preventDefault(); scrollToScene(Math.min(N-1,i+1)); }
+    else if(e.key==="ArrowUp"||e.key==="PageUp"){ e.preventDefault(); scrollToScene(Math.max(0,i-1)); }
+  });
+
+  onScroll();
+  if(smooth){ rafId = requestAnimationFrame(frame); }
+})();
+</script>
 </body>
 </html>
