@@ -350,7 +350,7 @@ export class ManagerEngine extends GameEngine {
     if (absWave > 0) {
       const s = endlessScaling(absWave);
       this.toast = {
-        text: `无尽 WAVE ${absWave + 1} · TIER ${s.tier + 1} · 敌人 HP×${s.hpMul.toFixed(1)} 伤害×${s.dmgMul.toFixed(2)}`,
+        text: `无尽反诈波次 ${absWave + 1} · TIER ${s.tier + 1} · 敌人 HP×${s.hpMul.toFixed(1)} 伤害×${s.dmgMul.toFixed(2)}`,
         tone: "info",
         until: this.t + 3,
       };
@@ -404,7 +404,7 @@ export class ManagerEngine extends GameEngine {
     }
     if (waveIdx > 0 && this.t >= this.levelTransitionUntil) {
       this.toast = {
-        text: `WAVE ${waveIdx + 1} 来袭：${wave.enemies
+        text: `反诈波次 ${waveIdx + 1} 来袭：${wave.enemies
           .map((e) => ENEMIES[e.typeId]?.name ?? e.typeId)
           .join(" / ")}`,
         tone: "info",
@@ -1739,7 +1739,7 @@ export class ManagerEngine extends GameEngine {
       : this.mode === "bossRush"
       ? "全部电诈首脑已伏法！"
       : this.mode === "endlessRush"
-      ? `无尽坚守：WAVE ${this.endlessAbsWave + 1} · TIER ${endlessScaling(this.endlessAbsWave).tier + 1}`
+      ? `无尽坚守：反诈波次 ${this.endlessAbsWave + 1} · TIER ${endlessScaling(this.endlessAbsWave).tier + 1}`
       : this.mode === "daily"
       ? `每日挑战完成！分数 ×${dailyMul.toFixed(1)}`
       : "诈骗团伙全军覆没！";
@@ -2964,7 +2964,7 @@ export class ManagerEngine extends GameEngine {
   private drawPrepOverlay(ctx: CanvasRenderingContext2D): void {
     if (this.waveActive || this.over) return;
     const remaining = Math.max(0, this.prepUntil - this.t);
-    let title = `WAVE ${this.wave + 1} 来袭`;
+    let title = `反诈波次 ${this.wave + 1} 来袭`;
     let titleColor = ACCENT;
     let subtitle = "";
 
@@ -2978,7 +2978,7 @@ export class ManagerEngine extends GameEngine {
       titleColor = this.currentBoss.color;
     } else if (this.mode === "endlessRush") {
       const s = endlessScaling(this.endlessAbsWave);
-      title = `无尽 WAVE ${this.endlessAbsWave + 1} · TIER ${s.tier + 1}`;
+      title = `无尽反诈波次 ${this.endlessAbsWave + 1} · TIER ${s.tier + 1}`;
       titleColor = "#B388FF";
     }
 

@@ -27,6 +27,8 @@ import {
   TREE_MAX_HP, TREE_RADIUS, TREE_DMG_PER_SHELL, TREE_DMG_PER_COUNTER,
   MAP_LAYOUTS, MAP_CYCLE, MAP_TRANSITION_DURATION, getMapForWave,
   multishotCount, PATTERN_DEBUFF, DEBUFF_NAMES, DEBUFF_EMOJIS, WEAPON_JAM_FIRE_MUL,
+  // v3 废墟重建系统
+  REBUILD_THRESHOLD, REBUILD_RATE_MUL, REBUILD_MAX_PARALLEL,
 } from "./data";
 import type {
   ItemId, ParkTierDef, ParkHud, ItemState, BombBossDef, WeatherDef,
@@ -103,7 +105,10 @@ interface FloatText {
   size?: number;
 }
 
-/** 园区建筑模块：每模块独立 HP，被炮击至 0 时拆除为废墟（不可再被攻击） */
+/** 园区建筑模块：每模块独立 HP，被炮击至 0 时拆除为废墟。
+ *  v3：废墟可重建——当园区总 HP 占比 > REBUILD_THRESHOLD 时，废墟按拆除顺序反向累积 repairProgress，
+ *  达到 1 时模块完全重建（demolished=false, hp=maxHp），可再次被攻击。
+ */
 interface BuildingModule {
   id: string;
   name: string;
@@ -125,6 +130,15 @@ interface BuildingModule {
   maxHp: number;
   /** 受击闪烁计时（>0 时白闪） */
   hitFlash: number;
+  // ===== v3 废墟重建系统 =====
+  /** 重建进度 0→1（仅 demolished=true 时有意义；达到 1 触发完全重建） */
+  repairProgress: number;
+  /** 是否正在重建中（用于限制并行重建数，避免一波全重建） */
+  repairing: boolean;
+  /** 拆除序号（递增，重建按此序号反向进行：先拆的最后重建） */
+  demolishOrder: number;
+  /** 重建完成的渐显动画 0→1（重建瞬间设为 0，渐增至 1 表示完全显现） */
+  rebuildAnim: number;
 }
 
 /** 按 debuff 取对应警示色 */
@@ -265,6 +279,13 @@ export class BombIslandEngine extends GameEngine {
   private moduleCombo = 0;
   /** 模块连拆计时器（>0 时保持连击，归零则重置） */
   private moduleComboTimer = 0;
+  // ===== v3 废墟重建系统 =====
+  /** 拆除序号计数器（每波 startWave 重置；每次拆除 +1，赋给模块 demolishOrder） */
+  private demolishOrderCounter = 0;
+  /** 上次"开始重建"提示时间（避免重复 toast） */
+  private lastRebuildToastT = -999;
+  /** 上次"重建完成"提示时间 */
+  private lastRebuiltToastT = -999;
 
   constructor(canvas: GameCanvas) {
     super(canvas);
@@ -345,13 +366,15 @@ export class BombIslandEngine extends GameEngine {
   /**
    * 构建模块化电诈园区：由电诈特色组件组成（信号塔/电诈工位/铁笼/小黑屋/电击室/白家武装/苦工宿舍/装甲碉堡/铁丝网/地基）。
    * v2：每模块独立 HP（绝对值），被炮击至 0 时拆除为废墟（不可再被攻击）。
-   * 建筑数值尽可能大：单模块 3.75w~15w HP，营造"缓慢动态拆除"爽感。
-   * 自恢复不会重建已拆模块。
+   * v3：废墟可重建——当园区总 HP 占比 > REBUILD_THRESHOLD 时，废墟按拆除顺序反向累积 repairProgress，达到 1 时完全重建。
+   * 建筑数值大幅提升：单模块 1.1w~6w HP，营造"建筑血量很高 + 持续修复"爽感。
    */
   private buildModules(): void {
     const tierColor = this.tier.color;
     const depth = 16;
     const ms: BuildingModule[] = [];
+    // v3：重置拆除序号计数器（每波从 0 开始）
+    this.demolishOrderCounter = 0;
 
     // 主楼尺寸与位置
     const mainW = 84, mainH = 108;
@@ -378,14 +401,19 @@ export class BombIslandEngine extends GameEngine {
           return hpLarge;
       }
     };
-    // 模块构造辅助：统一赋 hp/maxHp/hitFlash
+    // 模块构造辅助：统一赋 hp/maxHp/hitFlash + v3 重建字段
     const mk = (
       id: string, name: string,
       x: number, y: number, w: number, h: number,
       depthVal: number, color: string, type: BuildingModule["type"],
     ): BuildingModule => {
       const hp = hpFor(type);
-      return { id, name, x, y, w, h, depth: depthVal, color, type, demolished: false, demolishAnim: 0, hp, maxHp: hp, hitFlash: 0 };
+      return {
+        id, name, x, y, w, h, depth: depthVal, color, type,
+        demolished: false, demolishAnim: 0, hp, maxHp: hp, hitFlash: 0,
+        // v3 重建字段初始化
+        repairProgress: 0, repairing: false, demolishOrder: -1, rebuildAnim: 1,
+      };
     };
 
     // ---- 信号塔（最顶，小型）----
@@ -441,7 +469,7 @@ export class BombIslandEngine extends GameEngine {
 
   /**
    * 拆除单个模块：触发大爆炸特效、屏幕震动、hit-stop、连击与分数奖励。
-   * 自恢复不会重建已拆模块，营造"逐步拆楼"的爽感。
+   * v3：废墟可重建——拆除时记录 demolishOrder，自恢复超过阈值时反向重建。
    * 模块 HP 归零时调用；全局 hp 自动同步（hp = 所有未拆模块 hp 之和）。
    */
   private demolishModule(m: BuildingModule): void {
@@ -450,6 +478,11 @@ export class BombIslandEngine extends GameEngine {
     m.demolishAnim = 0;
     m.hp = 0;
     m.hitFlash = 0;
+    // v3：赋拆除序号 + 重置重建字段
+    m.demolishOrder = this.demolishOrderCounter++;
+    m.repairProgress = 0;
+    m.repairing = false;
+    m.rebuildAnim = 0;
     // 全局 hp 同步：减去本模块剩余 hp（已为 0，但保险）
     this.hp = Math.max(0, this.hp - m.hp);
     const cx = m.x + m.w / 2;
@@ -864,15 +897,19 @@ export class BombIslandEngine extends GameEngine {
       arr.length = w;
     }
 
-    // 园区自修复（v2：模块级修复，仅治愈未拆模块；废墟不可修复）
-    // 总修复量按未拆模块数平均分配，每模块每秒修复 repair/numIntact
+    // 园区自修复（v3：未拆模块按 hp 比例回血 + 废墟重建）
+    // 1) 未拆模块：每秒总修复量 = repair × 天气 × EMP，平均分配到所有未拆模块（按 maxHp 上限）
+    // 2) 废墟重建：当园区 HP 占比 > REBUILD_THRESHOLD 时，多余修复量按 REBUILD_RATE_MUL 推进废墟 repairProgress
+    //    按 demolishOrder 反向重建（先拆的最后重建），同屏最多 REBUILD_MAX_PARALLEL 个并行
+    //    重建完成（repairProgress >= 1）时：demolished=false, hp=maxHp, 触发 rebuildAnim 渐显动画
     const empRepairMul = this.t < this.empUntil ? EMP_REPAIR_MUL : 1;
     const repairTotal = this.repair * this.weather.repairMul * empRepairMul * dt;
     if (repairTotal > 0 && this.phase === "fight") {
       const intact = this.modules.filter(m => !m.demolished);
+      // 阶段 1：未拆模块回血
+      let healed = 0;
       if (intact.length > 0) {
         const perModule = repairTotal / intact.length;
-        let healed = 0;
         for (const m of intact) {
           const before = m.hp;
           m.hp = Math.min(m.maxHp, m.hp + perModule);
@@ -880,14 +917,85 @@ export class BombIslandEngine extends GameEngine {
         }
         this.hp = Math.min(this.maxHp, this.hp + healed);
       }
+      // 阶段 2：废墟重建（仅当园区 HP 占比 > REBUILD_THRESHOLD 且有废墟时触发）
+      const hpPct = this.maxHp > 0 ? this.hp / this.maxHp : 1;
+      const rubbles = this.modules.filter(m => m.demolished);
+      if (hpPct > REBUILD_THRESHOLD && rubbles.length > 0) {
+        // 剩余修复量 = 本帧总修复 - 已用于未拆模块回血的部分（仅取未拆模块没用完的部分作为"溢出"）
+        // 简化模型：废墟重建使用独立的修复源（repairTotal × REBUILD_RATE_MUL），不与未拆模块回血竞争
+        const rebuildQuota = repairTotal * REBUILD_RATE_MUL;
+        // 选择重建候选：按 demolishOrder 反向（先拆的最后重建，营造"从地基往上修"的视觉）
+        // 优先：已 repairing 的继续；其次选 demolishOrder 最小的（最早拆除的先重建——地基优先）
+        const candidates = rubbles.slice().sort((a, b) => {
+          // 已 repairing 的优先
+          if (a.repairing !== b.repairing) return a.repairing ? -1 : 1;
+          // 否则 demolishOrder 小的（早拆的）优先
+          return a.demolishOrder - b.demolishOrder;
+        });
+        // 限制并行重建数：标记前 REBUILD_MAX_PARALLEL 个为 repairing
+        let activeCount = 0;
+        for (const m of candidates) {
+          if (m.repairing) activeCount++;
+        }
+        for (const m of candidates) {
+          if (activeCount >= REBUILD_MAX_PARALLEL) break;
+          if (!m.repairing) {
+            m.repairing = true;
+            activeCount++;
+            // 首次开始重建时提示（每 8 秒最多一次）
+            if (this.t - this.lastRebuildToastT > 8) {
+              this.lastRebuildToastT = this.t;
+              this.toast = { text: `🔧 ${this.bossDef.bossName} 正在重建 ${m.name}！持续输出阻止修复`, tone: "bad", until: this.t + 2.4 };
+              postFX.flash("#FFB020", 0.25, 2);
+            }
+          }
+        }
+        // 平均分配 rebuildQuota 给所有 repairing 的废墟
+        const repairing = candidates.filter(m => m.repairing);
+        if (repairing.length > 0) {
+          const perRubble = rebuildQuota / repairing.length;
+          // 重建所需"修复量" = 该模块 maxHp（即拆光后要从 0 修到 maxHp 才能完全重建）
+          for (const m of repairing) {
+            m.repairProgress += perRubble / m.maxHp;
+            if (m.repairProgress >= 1) {
+              // 完全重建！
+              m.repairProgress = 0;
+              m.repairing = false;
+              m.demolished = false;
+              m.demolishAnim = 1; // 不再播放拆除下沉动画
+              m.hp = m.maxHp;
+              m.rebuildAnim = 0; // 触发渐显动画
+              m.hitFlash = 0; // 重建瞬间白闪
+              // 全局 hp 同步
+              this.hp = Math.min(this.maxHp, this.hp + m.maxHp);
+              // 重建特效：金色光环 + 粒子上升 + 提示
+              const cx = m.x + m.w / 2, cy = m.y + m.h / 2;
+              this.particles.spawnBurst(cx, cy, "#52C41A", { ring: true, sparks: 14, dots: 18, speed: 200, life: 0.9, size: 3, color2: "#FFD666" });
+              this.particles.spawn({ x: cx, y: cy + m.h / 2, count: 10, speed: 80, life: 1.0, size: 4, color: "rgba(82,196,26,0.7)", type: "dot", gravity: -120, friction: 0.95 });
+              this.floats.push({ x: cx, y: cy - 8, text: `🔧 ${m.name} 已重建`, color: "#52C41A", life: 1.4, maxLife: 1.4, size: 13 });
+              // 每 6 秒最多提示一次"重建完成"
+              if (this.t - this.lastRebuiltToastT > 6) {
+                this.lastRebuiltToastT = this.t;
+                this.toast = { text: `⚠ ${m.name} 已被修复重建！`, tone: "bad", until: this.t + 2.0 };
+              }
+              playSfx("phase");
+            }
+          }
+        }
+      }
     }
     this.damageThisFrame = 0;
 
     // 模块拆除动画推进（缓慢动态拆除：demolishAnim 0→1，约 0.8 秒完成废墟下沉）
+    // v3：同时推进 rebuildAnim 渐显动画（重建完成后从 0 渐增至 1）
     if (this.modules.length > 0) {
       for (const m of this.modules) {
         if (m.demolished && m.demolishAnim < 1) {
           m.demolishAnim = Math.min(1, m.demolishAnim + dt * 1.25);
+        }
+        // v3：重建渐显动画推进（约 0.8 秒完全显现）
+        if (!m.demolished && m.rebuildAnim < 1) {
+          m.rebuildAnim = Math.min(1, m.rebuildAnim + dt * 1.25);
         }
         // hitFlash 衰减
         if (m.hitFlash > 0) m.hitFlash = Math.max(0, m.hitFlash - dt);
@@ -1453,6 +1561,19 @@ export class BombIslandEngine extends GameEngine {
       maxCombo: this.maxCombo,
       clearedWaves: this.clearedWaves,
       destructionStage,
+      // v3 废墟重建系统 HUD 字段
+      repairingCount: this.modules.reduce((n, m) => n + (m.repairing ? 1 : 0), 0),
+      rubbleCount: this.modules.reduce((n, m) => n + (m.demolished ? 1 : 0), 0),
+      rebuildActivity: (() => {
+        const rubbles = this.modules.filter(m => m.demolished);
+        if (rubbles.length === 0) return 0;
+        return rubbles.reduce((s, m) => s + (m.repairing ? m.repairProgress : 0), 0) / rubbles.length;
+      })(),
+      topRepairProgress: (() => {
+        let top = 0;
+        for (const m of this.modules) if (m.repairing && m.repairProgress > top) top = m.repairProgress;
+        return top;
+      })(),
       cdLockRemain: this.cdLockUntil > this.t ? (this.cdLockUntil - this.t) : 0,
       weaponJamRemain: this.weaponJamUntil > this.t ? (this.weaponJamUntil - this.t) : 0,
       itemDisableRemain: this.itemDisableUntil > this.t ? (this.itemDisableUntil - this.t) : 0,
@@ -1887,13 +2008,14 @@ export class BombIslandEngine extends GameEngine {
     drawText(ctx, `${this.formatNum(this.hp)} / ${this.formatNum(this.maxHp)}`, PARK_CX, barY + barH / 2, { size: 9, color: "#0A1929", weight: "900", align: "center", baseline: "middle" });
 
     // 名称
-    drawText(ctx, `${this.tier.name}园区 · WAVE ${this.wave}`, PARK_CX, barY - 12, { size: 11, color: this.shade(tierColor, 1.1), weight: "700", align: "center", shadow: { color: this.shade(tierColor, 0.8), blur: 6 } });
+    drawText(ctx, `${this.tier.name}园区 · 反诈波次 ${this.wave}`, PARK_CX, barY - 12, { size: 11, color: this.shade(tierColor, 1.1), weight: "700", align: "center", shadow: { color: this.shade(tierColor, 0.8), blur: 6 } });
   }
 
   /**
    * 渲染单个建筑模块：未拆除时按类型绘制完整结构（含裂痕/窗户/烟焰），
    * 已拆除时绘制废墟堆。清波坍塌阶段所有模块逐层下沉。
    * v2：损伤阶段基于每模块自身 HP 比例（非全局 HP），hitFlash 触发白闪。
+   * v3：重建完成（rebuildAnim<1）时从底部向上渐显 + 绿色辉光，强化"建筑修复"反馈。
    */
   private drawModule(ctx: CanvasRenderingContext2D, m: BuildingModule, flash: boolean, _globalStage: number, collapse: number): void {
     // 清波逐层下沉：所有模块随坍塌进度下沉
@@ -1909,9 +2031,29 @@ export class BombIslandEngine extends GameEngine {
     const stage: 0 | 1 | 2 | 3 = hpRatio > 0.75 ? 0 : hpRatio > 0.5 ? 1 : hpRatio > 0.25 ? 2 : 3;
     // hitFlash：受击白闪（与全局 parkFlash 叠加）
     const hitFlash = m.hitFlash > 0;
+    // v3：重建渐显动画（0=刚重建完成，1=完全显现）
+    const rebuildAnim = m.rebuildAnim;
+    const isRebuilding = rebuildAnim < 1;
 
     ctx.save();
     ctx.translate(0, sink);
+
+    // v3：重建渐显——从底部向上裁剪 + 绿色辉光 + 重建瞬间白闪
+    if (isRebuilding) {
+      ctx.save();
+      // 裁剪：仅显示底部 rebuildAnim 比例的区域
+      const clipH = m.h * rebuildAnim;
+      const clipY = m.y + m.h - clipH;
+      ctx.beginPath();
+      ctx.rect(m.x - 2, clipY, m.w + 4, clipH);
+      ctx.clip();
+      // 重建瞬间白闪（前 0.2 秒）
+      if (rebuildAnim < 0.25) {
+        const flashA = (1 - rebuildAnim / 0.25) * 0.6;
+        ctx.fillStyle = `rgba(82,196,26,${flashA})`;
+        ctx.fillRect(m.x, m.y, m.w, m.h);
+      }
+    }
 
     const colDark = this.shade(m.color, 0.55);
     const colMid = (flash || hitFlash) ? "#FFFFFF" : this.shade(m.color, 0.85);
@@ -2102,19 +2244,45 @@ export class BombIslandEngine extends GameEngine {
       ctx.fillRect(m.x, m.y, m.w, m.h);
     }
 
+    // v3：关闭重建裁剪（与上方 isRebuilding 分支的 ctx.save() 配对）
+    if (isRebuilding) {
+      ctx.restore(); // 关闭 clip
+      // 重建中绿色辉光描边（完整轮廓，半透明，提示玩家"刚修复的建筑"）
+      const glowA = (1 - rebuildAnim) * 0.8;
+      ctx.save();
+      ctx.strokeStyle = `rgba(82,196,26,${glowA})`;
+      ctx.lineWidth = 2;
+      ctx.shadowColor = "#52C41A";
+      ctx.shadowBlur = 8 + (1 - rebuildAnim) * 8;
+      ctx.strokeRect(m.x, m.y, m.w, m.h);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+      // 重建完成度提示（仅 rebuildAnim < 0.6 时显示）
+      if (rebuildAnim < 0.6) {
+        drawText(ctx, `🔧 重建 ${(rebuildAnim * 100).toFixed(0)}%`, m.x + m.w / 2, m.y - 8, {
+          size: 8, color: "#52C41A", weight: "900", align: "center",
+          shadow: { color: "#52C41A", blur: 4 },
+        });
+      }
+    }
+
     ctx.restore();
   }
 
-  /** 绘制已拆除模块的废墟堆：低矮碎块 + 残留灰尘（随时间消散） */
+  /** 绘制已拆除模块的废墟堆：低矮碎块 + 残留灰尘（随时间消散）
+   *  v3：若 repairing=true，叠加重建进度条 + 重建虚影 + 飘升粒子，明确告知玩家"正在被修复"
+   */
   private drawRubble(ctx: CanvasRenderingContext2D, m: BuildingModule, sink: number): void {
     ctx.save();
     ctx.translate(0, sink);
     const a = m.demolishAnim; // 0→1，拆除动画进度
-    // 废墟高度随动画从 35% 降至 25%
-    const rubbleH = m.h * (0.35 - a * 0.10);
+    // 废墟高度随动画从 35% 降至 25%；若 repairing 则随 repairProgress 升高（废墟堆"长高"暗示重建中）
+    const rebuildBoost = m.repairing ? m.repairProgress * 0.15 : 0;
+    const rubbleH = m.h * (0.35 - a * 0.10 + rebuildBoost);
     const rubbleY = m.y + m.h - rubbleH;
-    // 主废墟块
-    ctx.fillStyle = this.shade(m.color, 0.4);
+    // 主废墟块：repairing 时偏绿（重建能量渗透）
+    const mainColor = m.repairing ? "#3A5A2A" : this.shade(m.color, 0.4);
+    ctx.fillStyle = mainColor;
     ctx.fillRect(m.x, rubbleY, m.w, rubbleH);
     // 碎块（基于位置哈希，避免闪烁）
     ctx.fillStyle = this.shade(m.color, 0.6);
@@ -2139,6 +2307,66 @@ export class BombIslandEngine extends GameEngine {
     // 边缘描边
     ctx.strokeStyle = "rgba(0,0,0,0.4)"; ctx.lineWidth = 1;
     ctx.strokeRect(m.x, rubbleY, m.w, rubbleH);
+
+    // ===== v3 重建中视觉：模块虚影 + 进度条 + 飘升粒子 =====
+    if (m.repairing) {
+      const rp = m.repairProgress;
+      // 1) 重建虚影：模块轮廓从底部按 rp 比例向上显现（半透明绿色描边）
+      const ghostH = m.h * rp;
+      const ghostY = m.y + m.h - ghostH;
+      ctx.save();
+      ctx.globalAlpha = 0.35 + rp * 0.25;
+      ctx.strokeStyle = "#52C41A";
+      ctx.lineWidth = 1.5;
+      ctx.shadowColor = "#52C41A";
+      ctx.shadowBlur = 6 + rp * 6;
+      ctx.setLineDash([4, 3]);
+      ctx.strokeRect(m.x, ghostY, m.w, ghostH);
+      ctx.setLineDash([]);
+      // 虚影内部填充（极淡绿色）
+      ctx.fillStyle = `rgba(82,196,26,${0.06 + rp * 0.10})`;
+      ctx.fillRect(m.x, ghostY, m.w, ghostH);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // 2) 进度条（位于废墟顶部上方）
+      const pbW = m.w + 4;
+      const pbX = m.x - 2;
+      const pbY = rubbleY - 6;
+      const pbH = 3;
+      ctx.save();
+      ctx.fillStyle = "rgba(0,0,0,0.7)";
+      ctx.fillRect(pbX, pbY, pbW, pbH);
+      ctx.fillStyle = "#52C41A";
+      ctx.shadowColor = "#52C41A";
+      ctx.shadowBlur = 4;
+      ctx.fillRect(pbX, pbY, pbW * rp, pbH);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // 3) 飘升粒子（基于时间确定性生成，避免每帧随机闪烁）
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      const partCount = 3;
+      for (let i = 0; i < partCount; i++) {
+        const phase = (this.t * 1.5 + i * 0.7 + m.x * 0.01) % 1.0;
+        const px = m.x + m.w * (0.2 + (i * 0.3 + Math.sin(this.t + i) * 0.1));
+        const py = rubbleY - phase * (m.h * 0.8);
+        const pAlpha = (1 - phase) * 0.7;
+        const pg = ctx.createRadialGradient(px, py, 0, px, py, 4);
+        pg.addColorStop(0, `rgba(82,196,26,${pAlpha})`);
+        pg.addColorStop(1, "rgba(82,196,26,0)");
+        ctx.fillStyle = pg;
+        ctx.beginPath(); ctx.arc(px, py, 4, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+
+      // 4) "修复中"标签（小字，避免遮挡主战场）
+      drawText(ctx, `🔧 ${(rp * 100).toFixed(0)}%`, m.x + m.w / 2, rubbleY - 12, {
+        size: 8, color: "#52C41A", weight: "900", align: "center",
+        shadow: { color: "#52C41A", blur: 4 },
+      });
+    }
     ctx.restore();
   }
 
@@ -2473,7 +2701,7 @@ export class BombIslandEngine extends GameEngine {
     const x = COL_X + 6, w = COL_W - 12;
     let y = COL_TOP + 6;
     // 波次 + 档位
-    drawText(ctx, `WAVE ${this.wave}`, x, y, { size: 10, color: "#7A8FB0", weight: "700", font: Theme.fonts.mono });
+    drawText(ctx, `反诈波次 ${this.wave}`, x, y, { size: 10, color: "#7A8FB0", weight: "700", font: Theme.fonts.mono });
     drawText(ctx, this.tier.name, x + w, y, { size: 11, color: this.tier.color, weight: "700", align: "right", font: Theme.fonts.mono });
     y += 16;
     // BOSS 名称

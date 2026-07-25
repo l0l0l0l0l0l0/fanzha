@@ -129,7 +129,7 @@ export function renderBattleReportCanvas(data: BattleReportData): HTMLCanvasElem
   ctx.textBaseline = "top";
   ctx.shadowColor = withAlpha(titleColor, 0.6);
   ctx.shadowBlur = 30;
-  ctx.fillText(isWin ? "战斗胜利" : "战斗结束", W / 2, 290);
+  ctx.fillText(isWin ? "反诈胜利" : "反诈结束", W / 2, 290);
   ctx.shadowBlur = 0;
   ctx.restore();
 
@@ -141,7 +141,7 @@ export function renderBattleReportCanvas(data: BattleReportData): HTMLCanvasElem
   ctx.fillStyle = Theme.colors.ink.muted;
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
-  ctx.fillText("本局得分", W / 2, scoreY);
+  ctx.fillText("本局识破分", W / 2, scoreY);
   // 大数字
   ctx.font = `900 160px ${Theme.fonts.mono}`;
   ctx.fillStyle = accent;
@@ -157,7 +157,7 @@ export function renderBattleReportCanvas(data: BattleReportData): HTMLCanvasElem
   const colW = (W - 120 - 40) / 3;
   const stats = [
     {
-      label: data.result.wave !== undefined ? "最高波数" : "识破次数",
+      label: data.result.wave !== undefined ? "最高反诈波次" : "识破次数",
       value: data.result.wave !== undefined
         ? `${data.result.wave}`
         : `${data.result.bustedCount ?? 0}`,
@@ -431,7 +431,7 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number)
 
 /**
  * 生成整体进度分享卡，返回 HTMLCanvasElement（用于 toBlob）
- * 内容：段位、累计识破、图鉴、5 款游戏最高分、反诈标语
+ * 内容：段位、累计识破、图鉴、4 款游戏最高分、反诈标语
  */
 export function renderProgressReportCanvas(): HTMLCanvasElement {
   const canvas = document.createElement("canvas");
@@ -559,14 +559,14 @@ export function renderProgressReportCanvas(): HTMLCanvasElement {
     drawStatBlock(ctx, sx, statsY, colW, statsH, stats[i].label, stats[i].value, accent);
   }
 
-  // ===== 5 款游戏最高分 =====
+  // ===== 4 款游戏最高分 =====
   const gamesY = 760;
   ctx.save();
   ctx.font = `400 22px ${Theme.fonts.mono}`;
   ctx.fillStyle = withAlpha(accent, 0.85);
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
-  ctx.fillText("// GAME HIGH SCORES · 五款游戏最高分", 60, gamesY);
+  ctx.fillText("// GAME HIGH SCORES · 四款游戏最高分", 60, gamesY);
   ctx.restore();
 
   const gameRowH = 80;

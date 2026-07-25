@@ -290,7 +290,7 @@ export class ThunderEngine extends GameEngine {
     }
     if (idx > 0) {
       this.toast = {
-        text: `WAVE ${idx + 1}：${Array.from(new Set(wave.map((e) => ENEMIES[e.typeId].name))).join(" / ")}`,
+        text: `反诈波次 ${idx + 1}：${Array.from(new Set(wave.map((e) => ENEMIES[e.typeId].name))).join(" / ")}`,
         tone: "info",
         until: this.t + 2.5,
       };
@@ -1790,7 +1790,7 @@ export class ThunderEngine extends GameEngine {
     // Prep countdown
     if (!this.waveActive && this.phase === "battle" && !this.over) {
       const remaining = Math.max(0, this.prepUntil - this.t);
-      drawText(ctx, `WAVE ${this.wave + 1}`, W / 2, H / 2 - 30, {
+      drawText(ctx, `反诈波次 ${this.wave + 1}`, W / 2, H / 2 - 30, {
         size: 28, color: ACCENT, weight: "900", align: "center",
         shadow: { color: ACCENT, blur: 14 },
       });
@@ -2530,7 +2530,7 @@ export class ThunderEngine extends GameEngine {
     });
 
     // 波次（右下）
-    drawText(ctx, `WAVE ${this.wave + 1}/${WAVES.length}`, W - 24, H - 32, {
+    drawText(ctx, `反诈波次 ${this.wave + 1}/${WAVES.length}`, W - 24, H - 32, {
       size: 11, color: this.phase === "boss" ? "#E5353B" : "#7A8FB0",
       weight: "700", align: "right", font: Theme.fonts.mono,
     });

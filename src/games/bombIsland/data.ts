@@ -1,7 +1,6 @@
 import type { ItemDef, ItemId, ParkTierDef, BombBossDef, WeatherDef, WeatherKind, WeaponDef, WeaponKind, MapLayoutDef } from "./types";
 
-/** 9 种反诈道具：点击使用，CD 中无效；使用后对其他道具剩余 CD 折减 CD_REFRESH_PCT。
- * v2：全部改为绝对伤害（每击≤100），通过多段/多目标/AoE 实现总伤提升 */
+/** 9 种反诈道具：点击使用，CD 中无效；使用后对其他道具剩余 CD 折减 CD_REFRESH_PCT */
 export const ITEMS: Record<ItemId, ItemDef> = {
   bomb: {
     id: "bomb", name: "反诈炮弹", emoji: "💥", color: "#FFD666",
@@ -54,13 +53,13 @@ export const PARK_TIERS: ParkTierDef[] = [
   { tier: 2, name: "总部核心", subtitle: "HEADQUARTERS", hpMul: 2.2, repairMul: 2.6, color: "#B388FF", structure: "hq" },
 ];
 
-/** 每 2 波升档时的 BOSS 身份（果敢四大家族·白/魏/刘/明 + 2 高层） */
+/** 每 2 波升档时的 BOSS 身份（每档 2 个 BOSS，逐波强化） */
 export const TIER_BOSSES: Record<ParkTierDef["structure"], BombBossDef[]> = {
   den: [
     {
-      bossName: "白家",
-      identity: "果敢四大家族·白氏家族",
-      emoji: "🗡",
+      bossName: "血汗工厂主",
+      identity: "妙瓦底电诈窝点操盘手",
+      emoji: "👹",
       pattern: "droneSwarm",
       counterInterval: 8,
       counterShots: 3,
@@ -71,23 +70,23 @@ export const TIER_BOSSES: Record<ParkTierDef["structure"], BombBossDef[]> = {
       enrageMul: 1.6,
     },
     {
-      bossName: "魏家",
-      identity: "果敢四大家族·魏氏家族",
-      emoji: "📡",
+      bossName: "话术培训师",
+      identity: "妙瓦底诈骗话术教练",
+      emoji: "🎭",
       pattern: "commsJamming",
       counterInterval: 7,
       counterShots: 4,
       counterDebuffDur: 2.8,
       skillName: "信号干扰弹幕",
-      skillDesc: "释放干扰弹幕触发屏幕扭曲，压制反诈意大利炮射速",
+      skillDesc: "释放干扰弹幕触发屏幕扭曲，压制反诈炮兵射速",
       enrageAt: 0.5,
       enrageMul: 1.7,
     },
   ],
   kokang: [
     {
-      bossName: "刘家",
-      identity: "果敢四大家族·刘氏家族",
+      bossName: "缅北武装头目",
+      identity: "缅北中区武装集团首脑",
       emoji: "🔫",
       pattern: "artilleryBarrage",
       counterInterval: 6,
@@ -99,15 +98,15 @@ export const TIER_BOSSES: Record<ParkTierDef["structure"], BombBossDef[]> = {
       enrageMul: 1.8,
     },
     {
-      bossName: "明家",
-      identity: "果敢四大家族·明氏家族",
+      bossName: "洗钱水房老板",
+      identity: "缅北洗钱水房操盘者",
       emoji: "💰",
       pattern: "missileSalvo",
       counterInterval: 5.5,
       counterShots: 6,
       counterDebuffDur: 3.2,
       skillName: "资金外逃导弹",
-      skillDesc: "5.5 秒一次 6 发导弹齐射，干扰反诈意大利炮武器系统",
+      skillDesc: "5.5 秒一次 6 发导弹齐射，干扰炮兵武器系统",
       enrageAt: 0.55,
       enrageMul: 1.9,
     },
@@ -156,13 +155,9 @@ export function getTierForWave(wave: number): ParkTierDef {
   return PARK_TIERS[idx];
 }
 
-/** 武器升级曲线：每清一波 +1 级，影响射速与伤害。
- * v2：伤害改为绝对值，每发≤100，随等级线性增长 */
-export const WEAPON_BASE_INTERVAL = 0.18; // 基础射速（s/发）
-export const WEAPON_BASE_DMG = 80;        // LV1 每发伤害
-export const WEAPON_DMG_GAIN_PER_LV = 2;  // 每级 +2 伤害
-export const WEAPON_DMG_MAX = 100;        // 伤害封顶 100
-/** 每级射速提升比例（0.10 = 每级 +10% 射速） */
+/** 武器升级曲线：每清一波 +1 级，影响射速与伤害 */
+export const WEAPON_BASE_INTERVAL = 0.18; // 升级：基础射速更快（原 0.25 → 0.18）
+/** 每级射速提升比例（0.10 = 每级 +10% 射速，原 0.08） */
 export const WEAPON_FIRE_GAIN_PER_LV = 0.10;
 /** 武器最高等级 */
 export const WEAPON_MAX_LEVEL = 10;
@@ -170,11 +165,6 @@ export const WEAPON_MAX_LEVEL = 10;
 export function weaponFireInterval(level: number): number {
   const lv = Math.min(WEAPON_MAX_LEVEL, Math.max(1, level));
   return WEAPON_BASE_INTERVAL / (1 + (lv - 1) * WEAPON_FIRE_GAIN_PER_LV);
-}
-/** 取指定等级的每发绝对伤害（≤100） */
-export function weaponDamageAbs(level: number): number {
-  const lv = Math.min(WEAPON_MAX_LEVEL, Math.max(1, level));
-  return Math.min(WEAPON_DMG_MAX, WEAPON_BASE_DMG + (lv - 1) * WEAPON_DMG_GAIN_PER_LV);
 }
 
 /**
@@ -184,58 +174,104 @@ export function weaponDamageAbs(level: number): number {
 export const CANNON_MAX_HP = 100;
 export const CANNON_REGEN = 0;
 
-// ============ 模块化建筑 HP 系统（v2：每模块独立 HP，绝对值） ============
-// 建筑数值尽可能大：单模块 5万~15万 HP，整园区约 100 万+，营造"缓慢动态拆除"爽感
-// 每发炮击伤害≤100，需持续轰击才能逐模块拆除
+// ============ 数值调参（爽感强化：高血量 + 自回血 + 废墟可重建） ============
+// v3 升级：建筑血量提升 3 倍，自回血提升 2 倍，废墟随血条回复逐步重建
 
-/** 单模块基础 HP（最大型模块的基准值） */
-export const MODULE_HP_LARGE = 150_000;   // 铁笼/小黑屋/电击室/白家武装/装甲碉堡
-/** 中型模块 HP 倍率 */
-export const MODULE_HP_MEDIUM_MUL = 0.7;  // 电诈工位/苦工宿舍 → 105,000
-/** 小型模块 HP 倍率 */
-export const MODULE_HP_SMALL_MUL = 0.25;  // 信号塔/铁丝网/地基 → 37,500
-
-/** 每波模块 HP 递增系数 */
+export const BASE_MAX_HP = 2_400_000; // 升血量×3：建筑血量很高（原 800_000 → 2_400_000）
+export const BASE_REPAIR = 6000;      // 升修复×2：配合高血量让回血可见（原 3000 → 6000）
+/** 每波 maxHP / repair 递增系数 */
 export const WAVE_HP_GROWTH = 0.10;
-
-/** 园区修复（绝对值/秒，仅修复未拆模块，废墟不可修复） */
-export const BASE_REPAIR = 400;
 export const WAVE_REPAIR_GROWTH = 0.10;
 
+/**
+ * 废墟重建触发阈值：当园区总 HP 占比 > 该值时，多余修复量进入"废墟重建池"。
+ * 设计意图：玩家拆光一半模块后必须持续输出，否则园区会逐步重建已被拆除的模块，
+ * 形成"打不死就回血"的压迫感与持续输出爽感。
+ */
+export const REBUILD_THRESHOLD = 0.55;
+/** 废墟重建速率倍率（相对 BASE_REPAIR，控制单个废墟从 0→1 重建所需时间） */
+export const REBUILD_RATE_MUL = 0.6;
+/** 同屏最多并行重建的废墟数（避免一波全重建造成"打不完"的挫败感） */
+export const REBUILD_MAX_PARALLEL = 2;
+
 /** 使用道具 → 其他道具剩余 CD 折减比例 */
-export const CD_REFRESH_PCT = 0.40;
+export const CD_REFRESH_PCT = 0.40;   // 升级：CD 折减更多（原 0.35 → 0.40）
 
-/** 过载连击槽（v2：过载不再提升单发伤害，改为提升射速+多管数，确保每发≤100） */
+/** 过载连击槽 */
 export const OVERDRIVE_MAX = 100;
-export const OVERDRIVE_DECAY = 8;
-export const OVERDRIVE_DURATION = 5;
-export const OVERDRIVE_FIRE_MULT = 3.0;  // 射速×3
-export const OVERDRIVE_MULTISHOT_BONUS = 2; // 过载时额外+2管齐射
+export const OVERDRIVE_DECAY = 8;     // 升级：衰减更慢（原 10 → 8）
+export const OVERDRIVE_DURATION = 5;  // 升级：过载更久（原 4 → 5）
+export const OVERDRIVE_FIRE_MULT = 3.0; // 升级：射速倍率更高（原 2.5 → 3.0）
+export const OVERDRIVE_DMG_MULT = 2.5;  // 升级：伤害倍率更高（原 2.0 → 2.5）
 
-/** 反诈意大利炮自动发射参数 */
-export const BASE_FIRE_INTERVAL = 0.18; // s (≈5.5 发/秒)
-export const SHELL_OVERDRIVE_GAIN = 3;  // 每发过载充能
+/** 反诈炮兵自动发射（爽感强化：基础射速更快、多管齐射） */
+export const BASE_FIRE_INTERVAL = 0.18; // s (≈5.5 发/秒，原 0.25)
+export const SHELL_DAMAGE_PCT = 0.06;   // 每发占 maxHP 百分比（原 0.05）
+export const SHELL_OVERDRIVE_GAIN = 3;  // 每发过载充能（原 2）
 /** 多管齐射：每次发射的并行炮弹数（随武器等级递增） */
 export const MULTISHOT_BASE = 1;
-export const MULTISHOT_PER_LV = 0.4;
+export const MULTISHOT_PER_LV = 0.4;    // 每级 +0.4 管，向取整靠拢
+/** 取指定武器等级的多管数 */
 export function multishotCount(level: number): number {
   const lv = Math.min(WEAPON_MAX_LEVEL, Math.max(1, level));
   return MULTISHOT_BASE + Math.floor((lv - 1) * MULTISHOT_PER_LV);
 }
 
+/**
+ * 逃脱进度系统已移除（纯无尽模式）：玩家不会失败。
+ * 保留常量向后兼容，escape 始终为 0。
+ */
 export const K_ESCAPE = 0;
 
-/** 计算指定波次单模块基础 HP（大模块基准，中/小模块用倍率） */
-export function moduleHpBaseForWave(wave: number): number {
+export function maxHpForWave(wave: number): number {
   const tier = getTierForWave(wave);
-  return Math.round(MODULE_HP_LARGE * tier.hpMul * (1 + (wave - 1) * WAVE_HP_GROWTH));
+  return Math.round(BASE_MAX_HP * tier.hpMul * (1 + (wave - 1) * WAVE_HP_GROWTH));
 }
 
-/** 计算指定波次的修复速率（绝对值/秒） */
 export function repairForWave(wave: number): number {
   const tier = getTierForWave(wave);
-  return Math.round(BASE_REPAIR * tier.repairMul * (1 + (wave - 1) * WAVE_REPAIR_GROWTH));
+  return BASE_REPAIR * tier.repairMul * (1 + (wave - 1) * WAVE_REPAIR_GROWTH);
 }
+
+// ============ 模块 HP 基准（per-module，区别于 maxHpForWave 的园区总 HP） ============
+
+/** 大型模块 HP 倍率（= baseHp，保留导出供 engine 兼容） */
+export const MODULE_HP_LARGE = 1.0;
+/** 中型模块 HP 倍率（电诈工位/苦工宿舍） */
+export const MODULE_HP_MEDIUM_MUL = 0.6;
+/** 小型模块 HP 倍率（信号塔/铁丝网/地基） */
+export const MODULE_HP_SMALL_MUL = 0.3;
+
+/** 每模块基础 HP：按波次/档位递增。园区总 HP = 各模块 HP 之和。 */
+export function moduleHpBaseForWave(wave: number): number {
+  const tier = getTierForWave(wave);
+  // v3：模块基础 HP ×3（原 5000 → 15000），营造"建筑血量很高"的爽感
+  return Math.round(15000 * tier.hpMul * (1 + (wave - 1) * WAVE_HP_GROWTH));
+}
+
+// ============ 过载多管加成 ============
+
+/** 过载期间额外多管数 */
+export const OVERDRIVE_MULTISHOT_BONUS = 2;
+
+// ============ 绝对伤害值（engine 兼容：引擎以绝对值扣减模块 HP，封顶 100） ============
+
+/** 武器单发绝对伤害（随等级递增，engine 端封顶 100） */
+export function weaponDamageAbs(level: number): number {
+  const lv = Math.min(WEAPON_MAX_LEVEL, Math.max(1, level));
+  return Math.round(80 + (lv - 1) * 2.2);
+}
+
+/** 集束弹主爆破绝对伤害 */
+export const CLUSTER_MAIN_DMG = 80;
+/** 集束弹子爆破绝对伤害 */
+export const CLUSTER_SUB_DMG = 50;
+/** 电磁弹绝对伤害 */
+export const EMP_DMG_ABS = 80;
+/** 燃烧弹初始绝对伤害 */
+export const INCENDIARY_DMG_ABS = 60;
+/** 燃烧区每秒绝对 DPS */
+export const INCENDIARY_ZONE_DPS = 50;
 
 // ============ BOSS 反击干扰系统（不伤害炮兵，触发 debuff） ============
 
@@ -384,10 +420,10 @@ export const SPECIAL_WEAPON_START_AMMO = 5;
 export const CLUSTER_SUB_COUNT = 3;
 /** 集束弹子爆破偏移半径（像素） */
 export const CLUSTER_SUB_OFFSET = 38;
-/** 集束弹主爆破伤害（绝对值，≤100） */
-export const CLUSTER_MAIN_DMG = 60;
-/** 集束弹子爆破伤害（绝对值，≤100） */
-export const CLUSTER_SUB_DMG = 40;
+/** 集束弹主爆破伤害倍率（相对标准） */
+export const CLUSTER_MAIN_DMG_MULT = 0.3;
+/** 集束弹子爆破伤害倍率（相对标准） */
+export const CLUSTER_SUB_DMG_MULT = 0.3;
 
 /** 电磁弹减速持续秒数 */
 export const EMP_SLOW_DURATION = 2;
@@ -395,15 +431,15 @@ export const EMP_SLOW_DURATION = 2;
 export const EMP_REPAIR_MUL = 0.3;
 /** 电磁弹减速时 BOSS 反击间隔倍率（1.8 = 反击变慢 80%） */
 export const EMP_COUNTER_MUL = 1.8;
-/** 电磁弹直接伤害（绝对值，≤100） */
-export const EMP_DMG_ABS = 50;
+/** 电磁弹直接伤害倍率（相对标准） */
+export const EMP_DMG_MULT = 0.5;
 
 /** 燃烧弹区域持续秒数 */
 export const INCENDIARY_ZONE_DURATION = 3;
-/** 燃烧弹每秒伤害（绝对值，≤100/秒） */
-export const INCENDIARY_ZONE_DPS = 80;
-/** 燃烧弹初始伤害（绝对值，≤100） */
-export const INCENDIARY_DMG_ABS = 40;
+/** 燃烧弹每秒伤害（占 maxHP 百分比） */
+export const INCENDIARY_ZONE_DPS_PCT = 1.2;
+/** 燃烧弹初始伤害倍率（相对标准） */
+export const INCENDIARY_DMG_MULT = 0.4;
 
 // ============ 公园地图系统 ============
 

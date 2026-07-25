@@ -305,10 +305,10 @@ export const STORY_CHAPTERS: StoryChapter[] = [
     title: "终极对决",
     subtitle: "FINAL SHOWDOWN",
     accent: "#FF00E5",
-    gameId: "quiz-fight",
-    gameTitle: "反诈答题 PK",
+    gameId: "fraud-buster",
+    gameTitle: "是男人就反诈",
     description:
-      "电诈首脑开启直播洗白。1v1 答题对决，8 秒内答对反诈题造成伤害，答错自损。累计大招槽可双倍伤害并回血，把他打到下播。",
+      "电诈首脑开启直播洗白，疯狂抛出诈骗话术卡片。4 秒内识破每张卡片是诈骗还是正常，扛过的反诈波次越多越显真本事，把他打到下播。",
     reward: { coins: 500, energy: 3, fragments: 3 },
     intro: [
       {
@@ -320,7 +320,7 @@ export const STORY_CHAPTERS: StoryChapter[] = [
       {
         speaker: "陈队长",
         avatar: "🎖️",
-        text: "别听他胡扯。知识就是武器，答得越快伤害越高，大招槽满了双倍伤害 + 回血。把他打到下播。",
+        text: "别听他胡扯。知识就是武器，卡片飞来 4 秒内识破，连击越长火力越猛，道具用对能扛更久。把他打到下播。",
         color: "#00E5FF",
       },
       {
@@ -332,7 +332,7 @@ export const STORY_CHAPTERS: StoryChapter[] = [
       {
         speaker: "老李",
         avatar: "🕵️",
-        text: "他擅长设陷阱：把『安全』说成『不安全』、把『诈骗』说成『福利』。看到选项别急，8 秒够你想清楚。",
+        text: "他擅长设陷阱：把『安全』说成『不安全』、把『诈骗』说成『福利』。看到卡片别急，4 秒够你想清楚。",
         color: "#FFB020",
       },
       {

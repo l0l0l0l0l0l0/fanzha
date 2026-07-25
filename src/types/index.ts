@@ -1,4 +1,4 @@
-export type GameId = "fraud-buster" | "manager" | "thunder" | "bomb-island" | "quiz-fight";
+export type GameId = "fraud-buster" | "manager" | "thunder" | "bomb-island";
 
 export interface GameMeta {
   id: GameId;
@@ -10,7 +10,7 @@ export interface GameMeta {
   accent: string;
   accentSoft: string;
   icon: string;
-  cover: "phone" | "tactic" | "ship" | "bomb" | "quiz";
+  cover: "phone" | "tactic" | "ship" | "bomb";
   description: string;
   briefing: {
     type: string;

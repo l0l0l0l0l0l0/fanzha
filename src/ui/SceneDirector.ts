@@ -40,7 +40,9 @@ import {
   onResize,
   offResize,
   onHide,
+  offHide,
   onShow,
+  offShow,
   type GameCanvas,
   type TouchEvent as TTTouchEvent,
 } from "@/platform/web";
@@ -274,6 +276,8 @@ export class SceneDirector {
     offTouchEnd(this.touchEndCb);
     offTouchCancel(this.touchCancelCb);
     offResize(this.resizeCb);
+    offHide(this.hideCb);
+    offShow(this.showCb);
   }
 
   /** 创建离屏画布（供游戏引擎使用） */

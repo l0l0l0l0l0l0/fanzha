@@ -43,7 +43,6 @@ const GAME_ICON: Record<GameId, IconName> = {
   manager: "users",
   thunder: "lightning",
   "bomb-island": "bomb",
-  "quiz-fight": "crosshair",
 };
 
 type ViewMode = "tree" | "intro" | "outro";

@@ -94,30 +94,6 @@ export const GAMES: GameMeta[] = [
       hotline: "12308",
     },
   },
-  {
-    id: "quiz-fight",
-    title: "反诈答题 PK",
-    subtitle: "QUIZ FIGHT",
-    tagline: "1v1 对战 5 大电诈头目",
-    tags: ["1v1 对战", "回合制", "大招连招"],
-    difficulty: 3,
-    accent: "#FF00E5",
-    accentSoft: "rgba(255, 0, 229, 0.18)",
-    icon: "crosshair",
-    cover: "quiz",
-    description:
-      "逐关挑战 5 位电诈反派——业余骗子、客服骗子、投资导师、假警官、电诈头目。8 秒内答对反诈题造成伤害，答错自损；累计大招槽可双倍伤害并回血。致敬《答题对战》玩法。",
-    briefing: {
-      type: "反诈知识 1v1 对战",
-      points: [
-        "5 关递进难度：从刷单骗子到境外电诈首脑",
-        "答对越快，伤害越高（速度加成）",
-        "大招槽满后启用：双倍伤害 + 回血 15",
-        "96110 是反诈劝阻专线，遇到可疑来电立即拨打",
-      ],
-      hotline: "96110",
-    },
-  },
 ];
 
 export function getGame(id: GameId): GameMeta {

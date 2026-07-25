@@ -415,16 +415,32 @@ export function setOrientation(_orientation: "portrait" | "landscape"): void {
 
 // ============ 生命周期 ============
 
-export function onHide(cb: () => void): void {
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") cb();
-  });
-}
+type VisibilityListener = () => void;
+const hideSet = new Set<VisibilityListener>();
+const showSet = new Set<VisibilityListener>();
+document.addEventListener(
+  "visibilitychange",
+  () => {
+    if (document.visibilityState === "hidden") {
+      hideSet.forEach((cb) => { try { cb(); } catch (e) { console.warn("[hide] listener failed", e); } });
+    } else if (document.visibilityState === "visible") {
+      showSet.forEach((cb) => { try { cb(); } catch (e) { console.warn("[show] listener failed", e); } });
+    }
+  },
+  { passive: true }
+);
 
+export function onHide(cb: () => void): void {
+  hideSet.add(cb);
+}
+export function offHide(cb: () => void): void {
+  hideSet.delete(cb);
+}
 export function onShow(cb: () => void): void {
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") cb();
-  });
+  showSet.add(cb);
+}
+export function offShow(cb: () => void): void {
+  showSet.delete(cb);
 }
 
 // ============ 日志 ============

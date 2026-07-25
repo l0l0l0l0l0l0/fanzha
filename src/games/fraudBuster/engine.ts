@@ -1043,7 +1043,7 @@ export class FraudBusterEngine extends GameEngine {
     if (this.current) {
       this.drawCard(ctx, this.current);
     } else if (!this.state.over) {
-      drawText(ctx, `WAVE ${this.state.wave}`, CARD_CX, H / 2, {
+      drawText(ctx, `反诈波次 ${this.state.wave}`, CARD_CX, H / 2, {
         size: 26, color: ACCENT, weight: "900", align: "center",
         shadow: { color: ACCENT, blur: 14 },
       });

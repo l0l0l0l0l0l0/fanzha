@@ -213,23 +213,15 @@ export const ACHIEVEMENTS: Achievement[] = [
     color: "#FF7A1A",
     check: (c) => c.lastGame?.gameId === "bomb-island" && (c.lastGame.destroyRate ?? 0) >= 1,
   },
-  {
-    id: "quiz-fight-win",
-    name: "答题擂主",
-    desc: "「反诈答题 PK」首次击败对手",
-    icon: "star",
-    color: "#00E5FF",
-    check: (c) => c.lastGame?.gameId === "quiz-fight" && c.lastGame.win,
-  },
 
   // ===== 全能与图鉴类 =====
   {
     id: "all-games",
     name: "全能反诈员",
-    desc: "体验过全部五款游戏",
+    desc: "体验过全部四款游戏",
     icon: "star",
     color: "#00E5FF",
-    check: (c) => c.gamesPlayed.length >= 5,
+    check: (c) => c.gamesPlayed.length >= 4,
   },
   {
     id: "codex-half",

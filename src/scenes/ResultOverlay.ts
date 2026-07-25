@@ -274,7 +274,7 @@ export class ResultOverlay {
     ctx.fillStyle = titleColor;
     ctx.shadowColor = withAlpha(titleColor, 0.4);
     ctx.shadowBlur = 16 + Math.sin(this.pulse * 3) * 6;
-    ctx.fillText(this.result.win ? "战斗胜利" : "战斗结束", px + w / 2, py + 36);
+    ctx.fillText(this.result.win ? "反诈胜利" : "反诈结束", px + w / 2, py + 36);
     ctx.restore();
 
     // 新纪录闪烁徽章（在标题右下方）
@@ -291,7 +291,7 @@ export class ResultOverlay {
     const cardH = 70;
     const cardY = py + 84;
     const statLabel = this.result.wave !== undefined
-      ? "最高波数"
+      ? "最高反诈波次"
       : this.result.destroyRate !== undefined
         ? "摧毁率"
         : "击败数";
@@ -301,7 +301,7 @@ export class ResultOverlay {
         ? `${Math.round(this.result.destroyRate * 100)}%`
         : `${this.result.bustedCount ?? 0}`;
     drawStatCard(ctx, px + 16, cardY, cardW, cardH, {
-      label: "本局得分", value: Math.floor(this.displayedScore).toLocaleString(), color: accent,
+      label: "本局识破分", value: Math.floor(this.displayedScore).toLocaleString(), color: accent,
     });
     drawStatCard(ctx, px + 16 * 2 + cardW, cardY, cardW, cardH, {
       label: statLabel, value: statValue, color: accent,
@@ -418,11 +418,11 @@ export class ResultOverlay {
       drawButton(ctx, rects.next.x, rects.next.y, btnW, btnH, this.cb.nextLabel || "下一关", {
         variant: "primary", accent, pressed: this.pressedButton === "next",
       });
-      drawButton(ctx, rects.retry.x, rects.retry.y, btnW, btnH, "再来一局", {
+      drawButton(ctx, rects.retry.x, rects.retry.y, btnW, btnH, "再反诈一局", {
         variant: "primary", accent, pressed: this.pressedButton === "retry",
       });
     } else {
-      drawButton(ctx, rects.retry.x, rects.retry.y, btnW, btnH, "再来一局", {
+      drawButton(ctx, rects.retry.x, rects.retry.y, btnW, btnH, "再反诈一局", {
         variant: "primary", accent, pressed: this.pressedButton === "retry",
       });
     }

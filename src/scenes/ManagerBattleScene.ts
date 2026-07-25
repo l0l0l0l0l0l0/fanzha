@@ -332,7 +332,7 @@ export class ManagerBattleScene extends GameShellScene {
       // 经典：波次进度
       ctx.font = `400 10px ${Theme.fonts.mono}`;
       ctx.fillStyle = Theme.colors.ink.muted;
-      ctx.fillText("WAVE", screenW / 2, y);
+      ctx.fillText("反诈波次", screenW / 2, y);
       ctx.font = `700 16px ${Theme.fonts.mono}`;
       ctx.fillStyle = this.getAccent();
       ctx.shadowColor = withAlpha(this.getAccent(), 0.4);
@@ -672,7 +672,7 @@ export class ManagerBattleScene extends GameShellScene {
     ctx.fillStyle = "#B388FF";
     ctx.shadowColor = "#B388FF";
     ctx.shadowBlur = 10;
-    ctx.fillText(`WAVE ${hud.endlessWave}`, screenW / 2, y + 12);
+    ctx.fillText(`反诈波次 ${hud.endlessWave}`, screenW / 2, y + 12);
     ctx.shadowBlur = 0;
     // TIER 进度（每 3 波升一级）
     const tierWave = (hud.endlessWave ?? 1) % 3;

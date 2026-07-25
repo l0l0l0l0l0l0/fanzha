@@ -133,7 +133,6 @@ const defaultState: PlatformState = {
     manager: 0,
     thunder: 0,
     "bomb-island": 0,
-    "quiz-fight": 0,
   },
   totalGames: 0,
   settings: { sound: true, haptics: true },
@@ -345,9 +344,16 @@ class PlatformStore {
         dailyQuests: {
           date: typeof savedQuests?.date === "string" ? savedQuests.date : "",
           quests: Array.isArray(savedQuests?.quests)
-            ? savedQuests!.quests.filter(
-                (q) => q && typeof q === "object" && typeof q.id === "string"
-              )
+            ? savedQuests!.quests
+                .filter(
+                  (q) => q && typeof q === "object" && typeof q.id === "string"
+                )
+                .map((q) => ({
+                  id: String(q.id),
+                  progress: safeInt(q.progress, 0),
+                  target: safeInt(q.target, 0),
+                  claimed: typeof q.claimed === "boolean" ? q.claimed : false,
+                }))
             : [],
         },
         manager: validManager,

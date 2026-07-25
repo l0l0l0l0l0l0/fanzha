@@ -248,6 +248,15 @@ export interface ParkHud {
   clearedWaves?: number;
   /** 园区破坏阶段（0=完好 1=75% 2=50% 3=25%） */
   destructionStage?: 0 | 1 | 2 | 3;
+  // ---- v3 废墟重建系统 ----
+  /** 当前正在重建的废墟模块数（0=无重建进行中） */
+  repairingCount?: number;
+  /** 已拆废墟总数（含未开始重建的） */
+  rubbleCount?: number;
+  /** 园区重建整体进度（0=无废墟/全部重建完成，1=全部废墟待重建） */
+  rebuildActivity?: number;
+  /** 最快重建中模块的进度（0..1，用于 HUD 进度条） */
+  topRepairProgress?: number;
   /** CD 锁定剩余秒（>0 道具 CD 不刷新） */
   cdLockRemain?: number;
   /** 武器干扰剩余秒（>0 武器射速降低） */

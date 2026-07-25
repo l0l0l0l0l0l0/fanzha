@@ -830,7 +830,7 @@ export class FraudBusterScene extends GameShellScene {
     ctx.textBaseline = "top";
     ctx.shadowColor = withAlpha(this.getAccent(), 0.45);
     ctx.shadowBlur = 8;
-    ctx.fillText(`WAVE ${hud.wave}`, 16, y);
+    ctx.fillText(`反诈波次 ${hud.wave}`, 16, y);
     ctx.shadowBlur = 0;
     ctx.font = `400 10px ${Theme.fonts.mono}`;
     ctx.fillStyle = Theme.colors.ink.muted;

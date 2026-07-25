@@ -18,14 +18,12 @@ import { FraudBusterScene } from "./FraudBusterScene";
 import { ManagerDeployScene } from "./ManagerDeployScene";
 import { ThunderScene } from "./ThunderScene";
 import { BombIslandBattleScene } from "./BombIslandBattleScene";
-import { QuizFightScene } from "./QuizFightScene";
 
 const GAME_SCENE_FACTORIES: Record<GameId, (d: SceneDirector) => Scene> = {
   "fraud-buster": (d) => new FraudBusterScene(d),
   manager: (d) => new ManagerDeployScene(d),
   thunder: (d) => new ThunderScene(d),
   "bomb-island": (d) => new BombIslandBattleScene(d),
-  "quiz-fight": (d) => new QuizFightScene(d),
 };
 
 export class BriefingScene extends Scene {

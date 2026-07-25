@@ -50,7 +50,6 @@ const COVER_ICON: Record<string, IconName> = {
   tactic: "users",
   ship: "shield",
   bomb: "bomb",
-  quiz: "crosshair",
 };
 
 /** 紧急预警滚动条目（结合全民防骗局清单 F26-F31 + 国家反诈中心高频类型） */
@@ -1117,7 +1116,7 @@ export class HubScene extends Scene {
       icon: "story",
       accent: Theme.colors.flag.DEFAULT,
       title: "剧情模式",
-      subText: "5 章主线 · 串联 5 款游戏",
+      subText: "5 章主线 · 串联 4 款游戏",
       progressLabel: this.getStoryProgressLabel(),
     });
     this.renderExtraTile(ctx, x + tileW + gap, tileY, tileW, tileH, {
