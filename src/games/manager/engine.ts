@@ -25,16 +25,31 @@ import {
   ELEMENTS, elementMul, COMBO_CONFIG, comboMul,
   dailyModifiersForSeed, dailyScoreMul, bossPhaseIndex, applyBossPhase,
   FRAUD_TERMS,
+  // v6：全面升级新增数据/函数
+  TACTICAL_DEVICES, SKILL_LINKS, ELEMENT_REACTIONS, QUIZ_BANK,
+  TALENT_TREES, RELICS, EQUIPMENT, AGENT_SKINS, CHALLENGE_AFFIXES,
+  getTowerFloor, seasonRankFromScore, activeSkillLinks, pickQuiz,
+  detectElementReactions, getTalentTree, getRelic, getEquipment,
+  TOWER_MAX_FLOOR,
 } from "./data";
+// v7：全面升级新增
+import { pickAdaptiveQuiz, getTermsForBossKill, getTermsForTowerFloor, getTermsForTotalKills, TOWER_EVENTS, getCaseById } from "./data.v7";
 import type {
   DeploySlot, ManagerHud, ManagerMode, BossRushDef, AgentUpgradeKind,
   CultAgentState, ComboState, DailyModifier, Element,
   EnemyDef, AgentDef, LevelTheme, UpgradeChoice,
+  // v6：全面升级新增类型
+  TacticalDeviceKind, TacticalDeviceDef, SkillLink, ElementReactionDef, QuizQuestion,
+  TalentTree, RelicDef, EquipmentDef, AgentSkin, TalentBranch,
+  ElementReactionKind, ChallengeAffix,
+  // v7：爬塔事件
+  TowerEventDef, TowerEventOutcome,
 } from "./types";
+import { platformStore } from "@/store/platformStore";
 import {
   type MazeDef, type Pt, STATIC_MAZES, getInitialMaze, getLevelMaze, remapSlotsToMaze,
   cellCenter, pickRandomPath, MAZE_CELL, MAZE_COLS, MAZE_ROWS, MAZE_OFFSET_X, MAZE_OFFSET_Y,
-  cellTerm,
+  cellTerm, MAZE_TERMS,
 } from "./maze";
 
 const W = 960;
@@ -55,6 +70,25 @@ interface DeployedAgent {
   alive: boolean;
   cooldown: number;
   flashUntil: number;
+  // ===== v6 全面升级新增 =====
+  /** 临时护盾到期时间（shieldWall 大招 / 装备） */
+  shieldUntil?: number;
+  /** 临时护盾数值 */
+  shieldValue?: number;
+  /** 无敌到期时间（steam 元素反应 / 召唤体） */
+  invulnUntil?: number;
+  /** 召唤体到期时间（summon 大招，到期后移除） */
+  summonUntil?: number;
+  /** 暴击率加成（天赋/装备） */
+  bonusCritRate?: number;
+  /** 暴击伤害加成（天赋/装备） */
+  bonusCritDmg?: number;
+  /** 元素伤害加成表（天赋 elementBonus） */
+  bonusElementDmg?: Partial<Record<Element, number>>;
+  /** 大招充能倍率（天赋 ultChargeMul） */
+  ultChargeMul?: number;
+  /** 大招威力倍率（天赋 ultPowerMul） */
+  ultPowerMul?: number;
 }
 
 interface Enemy {
@@ -86,6 +120,17 @@ interface Enemy {
   bossDmgReduction?: number;
   /** v7: 受击白闪时间戳（命中反馈爽感） */
   hitFlashUntil?: number;
+  // ===== v6 全面升级新增 =====
+  /** 隐身到期时间（invisible 能力，期间无法被攻击） */
+  invisibleUntil?: number;
+  /** 上次瞬移时间（teleport 能力） */
+  lastTeleportAt?: number;
+  /** 反射伤害比例（reflect 能力） */
+  reflectPct?: number;
+  /** 狂暴叠加层数（enrage 能力） */
+  enrageStacks?: number;
+  /** 冻结到期时间（freeze 大招，期间无法移动） */
+  frozenUntil?: number;
 }
 
 interface Projectile {
@@ -215,10 +260,79 @@ export class ManagerEngine extends GameEngine {
   private killsByAgent: Record<string, number> = {};
   /** 本局击杀 BOSS 次数（用于持久化） */
   private bossKillsThisGame = 0;
+  /** v7：本局最后击破的 BOSS id（用于结算页真实案例展示） */
+  private lastDefeatedBossId: string | null = null;
+  /** v7：本局新收集的口诀索引列表（仅 collectTerm 返回 true 时追加，用于战报分享） */
+  private newlyCollectedTerms: number[] = [];
   /** 元素克制提示（最近一次） */
   private lastElementalHint: { kind: "strong" | "weak"; from: string; to: string; at: number } | null = null;
   /** 大招使用次数（用于成就统计） */
   private ultCount = 0;
+
+  // ===== v6 全面升级：Phase 2.1 战术装置 + 战术暂停 + 元素反应 =====
+  /** 已放置的战术装置列表 */
+  private tacticalDevices: { kind: TacticalDeviceKind; x: number; y: number; placedAt: number; cooldownUntil: number }[] = [];
+  /** 各装置冷却截止时间（按 kind 索引） */
+  private deviceCooldowns: Record<TacticalDeviceKind, number> = { barrier: 0, decoy: 0, emp: 0 };
+  /** 战术暂停剩余次数（每局 1 次） */
+  private tacticalPauseRemaining = 1;
+  /** 战术暂停截止时间（期间游戏 dt × 0.3） */
+  private tacticalPauseUntil = 0;
+  /** 已激活的元素反应列表 */
+  private elementReactions: { def: ElementReactionDef; activatedAt: number; x: number; y: number }[] = [];
+
+  // ===== v6 全面升级：Phase 2.2 技能链 + 战间答题 =====
+  /** 当前激活的技能链状态（部署探员组合满足时初始化） */
+  private activeSkillLinkStates: { link: SkillLink; lastTriggeredAt: number }[] = [];
+  /** 待答的战间答题（null 表示无） */
+  private pendingQuiz: QuizQuestion | null = null;
+  /** v7：当前待答题目是否为错题重练（用于 UI 高亮） */
+  private pendingQuizIsRetry = false;
+  /** v7：爬塔待处理的事件（null 表示无，tower 模式每 5 层触发） */
+  private pendingTowerEvent: TowerEventDef | null = null;
+  /** 答题 buff 截止时间 */
+  private quizBuffUntil = 0;
+  /** 答题 buff 内容（攻击加成） */
+  private quizBuff: { attackPct: number } | null = null;
+  /** 本局答对题数（用于持久化） */
+  private quizCorrectCount = 0;
+
+  // ===== v6 全面升级：Phase 2.3 天赋/遗物/装备 =====
+  /** 当前装备的遗物 id 列表（从元进度读取） */
+  private equippedRelics: string[] = [];
+  /** 探员装备映射（agentId → equipmentId） */
+  private agentEquipmentMap: Record<string, string> = {};
+  /** 探员天赋映射（agentId → branch → 已解锁层级） */
+  private agentTalentsMap: Record<string, Partial<Record<TalentBranch, number>>> = {};
+  /** 探员皮肤映射（agentId → skinId） */
+  private agentSkinsMap: Record<string, string> = {};
+  /** 能量回复倍率（遗物 energyRegenMul） */
+  private energyRegenMul = 1;
+  /** 得分倍率（遗物 scoreMul） */
+  private scoreMul = 1;
+  /** 金币掉落倍率（遗物 coinMul） */
+  private coinMul = 1;
+  /** 探员每秒回血（遗物 agentHpRegen） */
+  private agentHpRegen = 0;
+  /** 连击衰减延长秒数（遗物 comboDecayExtend） */
+  private comboDecayExtend = 0;
+  /** 投射物是否穿透所有敌人（遗物 pierceAll） */
+  private pierceAll = false;
+  /** 首次命中免疫标记（遗物 firstHitFree） */
+  private firstHitFreeConsumed = false;
+  /** 复活是否可用（遗物 reviveOnce） */
+  private reviveOnceAvailable = false;
+  /** 全队伤害加成截止时间（元素反应 resonance / 技能链 buff） */
+  private damageBoostUntil = 0;
+  private damageBoostMul = 1;
+  /** 时间扭曲截止时间（timeWarp 大招，期间 gdt × 0.5） */
+  private timeWarpUntil = 0;
+  /** 当前爬塔层数（tower 模式，默认 0） */
+  private towerFloor = 0;
+  /** 当前激活的极限词缀 */
+  private challengeAffixes: ChallengeAffix[] = [];
+  /** 额外升级次数上限（由遗物 extraUpgrade 提供） */
+  private upgradeMaxCountBonus = 0;
 
   constructor(
     canvas: GameCanvas,
@@ -237,6 +351,9 @@ export class ManagerEngine extends GameEngine {
     const seed = `${Date.now()}-${Math.random()}`;
     this.maze = maze ?? getInitialMaze(mode, this.level, seed);
 
+    // v6：读取跨局元进度（天赋/遗物/装备/皮肤），在 placeAgents 前完成以便应用加成
+    this.initMetaProgression();
+
     this.placeAgents(deployment);
     startBGM("battle");
 
@@ -252,6 +369,11 @@ export class ManagerEngine extends GameEngine {
       this.buildTrialSpawnQueue();
     } else if (mode === "endlessRush") {
       this.startEndlessWave(0, 1.5);
+    } else if (mode === "tower") {
+      // v7：爬塔模式 — 从第 1 层开始
+      this.base.max = 200;
+      this.base.hp = 200;
+      this.startTowerFloor(1, 2);
     } else if (mode === "daily") {
       // 每日挑战：生成确定性修饰符 + 使用 classic 波次结构
       this.dailySeed = this.getDailySeed();
@@ -264,6 +386,54 @@ export class ManagerEngine extends GameEngine {
       this.startWave(0, 2);
     } else {
       this.startWave(0, 1.5);
+    }
+  }
+
+  // ====================================================================
+  // v6：跨局元进度初始化（天赋/遗物/装备/皮肤 + 遗物开局效果）
+  // ====================================================================
+
+  /** 读取 platformStore 元进度，应用遗物开局效果与运行时倍率 */
+  private initMetaProgression(): void {
+    const meta = platformStore.managerMetaProgress();
+    this.equippedRelics = meta.equippedRelics ?? [];
+    this.agentEquipmentMap = meta.agentEquipment ?? {};
+    this.agentTalentsMap = meta.agentTalents ?? {};
+    this.agentSkinsMap = meta.agentSkins ?? {};
+    this.towerFloor = meta.towerFloor ?? 0;
+
+    // 遗物开局效果 + 运行时倍率
+    let startEnergy = 0;
+    let startShield = 0;
+    let extraUpgrade = 0;
+    for (const relicId of this.equippedRelics) {
+      const relic = getRelic(relicId);
+      if (!relic) continue;
+      const eff = relic.effect;
+      switch (eff.kind) {
+        case "startEnergy": startEnergy += eff.value; break;
+        case "startShield": startShield = Math.max(startShield, eff.value); break;
+        case "extraUpgrade": extraUpgrade += eff.value; break;
+        case "energyRegenMul": this.energyRegenMul *= eff.value; break;
+        case "scoreMul": this.scoreMul *= eff.value; break;
+        case "coinMul": this.coinMul *= eff.value; break;
+        case "agentHpRegen": this.agentHpRegen += eff.value; break;
+        case "comboDecayExtend": this.comboDecayExtend += eff.value; break;
+        case "pierceAll": this.pierceAll = true; break;
+        case "firstHitFree": this.firstHitFreeConsumed = false; break;
+        case "reviveOnce": this.reviveOnceAvailable = true; break;
+        default: break;
+      }
+    }
+    // 应用开局能量
+    if (startEnergy > 0) this.energy = Math.max(this.energy, Math.min(100, startEnergy));
+    // 应用开局基地护盾
+    if (startShield > 0) this.baseShield = Math.max(this.baseShield, this.base.max * startShield);
+    // 应用额外升级次数（扩展 upgradeMax 上限）
+    if (extraUpgrade > 0) this.upgradeMaxCountBonus = extraUpgrade;
+    // 连击衰减延长
+    if (this.comboDecayExtend > 0) {
+      this.combo.decaySec = COMBO_CONFIG.decaySec + this.comboDecayExtend;
     }
   }
 
@@ -366,19 +536,183 @@ export class ManagerEngine extends GameEngine {
       const def = getAgent(slot.agentId);
       if (!def) continue;
       const pt = cellCenter(slot.col, slot.row);
-      this.agents.push({
+      // v6：创建 def 副本以应用天赋/装备加成（避免污染共享 AGENTS 定义）
+      const effectiveDef: AgentDef = { ...def };
+      const agent: DeployedAgent = {
         id: slot.agentId,
-        def,
+        def: effectiveDef,
         row: slot.row,
         col: slot.col,
         x: pt.x,
         y: pt.y,
-        hp: def.hp,
-        maxHp: def.hp,
+        hp: effectiveDef.hp,
+        maxHp: effectiveDef.hp,
         alive: true,
         cooldown: 0,
         flashUntil: 0,
-      });
+      };
+      // v6：应用天赋树 + 装备效果（修改 effectiveDef 与 agent 加成字段）
+      this.applyAgentProgression(agent);
+      this.agents.push(agent);
+    }
+
+    // v6：初始化技能链（基于已部署探员组合）
+    const deployedIds = this.agents.map((a) => a.id);
+    const links = activeSkillLinks(deployedIds);
+    this.activeSkillLinkStates = links.map((link) => ({ link, lastTriggeredAt: -Infinity }));
+    // onDeploy 触发：部署时立即触发一次
+    for (const state of this.activeSkillLinkStates) {
+      if (state.link.trigger.kind === "onDeploy") {
+        this.triggerSkillLink(state);
+      }
+    }
+  }
+
+  // ====================================================================
+  // v6：天赋树 + 装备效果应用
+  // ====================================================================
+
+  /** 对单个探员应用已解锁层级的天赋效果 + 装备效果 */
+  private applyAgentProgression(agent: DeployedAgent): void {
+    const def = agent.def;
+    let attackFlat = 0;
+    let attackPct = 0;
+    let hpFlat = 0;
+    let hpPct = 0;
+    let rangePct = 0;
+    let fireratePct = 0;
+    let bonusCritRate = 0;
+    let bonusCritDmg = 0;
+    const bonusElementDmg: Partial<Record<Element, number>> = {};
+    let ultChargeMul = 1;
+    let ultPowerMul = 1;
+
+    // 天赋树：遍历已解锁层级
+    const talents = this.agentTalentsMap[agent.id];
+    if (talents) {
+      const tree = getTalentTree(agent.id);
+      if (tree) {
+        for (const branch of ["offense", "defense", "support"] as TalentBranch[]) {
+          const unlockedTier = talents[branch] ?? 0;
+          if (unlockedTier <= 0) continue;
+          const nodes = tree.branches[branch];
+          for (const node of nodes) {
+            if (node.tier > unlockedTier) break;
+            this.applyTalentEffect(node.effect, {
+              addAttackFlat: (v) => { attackFlat += v; },
+              addAttackPct: (v) => { attackPct += v; },
+              addHpFlat: (v) => { hpFlat += v; },
+              addHpPct: (v) => { hpPct += v; },
+              addRangePct: (v) => { rangePct += v; },
+              addFireratePct: (v) => { fireratePct += v; },
+              addCritRate: (v) => { bonusCritRate += v; },
+              addCritDmg: (v) => { bonusCritDmg += v; },
+              addElementBonus: (el, v) => { bonusElementDmg[el] = (bonusElementDmg[el] ?? 0) + v; },
+              mulUltCharge: (v) => { ultChargeMul *= v; },
+              mulUltPower: (v) => { ultPowerMul *= v; },
+            });
+          }
+        }
+      }
+    }
+
+    // 装备效果
+    const equipId = this.agentEquipmentMap[agent.id];
+    if (equipId) {
+      const equip = getEquipment(equipId);
+      if (equip && (!equip.agentId || equip.agentId === agent.id)) {
+        this.applyEquipmentEffect(equip.effect, {
+          addAttackFlat: (v) => { attackFlat += v; },
+          addAttackPct: (v) => { attackPct += v; },
+          addHpFlat: (v) => { hpFlat += v; },
+          addCritRate: (v) => { bonusCritRate += v; },
+          addCritDmg: (v) => { bonusCritDmg += v; },
+          addRangeFlat: (v) => { def.range = Math.max(0, def.range + v); },
+          addFireratePct: (v) => { fireratePct += v; },
+          addSplash: (v) => { def.splash = (def.splash ?? 0) + v; },
+          addPierce: (v) => { void v; /* 装备穿透在 fireProjectile 中按需读取 */ },
+          addLifesteal: (v) => { void v; /* 装备吸血暂不实现独立逻辑 */ },
+          addSlowOnHit: (v, dur) => { void v; void dur; /* 装备减速命中暂不实现独立逻辑 */ },
+        });
+      }
+    }
+
+    // 汇总应用到 effectiveDef
+    def.attack = Math.max(0, (def.attack + attackFlat) * (1 + attackPct));
+    def.hp = Math.max(1, (def.hp + hpFlat) * (1 + hpPct));
+    def.range = Math.max(0, def.range * (1 + rangePct));
+    def.fireRate = Math.max(0.01, def.fireRate * (1 + fireratePct));
+    agent.hp = def.hp;
+    agent.maxHp = def.hp;
+    if (bonusCritRate > 0) agent.bonusCritRate = bonusCritRate;
+    if (bonusCritDmg > 0) agent.bonusCritDmg = bonusCritDmg;
+    if (Object.keys(bonusElementDmg).length > 0) agent.bonusElementDmg = bonusElementDmg;
+    if (ultChargeMul !== 1) agent.ultChargeMul = ultChargeMul;
+    if (ultPowerMul !== 1) agent.ultPowerMul = ultPowerMul;
+  }
+
+  /** 天赋效果分发器 */
+  private applyTalentEffect(
+    eff: TalentTree["branches"]["offense"][number]["effect"],
+    cb: {
+      addAttackFlat: (v: number) => void;
+      addAttackPct: (v: number) => void;
+      addHpFlat: (v: number) => void;
+      addHpPct: (v: number) => void;
+      addRangePct: (v: number) => void;
+      addFireratePct: (v: number) => void;
+      addCritRate: (v: number) => void;
+      addCritDmg: (v: number) => void;
+      addElementBonus: (el: Element, v: number) => void;
+      mulUltCharge: (v: number) => void;
+      mulUltPower: (v: number) => void;
+    },
+  ): void {
+    switch (eff.kind) {
+      case "attackFlat": cb.addAttackFlat(eff.value); break;
+      case "attackPct": cb.addAttackPct(eff.value); break;
+      case "hpFlat": cb.addHpFlat(eff.value); break;
+      case "hpPct": cb.addHpPct(eff.value); break;
+      case "rangePct": cb.addRangePct(eff.value); break;
+      case "fireratePct": cb.addFireratePct(eff.value); break;
+      case "critRate": cb.addCritRate(eff.value); break;
+      case "critDmg": cb.addCritDmg(eff.value); break;
+      case "elementBonus": cb.addElementBonus(eff.element, eff.value); break;
+      case "ultChargeMul": cb.mulUltCharge(eff.value); break;
+      case "ultPowerMul": cb.mulUltPower(eff.value); break;
+      case "cooldownReduce": break; // 战术装置冷却缩减在 placeTacticalDevice 中读取
+    }
+  }
+
+  /** 装备效果分发器 */
+  private applyEquipmentEffect(
+    eff: EquipmentDef["effect"],
+    cb: {
+      addAttackFlat: (v: number) => void;
+      addAttackPct: (v: number) => void;
+      addHpFlat: (v: number) => void;
+      addCritRate: (v: number) => void;
+      addCritDmg: (v: number) => void;
+      addRangeFlat: (v: number) => void;
+      addFireratePct: (v: number) => void;
+      addSplash: (v: number) => void;
+      addPierce: (v: number) => void;
+      addLifesteal: (v: number) => void;
+      addSlowOnHit: (v: number, dur: number) => void;
+    },
+  ): void {
+    switch (eff.kind) {
+      case "attackFlat": cb.addAttackFlat(eff.value); break;
+      case "attackPct": cb.addAttackPct(eff.value); break;
+      case "hpFlat": cb.addHpFlat(eff.value); break;
+      case "critRate": cb.addCritRate(eff.value); break;
+      case "critDmg": cb.addCritDmg(eff.value); break;
+      case "rangeFlat": cb.addRangeFlat(eff.value); break;
+      case "fireratePct": cb.addFireratePct(eff.value); break;
+      case "splash": cb.addSplash(eff.value); break;
+      case "pierce": cb.addPierce(eff.value); break;
+      case "lifesteal": cb.addLifesteal(eff.value); break;
+      case "slowOnHit": cb.addSlowOnHit(eff.value, eff.duration); break;
     }
   }
 
@@ -412,6 +746,209 @@ export class ManagerEngine extends GameEngine {
       };
       // v6：移除每波 flash（战斗中波次密集时累积闪屏），改为边缘粒子提示
       this.particles.spawnBurst(W / 2, 40, ACCENT, { ring: true, sparks: 10, dots: 12, speed: 180, life: 0.6, size: 3 });
+    }
+  }
+
+  /**
+   * v7：爬塔模式 — 启动指定楼层的波次
+   * - BOSS 层（每 10 层）：生成楼层对应 BOSS
+   * - 普通层：生成 1-3 波普通敌人（按楼层难度）
+   */
+  private startTowerFloor(floor: number, prepSec: number): void {
+    this.towerFloor = floor;
+    const tf = getTowerFloor(floor);
+    this.wave = floor - 1;
+    this.waveActive = false;
+    this.prepUntil = this.t + prepSec;
+    this.spawnQueue = [];
+
+    if (tf.isBoss && tf.bossId) {
+      // BOSS 层：复用 bossRush 的 BOSS 生成逻辑
+      const boss = BOSS_RUSH_BOSSES.find((b) => b.id === tf.bossId);
+      if (boss) {
+        this.currentBoss = boss;
+        this.bossPhaseName = "";
+        this.spawnQueue.push({
+          typeId: `__boss__:${boss.id}`,
+          lane: 1,
+          at: this.prepUntil,
+          spawned: false,
+        });
+        this.toast = {
+          text: `第 ${floor} 层 BOSS：${boss.name} — ${boss.skillDesc}`,
+          tone: "bad",
+          until: this.t + 3,
+        };
+        postFX.flash("#E5353B", 0.35, 1.8);
+        this.particles.spawnBurst(W / 2, H / 2, "#E5353B", { ring: true, sparks: 20, dots: 24, speed: 280, life: 0.9, size: 4 });
+      }
+    } else {
+      // 普通层：从 WAVES 池中取一波，应用楼层倍率（spawnEnemy 中处理）
+      const waveIdx = (floor - 1) % WAVES.length;
+      const wave = WAVES[waveIdx];
+      if (wave) {
+        for (const entry of wave.enemies) {
+          for (let i = 0; i < entry.count; i++) {
+            this.spawnQueue.push({
+              typeId: entry.typeId,
+              lane: entry.lane,
+              at: this.prepUntil + (entry.delay + i * entry.interval),
+              spawned: false,
+            });
+          }
+        }
+      }
+      this.toast = {
+        text: `第 ${floor} 层 · ${tf.name}`,
+        tone: "info",
+        until: this.t + 2.5,
+      };
+    }
+  }
+
+  /** v7：爬塔模式 — 楼层推进（波次清空后调用） */
+  private advanceTowerFloor(): void {
+    const nextFloor = this.towerFloor + 1;
+    if (nextFloor > TOWER_MAX_FLOOR) {
+      this.win();
+      return;
+    }
+    const tf = getTowerFloor(nextFloor);
+    // v7：每 5 层（非 BOSS 层）触发 Roguelike 事件
+    if (tf.hasReward && !tf.isBoss) {
+      const evt = TOWER_EVENTS.find((e) => e.floor === nextFloor);
+      if (evt) {
+        this.pendingTowerEvent = evt;
+        this.emitHud();
+        return; // 等待玩家选择后再推进
+      }
+    }
+    // v7：检查楼层里程碑口诀解锁
+    this.checkTermUnlocksForTowerFloor(nextFloor);
+    this.startTowerFloor(nextFloor, 2);
+  }
+
+  /**
+   * v7：爬塔事件 — 玩家选择选项后调用
+   * 应用选项后果，清除 pendingTowerEvent，推进到下一层
+   */
+  resolveTowerEvent(optionId: string): void {
+    const evt = this.pendingTowerEvent;
+    if (!evt) return;
+    const option = evt.options.find((o) => o.id === optionId);
+    if (!option) return;
+
+    // 记录选择到元进度
+    platformStore.recordTowerEventChoice(evt.floor, optionId);
+
+    // 应用后果
+    this.applyTowerEventOutcome(option.outcome);
+
+    // 清除事件状态
+    this.pendingTowerEvent = null;
+
+    // 推进到下一层
+    const nextFloor = this.towerFloor + 1;
+    if (nextFloor > TOWER_MAX_FLOOR) {
+      this.win();
+      return;
+    }
+    this.checkTermUnlocksForTowerFloor(nextFloor);
+    this.startTowerFloor(nextFloor, 1.5);
+    this.emitHud();
+  }
+
+  /** v7：应用爬塔事件后果 */
+  private applyTowerEventOutcome(outcome: TowerEventOutcome): void {
+    switch (outcome.kind) {
+      case "coins":
+        this.score += outcome.value;
+        this.floats.push({
+          x: W / 2, y: H / 2 - 40, text: `+${outcome.value} 金币`,
+          color: "#FFD666", life: 1.5, maxLife: 1.5, size: 18,
+        });
+        break;
+      case "intel":
+        this.score += outcome.value * 20;
+        this.floats.push({
+          x: W / 2, y: H / 2 - 40, text: `+${outcome.value} 情报`,
+          color: "#00E5FF", life: 1.5, maxLife: 1.5, size: 18,
+        });
+        break;
+      case "hp":
+        this.base.hp = Math.max(1, Math.min(this.base.max, this.base.hp + outcome.value));
+        this.floats.push({
+          x: W / 2, y: H / 2 - 40,
+          text: outcome.value > 0 ? `+${outcome.value} 基地血量` : `${outcome.value} 基地血量`,
+          color: outcome.value > 0 ? "#52C41A" : "#E5353B", life: 1.5, maxLife: 1.5, size: 18,
+        });
+        break;
+      case "energy":
+        this.energy = Math.min(100, this.energy + outcome.value);
+        this.floats.push({
+          x: W / 2, y: H / 2 - 40, text: `+${outcome.value} 能量`,
+          color: "#FFB020", life: 1.5, maxLife: 1.5, size: 18,
+        });
+        break;
+      case "score":
+        this.score += outcome.value;
+        this.floats.push({
+          x: W / 2, y: H / 2 - 40, text: `+${outcome.value} 分`,
+          color: "#FFD666", life: 1.5, maxLife: 1.5, size: 18,
+        });
+        break;
+      case "relic": {
+        const relic = getRelic(outcome.relicId);
+        if (relic) {
+          this.equippedRelics.push(relic.id);
+          // 内联应用遗物效果（与 initMetaProgression 一致）
+          const eff = relic.effect;
+          switch (eff.kind) {
+            case "startEnergy": this.energy = Math.min(100, this.energy + eff.value); break;
+            case "startShield": this.baseShield = Math.max(this.baseShield, this.base.max * eff.value); break;
+            case "extraUpgrade": this.upgradeMaxCountBonus += eff.value; break;
+            case "energyRegenMul": this.energyRegenMul *= eff.value; break;
+            case "scoreMul": this.scoreMul *= eff.value; break;
+            case "coinMul": this.coinMul *= eff.value; break;
+            case "agentHpRegen": this.agentHpRegen += eff.value; break;
+            case "comboDecayExtend":
+              this.comboDecayExtend += eff.value;
+              this.combo.decaySec = COMBO_CONFIG.decaySec + this.comboDecayExtend;
+              break;
+            case "pierceAll": this.pierceAll = true; break;
+            case "firstHitFree": this.firstHitFreeConsumed = false; break;
+            case "reviveOnce": this.reviveOnceAvailable = true; break;
+            default: break;
+          }
+          this.toast = { text: `获得遗物：${relic.name}`, tone: "good", until: this.t + 3 };
+        }
+        break;
+      }
+      case "codex":
+        platformStore.unlockCodexEntry(outcome.codexId, "case");
+        this.toast = { text: `图鉴解锁`, tone: "good", until: this.t + 2.5 };
+        break;
+      case "case": {
+        const realCase = getCaseById(outcome.caseId);
+        if (realCase) {
+          platformStore.unlockCase(realCase.id);
+          this.toast = { text: `案例解锁：${realCase.title}`, tone: "good", until: this.t + 3 };
+        }
+        break;
+      }
+      case "term": {
+        if (platformStore.collectTerm(outcome.termIdx)) {
+          const term = MAZE_TERMS[outcome.termIdx] ?? `口诀 ${outcome.termIdx}`;
+          this.floats.push({
+            x: W / 2, y: H / 2 - 60, text: `📜 收集口诀：${term}`,
+            color: "#FFD666", life: 2.2, maxLife: 2.2, size: 16,
+          });
+        }
+        break;
+      }
+      case "skip":
+        // 无效果
+        break;
     }
   }
 
@@ -621,6 +1158,10 @@ export class ManagerEngine extends GameEngine {
     } else if (this.mode === "endlessRush") {
       const s = endlessScaling(this.endlessAbsWave);
       hpMul = s.hpMul; speedMul = s.speedMul; dmgMul = s.dmgMul; rewardMul = s.rewardMul;
+    } else if (this.mode === "tower") {
+      // v7：爬塔模式 — 按当前层数应用难度倍率
+      const tf = getTowerFloor(this.towerFloor);
+      hpMul = tf.hpMul; speedMul = tf.speedMul; dmgMul = tf.dmgMul; rewardMul = tf.rewardMul;
     }
     if (this.mode === "timeTrial") {
       speedMul = 1.15;
@@ -734,7 +1275,16 @@ export class ManagerEngine extends GameEngine {
       case "healShield": this.ultHealShield(ultDef.value); break;
       case "critBuff": this.ultCritBuff(ultDef.value, ultDef.duration ?? 5); break;
       case "assassinate": this.ultAssassinate(ultAgent, ultDef.value); break;
+      // v6 新增大招
+      case "summon": this.ultSummon(ultAgent, ultDef.value, ultDef.duration ?? 8); break;
+      case "freeze": this.ultFreeze(ultDef.duration ?? 2); break;
+      case "timeWarp": this.ultTimeWarp(ultDef.duration ?? 4); break;
+      case "shieldWall": this.ultShieldWall(ultDef.value); break;
     }
+
+    // v6：记录大招使用到 platformStore + onUlt 技能链触发
+    platformStore.recordUltUsed();
+    this.checkSkillLinksOnUlt(ultAgent.id);
 
     // v5：大招名称浮字 —— 双层描边效果（先画阴影层再画主层）
     this.floats.push({
@@ -852,6 +1402,390 @@ export class ManagerEngine extends GameEngine {
   }
 
   // ====================================================================
+  // v6 新大招：summon / freeze / timeWarp / shieldWall
+  // ====================================================================
+
+  /** 召唤：创建一个临时探员（属性 = 主战探员 × value），duration 秒后消失 */
+  private ultSummon(agent: DeployedAgent, value: number, duration: number): void {
+    const summonDef: AgentDef = {
+      ...agent.def,
+      id: `${agent.id}_summon`,
+      name: `${agent.def.name}(召唤)`,
+      attack: Math.max(0, agent.def.attack * value),
+      hp: Math.max(1, agent.def.hp * value),
+    };
+    const ox = (Math.random() - 0.5) * 40;
+    const oy = (Math.random() - 0.5) * 40;
+    this.agents.push({
+      id: summonDef.id,
+      def: summonDef,
+      row: agent.row,
+      col: agent.col,
+      x: agent.x + ox,
+      y: agent.y + oy,
+      hp: summonDef.hp,
+      maxHp: summonDef.hp,
+      alive: true,
+      cooldown: 0,
+      flashUntil: 0,
+      summonUntil: this.t + duration,
+    });
+    this.particles.spawnBurst(agent.x + ox, agent.y + oy, agent.def.color, { ring: true, sparks: 20, dots: 24, speed: 260, life: 0.8, size: 4 });
+    playSfx("good");
+  }
+
+  /** 冰冻：全场敌人冻结（无法移动），持续 duration 秒 */
+  private ultFreeze(duration: number): void {
+    for (const e of this.enemies) {
+      e.frozenUntil = this.t + duration;
+      e.slowUntil = this.t + duration;
+      this.particles.spawnBurst(e.x, e.y, "#B388FF", { sparks: 8, dots: 8, speed: 120, life: 0.6, size: 3 });
+    }
+    playSfx("timeSlow");
+  }
+
+  /** 时间扭曲：敌人时间减慢 50%，持续 duration 秒 */
+  private ultTimeWarp(duration: number): void {
+    this.timeWarpUntil = this.t + duration;
+    playSfx("timeSlow");
+  }
+
+  /** 盾墙：所有探员获得 maxHp × value 的临时护盾 */
+  private ultShieldWall(value: number): void {
+    for (const a of this.agents) {
+      if (!a.alive) continue;
+      const shield = Math.max(0, a.maxHp * value);
+      a.shieldUntil = this.t + 9999; // 持续到被消耗
+      a.shieldValue = (a.shieldValue ?? 0) + shield;
+      this.particles.spawnBurst(a.x, a.y, "#A8E6CF", { ring: true, sparks: 12, dots: 14, speed: 180, life: 0.8, size: 3 });
+    }
+    playSfx("shieldBreak");
+  }
+
+  // ====================================================================
+  // v6 Phase 2.1：战术装置 + 战术暂停 + 元素反应
+  // ====================================================================
+
+  /** 放置战术装置（检查冷却 + 实例化 + 触发效果），返回是否放置成功 */
+  placeTacticalDevice(kind: TacticalDeviceKind, x: number, y: number): boolean {
+    if (this.over) return false;
+    // challenge 模式 noDevices 词缀禁用
+    if (this.hasAffix("noDevices")) return false;
+    const def = TACTICAL_DEVICES.find((d) => d.kind === kind);
+    if (!def) return false;
+    if (this.t < (this.deviceCooldowns[kind] ?? 0)) return false;
+    // 计算冷却（含天赋 cooldownReduce）
+    const cdReduce = this.cooldownReduceTotal();
+    const cooldown = Math.max(0, def.cooldown * (1 - cdReduce));
+    this.deviceCooldowns[kind] = this.t + cooldown;
+    const placedAt = this.t;
+    const cooldownUntil = this.deviceCooldowns[kind];
+    this.tacticalDevices.push({ kind, x, y, placedAt, cooldownUntil });
+    // 立即触发效果
+    this.applyTacticalDeviceEffect(def, x, y);
+    this.particles.spawnBurst(x, y, def.color, { ring: true, sparks: 16, dots: 18, speed: 220, life: 0.8, size: 4 });
+    this.emitHud();
+    return true;
+  }
+
+  /** 切换战术暂停（每局 1 次，8 秒慢动作 0.3x），返回是否激活 */
+  toggleTacticalPause(): boolean {
+    if (this.over || this.tacticalPauseRemaining <= 0) return false;
+    if (this.hasAffix("noPause")) return false;
+    this.tacticalPauseRemaining -= 1;
+    this.tacticalPauseUntil = this.t + 8;
+    postFX.flash("#00E5FF", 0.35, 1.8);
+    this.particles.spawnBurst(W / 2, H / 2, "#00E5FF", { ring: true, sparks: 24, dots: 28, speed: 320, life: 1.0, size: 5 });
+    this.emitHud();
+    return true;
+  }
+
+  /** 应用单个战术装置的即时/持续效果 */
+  private applyTacticalDeviceEffect(def: TacticalDeviceDef, x: number, y: number): void {
+    const eff = def.effect;
+    const radius = def.radius;
+    if (eff.kind === "slow") {
+      for (const e of this.enemies) {
+        if (Math.hypot(e.x - x, e.y - y) <= radius) {
+          e.slowUntil = Math.max(e.slowUntil, this.t + def.duration);
+        }
+      }
+    } else if (eff.kind === "stun") {
+      for (const e of this.enemies) {
+        if (Math.hypot(e.x - x, e.y - y) <= radius) {
+          e.frozenUntil = Math.max(e.frozenUntil ?? 0, this.t + eff.duration);
+          e.slowUntil = Math.max(e.slowUntil, this.t + eff.duration);
+        }
+      }
+    }
+    // taunt 效果在 updateTacticalDevices 中持续重定向敌人目标
+  }
+
+  /** 更新战术装置：到期移除 + 嘲讽目标重定向 */
+  private updateTacticalDevices(dt: number): void {
+    void dt;
+    for (let i = this.tacticalDevices.length - 1; i >= 0; i--) {
+      const dev = this.tacticalDevices[i];
+      const def = TACTICAL_DEVICES.find((d) => d.kind === dev.kind);
+      if (!def) { this.tacticalDevices.splice(i, 1); continue; }
+      if (this.t - dev.placedAt >= def.duration) {
+        this.tacticalDevices.splice(i, 1);
+        continue;
+      }
+      // decoy 嘲讽：范围内敌人改向诱饵移动
+      if (def.effect.kind === "taunt") {
+        for (const e of this.enemies) {
+          if (Math.hypot(e.x - dev.x, e.y - dev.y) <= def.radius) {
+            const dx = dev.x - e.x;
+            const dy = dev.y - e.y;
+            const dist = Math.hypot(dx, dy) || 1;
+            const step = Math.min(dist, e.def.speed * 0.016);
+            e.x += (dx / dist) * step;
+            e.y += (dy / dist) * step;
+          }
+        }
+      }
+    }
+  }
+
+  /** 检测并触发元素反应（基于当前部署探员的元素分布） */
+  private detectAndTriggerElementReactions(): void {
+    const agentElements = this.agents
+      .filter((a) => a.alive && !a.summonUntil)
+      .map((a) => a.def.element);
+    if (agentElements.length === 0) return;
+    const triggered = detectElementReactions(agentElements);
+    // 移除已过期且不在新触发列表中的反应
+    this.elementReactions = this.elementReactions.filter((r) => {
+      const expired = this.t - r.activatedAt >= r.def.duration;
+      if (expired) return false;
+      return true;
+    });
+    // 新增未激活的反应
+    for (const def of triggered) {
+      const alreadyActive = this.elementReactions.some((r) => r.def.kind === def.kind);
+      if (alreadyActive) continue;
+      // 计算反应中心点（默认最强敌人位置，无敌人时屏幕中心）
+      let cx = W / 2, cy = H / 2;
+      let strongest: Enemy | null = null;
+      for (const e of this.enemies) {
+        if (!strongest || e.hp > strongest.hp) strongest = e;
+      }
+      if (strongest) { cx = strongest.x; cy = strongest.y; }
+      this.elementReactions.push({ def, activatedAt: this.t, x: cx, y: cy });
+      this.applyElementReaction(def, cx, cy);
+    }
+  }
+
+  /** 应用单个元素反应的场地效果 */
+  private applyElementReaction(def: ElementReactionDef, x: number, y: number): void {
+    const eff = def.effect;
+    switch (eff.kind) {
+      case "agentInvuln":
+        for (const a of this.agents) {
+          if (a.alive) a.invulnUntil = this.t + eff.duration;
+        }
+        break;
+      case "enemyStun": {
+        for (const e of this.enemies) {
+          if (Math.hypot(e.x - x, e.y - y) <= eff.radius) {
+            e.frozenUntil = Math.max(e.frozenUntil ?? 0, this.t + eff.duration);
+            e.slowUntil = Math.max(e.slowUntil, this.t + eff.duration);
+          }
+        }
+        break;
+      }
+      case "enemySlow":
+        for (const e of this.enemies) {
+          e.slowUntil = Math.max(e.slowUntil, this.t + eff.duration);
+        }
+        break;
+      case "enemyBurn":
+        // 持续灼烧在 updateEnemies 中按帧应用（此处仅记录）
+        break;
+      case "enemyChain":
+        // 受伤加深在 applyHit 中读取 elementReactions 判断
+        break;
+      case "damageBoost":
+        this.damageBoostUntil = this.t + eff.duration;
+        this.damageBoostMul = eff.mul;
+        break;
+    }
+    this.particles.spawnBurst(x, y, def.color, { ring: true, sparks: 20, dots: 24, speed: 280, life: 0.9, size: 4 });
+    this.floats.push({ x, y: y - 20, text: def.name + "！", color: def.color, life: 1.0, maxLife: 1.0, size: 16 });
+  }
+
+  // ====================================================================
+  // v6 Phase 2.2：技能链触发 + 战间答题
+  // ====================================================================
+
+  /** 触发技能链（检查冷却 + 应用效果） */
+  private triggerSkillLink(state: { link: SkillLink; lastTriggeredAt: number }): void {
+    if (this.t - state.lastTriggeredAt < state.link.cooldown) return;
+    state.lastTriggeredAt = this.t;
+    this.applySkillLinkEffect(state.link);
+    this.particles.spawnBurst(W / 2, H / 2 - 40, state.link.color, { ring: true, sparks: 18, dots: 22, speed: 260, life: 0.9, size: 4 });
+    this.floats.push({
+      x: W / 2, y: H / 2 - 60, text: state.link.emoji + " " + state.link.name,
+      color: state.link.color, life: 1.4, maxLife: 1.4, size: 18,
+    });
+    this.emitHud();
+  }
+
+  /** 应用技能链效果 */
+  private applySkillLinkEffect(link: SkillLink): void {
+    const eff = link.effect;
+    switch (eff.kind) {
+      case "aoe": {
+        let strongest: Enemy | null = null;
+        for (const e of this.enemies) {
+          if (!strongest || e.hp > strongest.hp) strongest = e;
+        }
+        if (!strongest) return;
+        const baseDmg = this.agents.filter((a) => a.alive).reduce((s, a) => s + a.def.attack, 0) * eff.dmgMul;
+        const cx = strongest.x, cy = strongest.y;
+        for (const e of this.enemies) {
+          if (Math.hypot(e.x - cx, e.y - cy) <= eff.radius) {
+            e.hp -= baseDmg;
+            this.particles.spawnBurst(e.x, e.y, link.color, { sparks: 8, dots: 6, speed: 160, life: 0.5, size: 3 });
+          }
+        }
+        this.particles.spawnBurst(cx, cy, link.color, { shockwave: true, ring: true, sparks: 24, dots: 30, speed: 320, life: 0.9, size: 4 });
+        break;
+      }
+      case "healAll": {
+        for (const a of this.agents) {
+          if (a.alive) {
+            a.hp = Math.min(a.maxHp, a.hp + a.maxHp * eff.ratio);
+            this.particles.spawnBurst(a.x, a.y, "#52C41A", { sparks: 8, dots: 10, speed: 140, life: 0.6, size: 3 });
+          }
+        }
+        break;
+      }
+      case "buff": {
+        this.damageBoostUntil = Math.max(this.damageBoostUntil, this.t + eff.duration);
+        this.damageBoostMul = Math.max(this.damageBoostMul, 1 + eff.attackPct);
+        break;
+      }
+      case "debuff": {
+        for (const e of this.enemies) {
+          e.slowUntil = Math.max(e.slowUntil, this.t + eff.duration);
+        }
+        break;
+      }
+      case "energy": {
+        this.energy = clamp(this.energy + eff.value, 0, 100);
+        break;
+      }
+    }
+  }
+
+  /** 检查 onKill/onCombo 触发的技能链 */
+  private checkSkillLinksOnKill(agentId: string): void {
+    for (const state of this.activeSkillLinkStates) {
+      const trig = state.link.trigger;
+      if (trig.kind === "onKill" && trig.agentId === agentId) {
+        this.triggerSkillLink(state);
+      }
+      if (trig.kind === "onCombo" && this.combo.count >= trig.count) {
+        this.triggerSkillLink(state);
+      }
+    }
+  }
+
+  /** 检查 onUlt 触发的技能链 */
+  private checkSkillLinksOnUlt(agentId: string): void {
+    for (const state of this.activeSkillLinkStates) {
+      const trig = state.link.trigger;
+      if (trig.kind === "onUlt" && trig.agentId === agentId) {
+        this.triggerSkillLink(state);
+      }
+    }
+  }
+
+  /** 战间答题：波次结束时检查是否需要出题（每 5 波） */
+  private checkQuizOnWaveEnd(clearedWave: number): void {
+    if (clearedWave > 0 && clearedWave % 5 === 0 && !this.pendingQuiz) {
+      const seed = this.dailySeed || "default";
+      // v7：自适应答题 — 优先重练错题（连续错误 ≥ 2 次）
+      const wrongRecords = platformStore.managerMetaProgress().quizWrongRecords;
+      const { question, isRetry } = pickAdaptiveQuiz(
+        (w, s) => pickQuiz(w, s),
+        wrongRecords,
+        clearedWave,
+        seed,
+      );
+      this.pendingQuiz = question;
+      this.pendingQuizIsRetry = isRetry;
+      this.emitHud();
+    }
+  }
+
+  /** 提交答题答案，返回是否正确 */
+  answerQuiz(optionIdx: number): boolean {
+    if (!this.pendingQuiz) return false;
+    const quiz = this.pendingQuiz;
+    const correct = optionIdx === quiz.correctIdx;
+    this.pendingQuiz = null;
+    if (correct) {
+      this.quizCorrectCount += 1;
+      // 答对应用 buff：攻击 +20% 持续 15s 或 +30 能量（取能量较低时给能量）
+      if (this.energy < 50) {
+        this.energy = clamp(this.energy + 30, 0, 100);
+      } else {
+        this.quizBuffUntil = this.t + 15;
+        this.quizBuff = { attackPct: 0.2 };
+      }
+      this.floats.push({ x: W / 2, y: H / 2, text: "✓ 答对！获得反诈 buff", color: "#52C41A", life: 1.6, maxLife: 1.6, size: 18 });
+      this.particles.spawnBurst(W / 2, H / 2, "#52C41A", { ring: true, sparks: 20, dots: 24, speed: 280, life: 0.9, size: 4 });
+    } else {
+      this.floats.push({ x: W / 2, y: H / 2, text: "✗ 答错：" + quiz.explanation.slice(0, 24), color: "#E5353B", life: 1.8, maxLife: 1.8, size: 14 });
+    }
+    // 记录到 platformStore（v7：同时维护错题记录）
+    platformStore.recordQuizAnswerV7(correct, quiz.id);
+    this.pendingQuizIsRetry = false;
+    this.emitHud();
+    return correct;
+  }
+
+  // ====================================================================
+  // v6 Phase 2.3 辅助：遗物/词缀查询
+  // ====================================================================
+
+  /** 当前是否激活某极限词缀 */
+  private hasAffix(id: string): boolean {
+    return this.challengeAffixes.some((a) => a.id === id);
+  }
+
+  /** 当前是否装备了指定效果类型的遗物 */
+  private hasRelicEffect(kind: string): boolean {
+    for (const relicId of this.equippedRelics) {
+      const relic = getRelic(relicId);
+      if (relic && relic.effect.kind === kind) return true;
+    }
+    return false;
+  }
+
+  /** 战术装置冷却缩减总和（来自天赋 cooldownReduce） */
+  private cooldownReduceTotal(): number {
+    let total = 0;
+    for (const a of this.agents) {
+      const talents = this.agentTalentsMap[a.id];
+      if (!talents) continue;
+      const tree = getTalentTree(a.id);
+      if (!tree) continue;
+      for (const branch of ["offense", "defense", "support"] as TalentBranch[]) {
+        const tier = talents[branch] ?? 0;
+        for (const node of tree.branches[branch]) {
+          if (node.tier > tier) break;
+          if (node.effect.kind === "cooldownReduce") total += node.effect.value;
+        }
+      }
+    }
+    return Math.min(0.8, total);
+  }
+
+  // ====================================================================
   // 主更新循环
   // ====================================================================
 
@@ -901,7 +1835,20 @@ export class ManagerEngine extends GameEngine {
       }
       const allSpawned = this.spawnQueue.every((s) => s.spawned);
       if (allSpawned && this.enemies.length === 0) {
+        // v6：战间答题 —— 暂停波次推进直到答题完成
+        if (this.pendingQuiz) {
+          this.emitHud();
+          return;
+        }
+        // v7：爬塔事件 —— 暂停波次推进直到玩家选择
+        if (this.pendingTowerEvent) {
+          this.emitHud();
+          return;
+        }
         if (this.mode === "bossRush") {
+          // v6：战间答题（bossRush 按 bossIdx 计）
+          this.checkQuizOnWaveEnd(this.bossIdx + 1);
+          if (this.pendingQuiz) { this.emitHud(); return; }
           if (this.bossIdx + 1 < BOSS_RUSH_BOSSES.length) {
             this.startBossWave(this.bossIdx + 1, 2.5);
           } else {
@@ -909,9 +1856,19 @@ export class ManagerEngine extends GameEngine {
             return;
           }
         } else if (this.mode === "endlessRush") {
+          this.checkQuizOnWaveEnd(this.endlessAbsWave + 1);
+          if (this.pendingQuiz) { this.emitHud(); return; }
           this.startEndlessWave(this.endlessAbsWave + 1, 2);
+        } else if (this.mode === "tower") {
+          // v7：爬塔模式 — 楼层推进
+          this.checkQuizOnWaveEnd(this.towerFloor);
+          if (this.pendingQuiz) { this.emitHud(); return; }
+          this.advanceTowerFloor();
         } else if (this.mode === "classic" || this.mode === "daily") {
           const clearedWave = this.wave + 1;
+          // v6：战间答题
+          this.checkQuizOnWaveEnd(clearedWave);
+          if (this.pendingQuiz) { this.emitHud(); return; }
           const currentLevel = LEVELS[this.level - 1];
           if (this.level < this.maxLevel && clearedWave >= currentLevel.targetWave) {
             this.advanceLevel();
@@ -925,8 +1882,14 @@ export class ManagerEngine extends GameEngine {
       }
     }
 
-    // v5：BOSS 击杀慢动作期间，游戏 dt 缩放（粒子/飘字/连击衰减用原始 dt）
-    const gdt = this.gameDt(dt);
+    // v6：战术暂停 / 时间扭曲 —— 游戏逻辑减速（UI/粒子不减速）
+    let gdt = this.gameDt(dt);
+    if (this.t < this.tacticalPauseUntil) gdt *= 0.3;
+    if (this.t < this.timeWarpUntil) gdt *= 0.5;
+    // v6：更新战术装置（嘲讽重定向 + 到期移除）
+    this.updateTacticalDevices(gdt);
+    // v6：检测元素反应（基于部署探员元素分布）
+    this.detectAndTriggerElementReactions();
     this.updateEnemies(gdt);
     this.updateBossLogic(gdt);
     this.updateAgents(gdt);
@@ -1077,7 +2040,12 @@ export class ManagerEngine extends GameEngine {
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const e = this.enemies[i];
       let speed = e.def.speed;
-      if (slowed || this.t < e.slowUntil) speed *= 0.4;
+      // v6：freeze 大招 / frozenUntil —— 冻结期间无法移动
+      if (this.t < (e.frozenUntil ?? 0)) {
+        speed = 0;
+      } else if (slowed || this.t < e.slowUntil) {
+        speed *= 0.4;
+      }
       if (patroller && Math.hypot(e.x - patroller.x, e.y - patroller.y) < patrollerRange) {
         e.slowUntil = Math.max(e.slowUntil, this.t + 0.2);
         speed *= (1 - patrollerSlow);
@@ -1086,6 +2054,50 @@ export class ManagerEngine extends GameEngine {
       // v3：speedBoost 技能（低血量加速）
       if (e.def.ability === "speedBoost" && e.hp / e.maxHp < 0.3) {
         speed *= 1.5;
+      }
+
+      // v6：invisible 能力 —— 每 4 秒隐身 1.5 秒（初始化周期）
+      if (e.def.ability === "invisible") {
+        if (e.invisibleUntil === undefined) e.invisibleUntil = this.t + 4;
+        if (this.t >= e.invisibleUntil && this.t >= e.invisibleUntil + 1.5) {
+          // 隐身结束，进入下一个周期
+          e.invisibleUntil = this.t + 4;
+        }
+      }
+
+      // v6：teleport 能力 —— hp < 30% 时每 3 秒瞬移到出口附近（pathIdx += 3）
+      if (e.def.ability === "teleport" && e.hp / e.maxHp < 0.3) {
+        const lastTp = e.lastTeleportAt ?? 0;
+        if (this.t - lastTp >= 3) {
+          e.lastTeleportAt = this.t;
+          const wps = e.myWaypoints.length >= 2 ? e.myWaypoints : this.maze.waypoints;
+          const jump = Math.min(3, wps.length - (e.myWaypoints.length >= 2 ? e.myPathIdx : e.pathIdx) - 1);
+          if (jump > 0) {
+            if (e.myWaypoints.length >= 2) e.myPathIdx += jump;
+            else e.pathIdx += jump;
+            const newTarget = wps[e.myWaypoints.length >= 2 ? e.myPathIdx : e.pathIdx];
+            if (newTarget) { e.x = newTarget.x; e.y = newTarget.y; }
+            this.particles.spawnBurst(e.x, e.y, "#9D6BFF", { ring: true, sparks: 12, dots: 14, speed: 200, life: 0.6, size: 3 });
+          }
+        }
+      }
+
+      // v6：元素反应 burn —— 范围内敌人每秒受 dmgPerSec 伤害
+      for (const r of this.elementReactions) {
+        if (r.def.effect.kind === "enemyBurn" && this.t - r.activatedAt < r.def.duration) {
+          if (Math.hypot(e.x - r.x, e.y - r.y) <= r.def.effect.radius) {
+            e.hp -= r.def.effect.dmgPerSec * dt;
+            if (Math.random() < 0.1) {
+              this.particles.spawn({ x: e.x, y: e.y, count: 2, speed: 60, life: 0.3, size: 2, color: "#FF7A1A" });
+            }
+          }
+        }
+      }
+
+      // v6：burn 致死检查
+      if (e.hp <= 0) {
+        this.killEnemy(e, "__burn__");
+        continue;
       }
 
       // v5：沿本敌人专属航点前进（支持分支迷宫，多敌人走不同路）
@@ -1124,6 +2136,16 @@ export class ManagerEngine extends GameEngine {
         // 同步 pathIdx 以兼容外部读取
         e.pathIdx = wps.length;
         let dmg = e.def.damage;
+        // v6：enrage 能力 —— 狂暴层数增加到达出口伤害（每层 +20%）
+        if (e.enrageStacks && e.enrageStacks > 0) {
+          dmg *= (1 + 0.2 * e.enrageStacks);
+        }
+        // v6：firstHitFree 遗物 —— 首次命中免疫（仅对基地首次受伤）
+        if (!this.firstHitFreeConsumed && this.hasRelicEffect("firstHitFree")) {
+          this.firstHitFreeConsumed = true;
+          dmg = 0;
+          this.floats.push({ x: this.maze.exitPt.x, y: this.maze.exitPt.y - 20, text: "初次免疫！", color: "#FF7AB8", life: 1.0, maxLife: 1.0, size: 14 });
+        }
         if (this.baseShield > 0) {
           const absorbed = Math.min(this.baseShield, dmg);
           this.baseShield -= absorbed;
@@ -1166,9 +2188,20 @@ export class ManagerEngine extends GameEngine {
     for (const a of this.agents) {
       if (!a.alive) continue;
 
+      // v6：召唤体到期移除
+      if (a.summonUntil !== undefined && this.t >= a.summonUntil) {
+        a.alive = false;
+        this.particles.spawnBurst(a.x, a.y, a.def.color, { sparks: 10, dots: 12, speed: 160, life: 0.5, size: 3 });
+        continue;
+      }
+
       // v4：hpregen 回血
       if (regenPerSec > 0 && a.hp < a.maxHp) {
         a.hp = Math.min(a.maxHp, a.hp + regenPerSec * dt);
+      }
+      // v6：遗物 agentHpRegen —— 每秒回血
+      if (this.agentHpRegen > 0 && a.hp < a.maxHp) {
+        a.hp = Math.min(a.maxHp, a.hp + this.agentHpRegen * dt);
       }
 
       // v3：fear 技能（附近恐吓语音 → 射速 -30%）—— 按距离判定
@@ -1208,6 +2241,14 @@ export class ManagerEngine extends GameEngine {
         return e;
       }
 
+      // v6：invisible 能力 —— 隐身期间（invisibleUntil 起 1.5 秒）无法被攻击
+      if (e.def.ability === "invisible") {
+        const invStart = e.invisibleUntil ?? 0;
+        if (this.t >= invStart && this.t < invStart + 1.5) {
+          continue;
+        }
+      }
+
       // v5：用路径进度（0..1）作为优先级，兼容不同长度的分支路径
       const wpsLen = e.myWaypoints.length >= 2 ? e.myWaypoints.length : this.maze.waypoints.length;
       const curIdx = e.myWaypoints.length >= 2 ? e.myPathIdx : e.pathIdx;
@@ -1233,14 +2274,22 @@ export class ManagerEngine extends GameEngine {
     const critUpgradeCount = this.upgrades.filter((u) => u === "crit").length;
     critRate += critUpgradeCount * 0.18;
     critMul += critUpgradeCount * 0.6;
+    // v6：天赋/装备暴击加成
+    critRate += a.bonusCritRate ?? 0;
+    critMul += a.bonusCritDmg ?? 0;
     const isCrit = Math.random() < critRate;
     const crit = isCrit ? critMul : 1;
 
-    // v5：pierce 升级 —— 每级 +1 穿透次数
+    // v5：pierce 升级 —— 每级 +1 穿透次数；v6：pierceAll 遗物穿透所有
     const pierceUpgradeCount = this.upgrades.filter((u) => u === "pierce").length;
-    const pierceLeft = pierceUpgradeCount * 1; // 每级 +1（desc 写 2 是因为命中首个也算）
+    const pierceLeft = this.pierceAll ? 9999 : pierceUpgradeCount * 1;
 
-    const attackMul = this.upgradeMul("attack") * noHealMul;
+    // v6：全队伤害加成（resonance 元素反应 / 技能链 buff / 答题 buff）
+    let dmgBoost = 1;
+    if (this.t < this.damageBoostUntil) dmgBoost *= this.damageBoostMul;
+    if (this.t < this.quizBuffUntil && this.quizBuff) dmgBoost *= (1 + this.quizBuff.attackPct);
+
+    const attackMul = this.upgradeMul("attack") * noHealMul * dmgBoost;
     this.spawnProjectile(a, target, a.def.attack * crit * attackMul, isCrit, pierceLeft, a.def.splash ?? 0);
 
     // v5：doubleShot 升级 —— 额外发射一枚投射物（60% 伤害），目标为同一次寻敌中次近的敌人
@@ -1420,8 +2469,53 @@ export class ManagerEngine extends GameEngine {
       playSfx("shieldBreak");
     }
 
-    const totalDmg = p.damage * techMul * elemMul * vulnMul * (1 - bossReduction) * shieldMul;
+    // v6：天赋 elementBonus —— 发射探员的元素伤害加成
+    const firingAgent = this.agents.find((a) => a.id === p.agentId);
+    const elementBonusMul = firingAgent?.bonusElementDmg?.[p.element] ?? 0;
+
+    // v6：元素反应 conductivity —— 范围内敌人受伤 +50%
+    let chainMul = 1;
+    for (const r of this.elementReactions) {
+      if (r.def.effect.kind === "enemyChain" && this.t - r.activatedAt < r.def.duration) {
+        if (Math.hypot(e.x - r.x, e.y - r.y) <= r.def.effect.radius) {
+          chainMul *= r.def.effect.dmgMul;
+        }
+      }
+    }
+
+    const totalDmg = p.damage * techMul * (elemMul + elementBonusMul) * vulnMul * (1 - bossReduction) * shieldMul * chainMul;
     e.hp -= totalDmg;
+
+    // v6：reflect 能力 —— 反射 20% 伤害给最近探员（探员护盾优先吸收）
+    if (e.def.ability === "reflect" && totalDmg > 0) {
+      const reflectDmg = totalDmg * 0.2;
+      let nearest: DeployedAgent | null = null;
+      let nd = Infinity;
+      for (const a of this.agents) {
+        if (!a.alive) continue;
+        const d = Math.hypot(a.x - e.x, a.y - e.y);
+        if (d < nd) { nd = d; nearest = a; }
+      }
+      if (nearest) {
+        let actualDmg = reflectDmg;
+        // 探员护盾吸收
+        if (nearest.shieldValue && nearest.shieldValue > 0 && this.t < (nearest.shieldUntil ?? 0)) {
+          const absorbed = Math.min(nearest.shieldValue, actualDmg);
+          nearest.shieldValue -= absorbed;
+          actualDmg -= absorbed;
+        }
+        // 无敌期间不受伤害
+        if (this.t < (nearest.invulnUntil ?? 0)) actualDmg = 0;
+        if (actualDmg > 0) {
+          nearest.hp -= actualDmg;
+          if (nearest.hp <= 0) {
+            nearest.hp = 0;
+            nearest.alive = false;
+          }
+          this.particles.spawnBurst(nearest.x, nearest.y, "#E5353B", { sparks: 6, dots: 6, speed: 120, life: 0.4, size: 2 });
+        }
+      }
+    }
     // v7：受击白闪（0.08 秒，爽感命中反馈）
     e.hitFlashUntil = this.t + 0.08;
 
@@ -1538,15 +2632,25 @@ export class ManagerEngine extends GameEngine {
     const scoreMul = analyst ? (1 + analyst.def.buffPerLevel * analyst.level) : 1;
     const comboScoreMul = this.combo.multiplier;
     const dailyMul = this.mode === "daily" ? dailyScoreMul(this.dailyModifiers) : 1;
-    const gained = Math.round(e.def.reward * mul * scoreMul * comboScoreMul * dailyMul);
+    // v6：遗物 scoreMul 加成
+    const gained = Math.round(e.def.reward * mul * scoreMul * comboScoreMul * dailyMul * this.scoreMul);
     this.score += gained;
     this.bustedCount += 1;
 
     // v3：noUlt 修饰符不积累能量
-    // v6：大招能量积累加速 8→12，让大招更频繁（爽感）
+    // v6：大招能量积累加速 8→12，让大招更频繁（爽感）+ ultChargeMul 天赋加成
     if (!(this.mode === "daily" && this.hasModifier("noUlt"))) {
-      this.energy = clamp(this.energy + 12, 0, 100);
+      // 找到击杀探员的 ultChargeMul
+      const killer = this.agents.find((a) => a.id === agentId);
+      const chargeMul = killer?.ultChargeMul ?? 1;
+      this.energy = clamp(this.energy + 12 * chargeMul, 0, 100);
     }
+
+    // v6：技能链触发检测（onKill + onCombo）
+    this.checkSkillLinksOnKill(agentId);
+
+    // v6：新敌人能力 —— split（分裂）+ enrage（附近敌人狂暴）
+    this.handleEnemyDeathAbilities(e);
 
     // v7：击杀粒子加密 + 每次击杀都带小环爆（强化"打爆"反馈）
     this.particles.spawnBurst(e.x, e.y, e.def.color, { ring: true, sparks: 20, dots: 26, speed: 280, life: 0.85, size: 3, color2: "#FFD666" });
@@ -1598,7 +2702,9 @@ export class ManagerEngine extends GameEngine {
     playSfx("explode");
 
     // v4：探员升级系统（击杀资源 → 升级守卫）
-    if (this.upgradeCount < UPGRADE_MAX_COUNT && !(this.mode === "daily" && this.hasModifier("noUpgrades"))) {
+    // v6：遗物 extraUpgrade 扩展升级上限
+    const effectiveUpgradeMax = UPGRADE_MAX_COUNT + this.upgradeMaxCountBonus;
+    if (this.upgradeCount < effectiveUpgradeMax && !(this.mode === "daily" && this.hasModifier("noUpgrades"))) {
       this.upgradeXp = clamp(this.upgradeXp + Math.round(e.def.reward * 0.5), 0, UPGRADE_XP_THRESHOLD);
       if (this.upgradeXp >= UPGRADE_XP_THRESHOLD) {
         this.enterUpgrade();
@@ -1610,6 +2716,8 @@ export class ManagerEngine extends GameEngine {
     // BOSS 死亡
     if (e.bossRef) {
       this.bossKillsThisGame += 1;
+      // v7：记录最后击破的 BOSS id（用于结算页真实案例展示）
+      this.lastDefeatedBossId = e.bossRef.id;
       // v5：BOSS 击杀慢动作（1.2 秒）—— 强化爽感
       // v6：慢动作延长 1.2→1.8 秒，强化击破瞬间戏剧感
       this.slowmoUntil = this.t + 1.8;
@@ -1639,6 +2747,111 @@ export class ManagerEngine extends GameEngine {
         }
       }
       this.enemies = this.enemies.filter((m) => m.bossRef);
+      // v7：击破 BOSS 时检查口诀解锁
+      this.checkTermUnlocksForBoss(e.bossRef.id);
+    }
+  }
+
+  // ====================================================================
+  // v7：反诈口诀收集（击杀 BOSS / 爬塔里程碑 / 总击杀里程碑触发）
+  // ====================================================================
+
+  /** 检查 BOSS 击破触发的口诀解锁 */
+  private checkTermUnlocksForBoss(bossId: string): void {
+    const termIndices = getTermsForBossKill(bossId);
+    for (const idx of termIndices) {
+      if (platformStore.collectTerm(idx)) {
+        this.newlyCollectedTerms.push(idx);
+        const term = MAZE_TERMS[idx] ?? `口诀 ${idx}`;
+        this.floats.push({
+          x: W / 2, y: H / 2 - 60,
+          text: `📜 收集口诀：${term}`,
+          color: "#FFD666", life: 2.2, maxLife: 2.2, size: 16,
+        });
+      }
+    }
+  }
+
+  /** 检查爬塔楼层里程碑触发的口诀解锁 */
+  private checkTermUnlocksForTowerFloor(floor: number): void {
+    const termIndices = getTermsForTowerFloor(floor);
+    for (const idx of termIndices) {
+      if (platformStore.collectTerm(idx)) {
+        this.newlyCollectedTerms.push(idx);
+        const term = MAZE_TERMS[idx] ?? `口诀 ${idx}`;
+        this.floats.push({
+          x: W / 2, y: H / 2 - 60,
+          text: `📜 收集口诀：${term}`,
+          color: "#FFD666", life: 2.2, maxLife: 2.2, size: 16,
+        });
+      }
+    }
+  }
+
+  /** 检查总击杀里程碑触发的口诀解锁（游戏结束时调用） */
+  private checkTermUnlocksForTotalKills(): void {
+    // 预估总击杀：已存储的 + 本局击杀（recordManagerGame 尚未调用）
+    const storedKills = platformStore.managerMetaProgress().totalKills;
+    const projectedTotal = storedKills + this.bustedCount;
+    const termIndices = getTermsForTotalKills(projectedTotal);
+    for (const idx of termIndices) {
+      if (platformStore.collectTerm(idx)) {
+        this.newlyCollectedTerms.push(idx);
+        const term = MAZE_TERMS[idx] ?? `口诀 ${idx}`;
+        this.floats.push({
+          x: W / 2, y: H / 2 - 80,
+          text: `📜 收集口诀：${term}`,
+          color: "#FFD666", life: 2.4, maxLife: 2.4, size: 16,
+        });
+      }
+    }
+  }
+
+  // ====================================================================
+  // v6：新敌人能力 —— split（分裂）+ enrage（附近敌人狂暴）
+  // ====================================================================
+
+  /** 敌人死亡时触发的被动能力（split / enrage） */
+  private handleEnemyDeathAbilities(e: Enemy): void {
+    // split：分裂为 2 个小怪（hp = maxHp × 0.3）
+    if (e.def.ability === "split" && !e.bossRef) {
+      for (let i = 0; i < 2; i++) {
+        const splitDef: EnemyDef = {
+          ...e.def,
+          id: `${e.def.id}_split`,
+          name: `${e.def.name}(分裂)`,
+          hp: Math.max(1, Math.round(e.maxHp * 0.3)),
+          ability: "none",
+        };
+        const { wps, startIdx } = this.pickEnemyWaypoints();
+        const ox = (Math.random() - 0.5) * 30;
+        const oy = (Math.random() - 0.5) * 30;
+        this.enemies.push({
+          uid: this.uidSeq++,
+          def: splitDef,
+          x: e.x + ox,
+          y: e.y + oy,
+          hp: splitDef.hp,
+          maxHp: splitDef.hp,
+          slowUntil: 0,
+          pathIdx: startIdx,
+          myWaypoints: wps,
+          myPathIdx: startIdx,
+          wobble: Math.random() * Math.PI * 2,
+          radius: 14,
+          shieldConsumed: false,
+        });
+        this.particles.spawnBurst(e.x + ox, e.y + oy, e.def.color, { sparks: 8, dots: 10, speed: 160, life: 0.5, size: 2 });
+      }
+    }
+
+    // enrage：附近敌人死亡时，自身 attack +20%（累计，作用于到达出口伤害）
+    for (const other of this.enemies) {
+      if (other === e) continue;
+      if (other.def.ability === "enrage" && Math.hypot(other.x - e.x, other.y - e.y) < 100) {
+        other.enrageStacks = (other.enrageStacks ?? 0) + 1;
+        this.particles.spawnBurst(other.x, other.y, "#E5353B", { sparks: 6, dots: 8, speed: 140, life: 0.4, size: 2 });
+      }
     }
   }
 
@@ -1650,7 +2863,7 @@ export class ManagerEngine extends GameEngine {
     this.upgradeReady = true;
     this.currentUpgradeChoices = pickUpgradeChoices(3);
     this.toast = {
-      text: `✨ 资源满！选择一项全局强化（${this.upgradeCount + 1}/${UPGRADE_MAX_COUNT}）`,
+      text: `✨ 资源满！选择一项全局强化（${this.upgradeCount + 1}/${UPGRADE_MAX_COUNT + this.upgradeMaxCountBonus}）`,
       tone: "good",
       until: this.t + 3,
     };
@@ -1700,7 +2913,8 @@ export class ManagerEngine extends GameEngine {
     if (this.mode === "daily" && this.hasModifier("noUlt")) return;
     // v5：BOSSrush 模式下能量积累加速（×1.8）—— 更频繁的大招 = 更快节奏的 BOSS 战
     const energyMul = this.mode === "bossRush" ? 1.8 : 1;
-    this.energy = clamp(this.energy + dt * 2 * energyMul, 0, 100);
+    // v6：遗物 energyRegenMul 加成
+    this.energy = clamp(this.energy + dt * 2 * energyMul * this.energyRegenMul, 0, 100);
     this.emitHud();
   }
 
@@ -1747,11 +2961,25 @@ export class ManagerEngine extends GameEngine {
     postFX.flash("#52C41A", 0.5, 2);
     this.particles.spawnBurst(W / 2, H / 2, "#52C41A", { ring: true, sparks: 30, dots: 40, speed: 320, life: 1.2, size: 5, color2: "#FFD666" });
     playSfx("win");
+    // v7：游戏结束时检查总击杀里程碑口诀解锁
+    this.checkTermUnlocksForTotalKills();
     this.emit({ type: "result", payload: this.result });
   }
 
   private lose(): void {
     if (this.over) return;
+    // v6：reviveOnce 遗物 —— 基地失守时复活一次（30% 血）
+    if (this.reviveOnceAvailable && this.base.hp <= 0) {
+      this.reviveOnceAvailable = false;
+      this.base.hp = Math.max(1, Math.round(this.base.max * 0.3));
+      this.baseShield = Math.max(this.baseShield, this.base.max * 0.2);
+      this.toast = { text: "💗 复活装置启动！基地恢复 30% 生命", tone: "good", until: this.t + 3 };
+      postFX.flash("#FF3B6B", 0.5, 2);
+      this.particles.spawnBurst(W / 2, H / 2, "#FF3B6B", { ring: true, shockwave: true, sparks: 40, dots: 50, speed: 380, life: 1.2, size: 6, color2: "#FFD666" });
+      playSfx("shieldBreak");
+      this.emitHud();
+      return;
+    }
     this.over = true;
     this.result = {
       gameId: "manager",
@@ -1769,6 +2997,8 @@ export class ManagerEngine extends GameEngine {
     postFX.flash("#E5353B", 0.45, 2);
     postFX.shake(10, 16);
     playSfx("lose");
+    // v7：游戏结束时检查总击杀里程碑口诀解锁
+    this.checkTermUnlocksForTotalKills();
     this.emit({ type: "result", payload: this.result });
   }
 
@@ -1820,7 +3050,7 @@ export class ManagerEngine extends GameEngine {
       upgradeXpMax: UPGRADE_XP_THRESHOLD,
       upgradeReady: this.upgradeReady,
       upgradeCount: this.upgradeCount,
-      upgradeMax: UPGRADE_MAX_COUNT,
+      upgradeMax: UPGRADE_MAX_COUNT + this.upgradeMaxCountBonus,
       // v4：使用当前随机抽出的 3 个选项
       upgradeChoices: this.upgradeReady ? this.currentUpgradeChoices.slice() : undefined,
       agentUpgrades: this.agents.map((a) => ({
@@ -1869,6 +3099,35 @@ export class ManagerEngine extends GameEngine {
       mazeName: this.maze.name,
       mazeAccent: this.maze.accent,
       resourceTotal: this.upgradeXp,
+
+      // ===== v6 全面升级新增 =====
+      // Phase 2.1：战术装置 / 战术暂停 / 元素反应
+      tacticalDevices: TACTICAL_DEVICES.map((d) => ({
+        kind: d.kind,
+        remaining: this.tacticalDevices.filter((dev) => dev.kind === d.kind).length > 0 ? 1 : 0,
+        cooldownLeft: Math.max(0, (this.deviceCooldowns[d.kind] ?? 0) - this.t),
+      })),
+      tacticalPauseRemaining: this.tacticalPauseRemaining,
+      activeElementReactions: this.elementReactions
+        .filter((r) => this.t - r.activatedAt < r.def.duration)
+        .map((r) => ({ kind: r.def.kind as ElementReactionKind, remaining: Math.max(0, r.def.duration - (this.t - r.activatedAt)) })),
+
+      // Phase 2.2：技能链 / 战间答题
+      activeSkillLinks: this.activeSkillLinkStates
+        .filter((s) => this.t - s.lastTriggeredAt < 3)
+        .map((s) => ({ id: s.link.id, name: s.link.name, remaining: Math.max(0, 3 - (this.t - s.lastTriggeredAt)) })),
+      pendingQuiz: this.pendingQuiz ?? undefined,
+      pendingQuizIsRetry: this.pendingQuiz ? this.pendingQuizIsRetry : undefined,
+      // v7：爬塔事件
+      pendingTowerEvent: this.pendingTowerEvent ?? undefined,
+      quizBuffUntil: this.quizBuffUntil > this.t ? this.quizBuffUntil : undefined,
+
+      // Phase 2.3：遗物 / 装备 / 皮肤 / 爬塔 / 词缀
+      towerFloor: this.towerFloor || undefined,
+      challengeAffixes: this.challengeAffixes.length > 0 ? this.challengeAffixes : undefined,
+      equippedRelics: this.equippedRelics,
+      agentEquipment: this.agentEquipmentMap,
+      agentSkins: this.agentSkinsMap,
     };
     this.emit({ type: "hud", payload: hud as unknown as Record<string, string | number> });
     if (this.toast && this.t < this.toast.until) {
@@ -3033,6 +4292,13 @@ export class ManagerEngine extends GameEngine {
     bossKills: number;
     bustedCount: number;
     ultCount: number;
+    // v6 全面升级新增
+    towerFloor: number;
+    challengeAffixes: ChallengeAffix[];
+    quizCorrectCount: number;
+    // v7 全面升级新增
+    lastDefeatedBossId: string | null;
+    newlyCollectedTerms: number[];
   } {
     return {
       mode: this.mode,
@@ -3046,6 +4312,13 @@ export class ManagerEngine extends GameEngine {
       bossKills: this.bossKillsThisGame,
       bustedCount: this.bustedCount,
       ultCount: this.ultCount,
+      // v6 全面升级新增
+      towerFloor: this.towerFloor,
+      challengeAffixes: [...this.challengeAffixes],
+      quizCorrectCount: this.quizCorrectCount,
+      // v7 全面升级新增
+      lastDefeatedBossId: this.lastDefeatedBossId,
+      newlyCollectedTerms: [...this.newlyCollectedTerms],
     };
   }
 

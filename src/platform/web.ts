@@ -294,11 +294,11 @@ export function loadFont(faceName: string, src: string, _size = 0): boolean {
   }
 }
 
-const FONT_GOOGLE: Record<string, string> = {
-  "ZCOOL KuaiLe": "https://fonts.gstatic.com/s/zcoolkuaile/v17/tssqApdaRQokwFjF4jLEdOvLJPm4LeM.ttf",
-  "Noto Sans SC": "https://fonts.gstatic.com/s/notosanssc/v36/k3kCo84MPvpLmixcA63oeAL7Iqp5IZJFpOww.woff2",
-  "JetBrains Mono": "https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbY2o-flEEny0FZhsfKu5WU4zrCj2CPhz4.woff2",
-};
+// 注：fonts.gstatic.com 在国内网络环境下不可访问（net::ERR_ABORTED），
+// 直接移除远程字体加载，回退到 Theme.fonts 中已配置的系统字体栈
+// （PingFang SC / Microsoft YaHei / Hiragino Sans GB 等），
+// 避免 Console 刷错误并加快首屏渲染。
+const FONT_GOOGLE: Record<string, string> = {};
 
 export function initFonts(): void {
   for (const [face, url] of Object.entries(FONT_GOOGLE)) {

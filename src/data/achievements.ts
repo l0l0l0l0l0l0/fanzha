@@ -53,6 +53,29 @@ export interface AchievementContext {
     ultCount?: number;
     bossKills?: number;
   };
+  // ===== v2 升级：雷霆反诈模块进度（可选） =====
+  /** 雷霆反诈：累计击败 BOSS 次数 */
+  thunderTotalBossKills?: number;
+  /** 雷霆反诈：历史最高连击 */
+  thunderBestCombo?: number;
+  /** 雷霆反诈：无尽模式最高波次 */
+  thunderBestEndlessWave?: number;
+  /** 雷霆反诈：已击败的特色 BOSS id 列表 */
+  thunderDefeatedBosses?: string[];
+  /** 雷霆反诈：已通关的最高难度（1=普通, 2=困难, 3=噩梦） */
+  thunderMaxDifficulty?: number;
+  /** 雷霆反诈：累计完成每日挑战次数 */
+  thunderDailyCompletedCount?: number;
+  /** 雷霆反诈：最近一局表现 */
+  thunderLastGame?: {
+    mode: string;
+    score: number;
+    wave?: number;
+    win: boolean;
+    difficulty: string;
+    maxCombo?: number;
+    bossKills?: number;
+  };
 }
 
 export interface Achievement {
@@ -204,6 +227,72 @@ export const ACHIEVEMENTS: Achievement[] = [
     icon: "zap",
     color: "#00E5FF",
     check: (c) => c.lastGame?.gameId === "thunder" && c.lastGame.win,
+  },
+
+  // ===== v2 升级：雷霆反诈深度成就（持久化进度） =====
+  {
+    id: "thunder-first-boss",
+    name: "雷霆初捷",
+    desc: "「雷霆反诈」首次击败任意特色 BOSS",
+    icon: "zap",
+    color: "#1AD670",
+    check: (c) => (c.thunderTotalBossKills ?? 0) >= 1,
+  },
+  {
+    id: "thunder-boss-hunter",
+    name: "电诈猎手",
+    desc: "「雷霆反诈」累计击败 10 个 BOSS",
+    icon: "crosshair",
+    color: "#FF7A1A",
+    check: (c) => (c.thunderTotalBossKills ?? 0) >= 10,
+  },
+  {
+    id: "thunder-boss-master",
+    name: "反诈审判长",
+    desc: "「雷霆反诈」击败全部 5 种特色电诈 BOSS",
+    icon: "trophy",
+    color: "#FFD666",
+    check: (c) => (c.thunderDefeatedBosses?.length ?? 0) >= 5,
+  },
+  {
+    id: "thunder-hard-clear",
+    name: "雷霆精锐",
+    desc: "「雷霆反诈」困难难度通关",
+    icon: "shield",
+    color: "#FFB020",
+    check: (c) => (c.thunderMaxDifficulty ?? 0) >= 2,
+  },
+  {
+    id: "thunder-nightmare-clear",
+    name: "雷霆战神",
+    desc: "「雷霆反诈」噩梦难度通关",
+    icon: "award",
+    color: "#FF00E5",
+    check: (c) => (c.thunderMaxDifficulty ?? 0) >= 3,
+  },
+  {
+    id: "thunder-endless-15",
+    name: "无尽执法",
+    desc: "「雷霆反诈」无尽模式坚持 15 波",
+    icon: "flame",
+    color: "#FFB020",
+    check: (c) => (c.thunderBestEndlessWave ?? 0) >= 15,
+  },
+  {
+    id: "thunder-combo-20",
+    name: "雷霆连击",
+    desc: "「雷霆反诈」单局达成 20 连击",
+    icon: "target",
+    color: "#00E5FF",
+    check: (c) => (c.thunderBestCombo ?? 0) >= 20,
+  },
+  {
+    id: "thunder-daily-7",
+    name: "雷霆特训",
+    desc: "「雷霆反诈」累计完成 7 次每日挑战",
+    icon: "calendar",
+    color: "#FFD666",
+    check: (c) => (c.thunderDailyCompletedCount ?? 0) >= 7,
   },
   {
     id: "bomb-perfect",

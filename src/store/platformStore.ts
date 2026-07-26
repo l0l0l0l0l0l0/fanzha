@@ -7,7 +7,8 @@ import { getStorageSync, setStorageSync } from "@/platform/web";
 import type { GameId } from "@/types";
 import { ACHIEVEMENTS, type Achievement, type AchievementContext } from "@/data/achievements";
 import { CODEX } from "@/data/codex";
-import type { ManagerMode } from "@/games/manager/types";
+import { AGENTS } from "@/games/manager/data";
+import type { ManagerMode, ManagerMetaProgression, TalentBranch, CodexCategory } from "@/games/manager/types";
 
 export type Rank =
   | "反诈小白"
@@ -90,9 +91,68 @@ const DEFAULT_MANAGER: ManagerProgression = {
     bossRush: 0,
     endlessRush: 0,
     daily: 0,
+    tower: 0,
+    challenge: 0,
   },
   dailyChallengesCompleted: 0,
   totalBossKills: 0,
+};
+
+/**
+ * v6 默认 manager 元进度（跨局保留）
+ * 默认解锁前 6 名探员（shen/lin/zhou/wang/su/chen），后 4 名需反诈积分解锁
+ * v7 新增：错题记录 / 口诀收集 / 案例解锁 / 排行榜 / 引导 / 可访问性 / 剧情 / 事件选择
+ */
+const DEFAULT_MANAGER_META: ManagerMetaProgression = {
+  coins: 0,
+  intel: 0,
+  caseFiles: 0,
+  antiFraudPoints: 0,
+  talentPoints: 0,
+  unlockedAgents: AGENTS.filter((a) => !a.unlockCost).map((a) => a.id),
+  ownedSkins: AGENTS.filter((a) => !a.unlockCost).map((a) => `${a.id}_default`).filter((id) => id !== "fayi_default" && id !== "yuce_default" && id !== "kuajing_default" && id !== "jianwei_default"),
+  agentSkins: {},
+  agentTalents: {},
+  ownedRelics: [],
+  equippedRelics: [],
+  ownedEquipment: [],
+  agentEquipment: {},
+  enemyCodex: [],
+  agentCodex: AGENTS.filter((a) => !a.unlockCost).map((a) => `codex_agent_${a.id}`),
+  caseCodex: [],
+  quizCorrectCount: 0,
+  quizTotalCount: 0,
+  towerFloor: 1,
+  towerMaxFloor: 1,
+  seasonNumber: 1,
+  seasonScore: 0,
+  weeklyCompleted: [],
+  seasonStartDate: "",
+  totalKills: 0,
+  totalUltUsed: 0,
+  totalBossKills: 0,
+  // ===== v7 新增默认值 =====
+  quizWrongRecords: {},
+  collectedTerms: [],
+  unlockedCases: [],
+  leaderboard: {
+    daily: { date: "", score: 0, rank: 0 },
+    weekly: { weekKey: "", score: 0, rank: 0 },
+    season: { score: 0, rank: 0 },
+  },
+  tutorialCompleted: {
+    deploy: false,
+    battle: false,
+    progression: false,
+    codex: false,
+    season: false,
+  },
+  accessibility: {
+    colorBlindMode: false,
+    fontSize: "medium",
+  },
+  completedStoryChapters: [],
+  towerEventChoices: {},
 };
 
 interface PlatformState {
@@ -113,6 +173,8 @@ interface PlatformState {
   dailyQuests: DailyQuestState;
   // v3 新增：反诈职业经理人模块进度
   manager: ManagerProgression;
+  // v6 新增：反诈职业经理人模块跨局元进度（资源/天赋/遗物/装备/图鉴/赛季/爬塔）
+  managerMeta: ManagerMetaProgression;
   /** 存档版本号（用于后续结构迁移） */
   version: number;
 }
@@ -121,8 +183,12 @@ interface PlatformState {
 export const CODEX_TOTAL = CODEX.length;
 
 const STORAGE_KEY = "anti-fraud-platform";
-/** 当前存档版本：升级结构时递增，load 时据此迁移 */
-const SCHEMA_VERSION = 2;
+/**
+ * 当前存档版本：升级结构时递增，load 时据此迁移
+ * - v3：v6 manager 元进度（资源/天赋/遗物/装备/图鉴/赛季/爬塔）
+ * - v4：v7 全面升级（错题记录/口诀收集/案例解锁/排行榜/引导/可访问性/剧情/事件选择）
+ */
+const SCHEMA_VERSION = 4;
 
 const defaultState: PlatformState = {
   totalFoolsBusted: 0,
@@ -163,6 +229,7 @@ const defaultState: PlatformState = {
     quests: [],
   },
   manager: JSON.parse(JSON.stringify(DEFAULT_MANAGER)),
+  managerMeta: JSON.parse(JSON.stringify(DEFAULT_MANAGER_META)),
   version: SCHEMA_VERSION,
 };
 
@@ -248,6 +315,7 @@ class PlatformStore {
       const savedCheckIn = (saved as { dailyCheckIn?: Partial<DailyCheckIn> }).dailyCheckIn;
       const savedQuests = (saved as { dailyQuests?: Partial<DailyQuestState> }).dailyQuests;
       const savedManager = (saved as { manager?: Partial<ManagerProgression> }).manager;
+      const savedMeta = (saved as { managerMeta?: Partial<ManagerMetaProgression> }).managerMeta;
       // 校验 bestScores：只保留已知 GameId 的数值
       const validBestScores = { ...defaultState.bestScores };
       if (saved.bestScores && typeof saved.bestScores === "object") {
@@ -305,6 +373,144 @@ class PlatformStore {
           }
         }
       }
+      // v6：校验 managerMeta（旧存档缺失时使用默认值兜底，实现 v2→v3 平滑迁移）
+      const validMeta: ManagerMetaProgression = JSON.parse(JSON.stringify(DEFAULT_MANAGER_META));
+      if (savedMeta && typeof savedMeta === "object") {
+        // 资源类
+        validMeta.coins = safeInt(savedMeta.coins, 0);
+        validMeta.intel = safeInt(savedMeta.intel, 0);
+        validMeta.caseFiles = safeInt(savedMeta.caseFiles, 0);
+        validMeta.antiFraudPoints = safeInt(savedMeta.antiFraudPoints, 0);
+        validMeta.talentPoints = safeInt(savedMeta.talentPoints, 0);
+        // 列表类
+        validMeta.unlockedAgents = safeStrArr(savedMeta.unlockedAgents);
+        // 确保默认 6 探员始终解锁
+        for (const id of DEFAULT_MANAGER_META.unlockedAgents) {
+          if (!validMeta.unlockedAgents.includes(id)) validMeta.unlockedAgents.push(id);
+        }
+        validMeta.ownedSkins = safeStrArr(savedMeta.ownedSkins);
+        validMeta.ownedRelics = safeStrArr(savedMeta.ownedRelics);
+        validMeta.equippedRelics = safeStrArr(savedMeta.equippedRelics).slice(0, 3); // 最多 3 件
+        validMeta.ownedEquipment = safeStrArr(savedMeta.ownedEquipment);
+        validMeta.enemyCodex = safeStrArr(savedMeta.enemyCodex);
+        validMeta.agentCodex = safeStrArr(savedMeta.agentCodex);
+        validMeta.caseCodex = safeStrArr(savedMeta.caseCodex);
+        validMeta.weeklyCompleted = safeStrArr(savedMeta.weeklyCompleted);
+        // 答题/爬塔/赛季/统计
+        validMeta.quizCorrectCount = safeInt(savedMeta.quizCorrectCount, 0);
+        validMeta.quizTotalCount = safeInt(savedMeta.quizTotalCount, 0);
+        validMeta.towerFloor = Math.max(1, safeInt(savedMeta.towerFloor, 1));
+        validMeta.towerMaxFloor = Math.max(1, safeInt(savedMeta.towerMaxFloor, 1));
+        validMeta.seasonNumber = safeInt(savedMeta.seasonNumber, 1);
+        validMeta.seasonScore = safeInt(savedMeta.seasonScore, 0);
+        validMeta.seasonStartDate = typeof savedMeta.seasonStartDate === "string" ? savedMeta.seasonStartDate : "";
+        validMeta.totalKills = safeInt(savedMeta.totalKills, 0);
+        validMeta.totalUltUsed = safeInt(savedMeta.totalUltUsed, 0);
+        validMeta.totalBossKills = safeInt(savedMeta.totalBossKills, 0);
+        // 映射类（agentTalents / agentSkins / agentEquipment）：保留合法键值
+        if (savedMeta.agentTalents && typeof savedMeta.agentTalents === "object") {
+          const talents: ManagerMetaProgression["agentTalents"] = {};
+          for (const [agentId, branchMap] of Object.entries(savedMeta.agentTalents)) {
+            if (typeof agentId === "string" && branchMap && typeof branchMap === "object") {
+              const bm: Partial<Record<TalentBranch, number>> = {};
+              for (const [b, v] of Object.entries(branchMap as Record<string, unknown>)) {
+                if (b === "offense" || b === "defense" || b === "support") {
+                  bm[b as TalentBranch] = safeInt(v, 0);
+                }
+              }
+              if (Object.keys(bm).length > 0) talents[agentId] = bm;
+            }
+          }
+          validMeta.agentTalents = talents;
+        }
+        if (savedMeta.agentSkins && typeof savedMeta.agentSkins === "object") {
+          const skins: Record<string, string> = {};
+          for (const [k, v] of Object.entries(savedMeta.agentSkins)) {
+            if (typeof k === "string" && typeof v === "string") skins[k] = v;
+          }
+          validMeta.agentSkins = skins;
+        }
+        if (savedMeta.agentEquipment && typeof savedMeta.agentEquipment === "object") {
+          const eq: Record<string, string> = {};
+          for (const [k, v] of Object.entries(savedMeta.agentEquipment)) {
+            if (typeof k === "string" && typeof v === "string") eq[k] = v;
+          }
+          validMeta.agentEquipment = eq;
+        }
+        // ===== v7 全面升级新增字段迁移 =====
+        // 错题记录：quizId → 连续错误次数
+        if (savedMeta.quizWrongRecords && typeof savedMeta.quizWrongRecords === "object") {
+          const wrongRec: Record<string, number> = {};
+          for (const [k, v] of Object.entries(savedMeta.quizWrongRecords)) {
+            if (typeof k === "string") wrongRec[k] = safeInt(v, 0);
+          }
+          validMeta.quizWrongRecords = wrongRec;
+        }
+        // 口诀收集索引列表（number[]，0..35）
+        if (Array.isArray(savedMeta.collectedTerms)) {
+          validMeta.collectedTerms = savedMeta.collectedTerms
+            .map((x) => Number(x))
+            .filter((n) => Number.isFinite(n) && n >= 0 && n < 36);
+        }
+        // 案例解锁列表
+        validMeta.unlockedCases = safeStrArr(savedMeta.unlockedCases);
+        // 排行榜记录
+        if (savedMeta.leaderboard && typeof savedMeta.leaderboard === "object") {
+          const lb = savedMeta.leaderboard as {
+            daily?: { date?: unknown; score?: unknown; rank?: unknown };
+            weekly?: { weekKey?: unknown; score?: unknown; rank?: unknown };
+            season?: { score?: unknown; rank?: unknown };
+          };
+          validMeta.leaderboard = {
+            daily: {
+              date: typeof lb.daily?.date === "string" ? lb.daily.date : "",
+              score: safeInt(lb.daily?.score, 0),
+              rank: safeInt(lb.daily?.rank, 0),
+            },
+            weekly: {
+              weekKey: typeof lb.weekly?.weekKey === "string" ? lb.weekly.weekKey : "",
+              score: safeInt(lb.weekly?.score, 0),
+              rank: safeInt(lb.weekly?.rank, 0),
+            },
+            season: {
+              score: safeInt(lb.season?.score, 0),
+              rank: safeInt(lb.season?.rank, 0),
+            },
+          };
+        }
+        // 引导完成状态
+        if (savedMeta.tutorialCompleted && typeof savedMeta.tutorialCompleted === "object") {
+          const tc = savedMeta.tutorialCompleted as Record<string, unknown>;
+          validMeta.tutorialCompleted = {
+            deploy: typeof tc.deploy === "boolean" ? tc.deploy : false,
+            battle: typeof tc.battle === "boolean" ? tc.battle : false,
+            progression: typeof tc.progression === "boolean" ? tc.progression : false,
+            codex: typeof tc.codex === "boolean" ? tc.codex : false,
+            season: typeof tc.season === "boolean" ? tc.season : false,
+          };
+        }
+        // 可访问性设置
+        if (savedMeta.accessibility && typeof savedMeta.accessibility === "object") {
+          const acc = savedMeta.accessibility as { colorBlindMode?: unknown; fontSize?: unknown };
+          validMeta.accessibility = {
+            colorBlindMode: typeof acc.colorBlindMode === "boolean" ? acc.colorBlindMode : false,
+            fontSize: acc.fontSize === "small" || acc.fontSize === "large" ? acc.fontSize : "medium",
+          };
+        }
+        // 剧情章节完成列表
+        validMeta.completedStoryChapters = safeStrArr(savedMeta.completedStoryChapters);
+        // 爬塔事件选择记录（floor → optionId）
+        if (savedMeta.towerEventChoices && typeof savedMeta.towerEventChoices === "object") {
+          const choices: Record<number, string> = {};
+          for (const [k, v] of Object.entries(savedMeta.towerEventChoices)) {
+            const floorNum = Number(k);
+            if (Number.isFinite(floorNum) && typeof v === "string") {
+              choices[Math.floor(floorNum)] = v;
+            }
+          }
+          validMeta.towerEventChoices = choices;
+        }
+      }
       this.state = {
         ...defaultState,
         ...saved,
@@ -357,6 +563,7 @@ class PlatformStore {
             : [],
         },
         manager: validManager,
+        managerMeta: validMeta,
         version: SCHEMA_VERSION,
       };
     }
@@ -728,6 +935,29 @@ class PlatformStore {
     }
     this.state.manager = { ...m };
 
+    // v6：同步更新 managerMeta 跨局统计（反诈积分 / 总击杀 / 总 BOSS）
+    const meta = this.state.managerMeta;
+    let kills = 0;
+    if (data.killsByAgent) {
+      for (const v of Object.values(data.killsByAgent)) kills += Math.max(0, v);
+    }
+    // 反诈积分：基础 1 分/击杀 + 50 分/BOSS + 模式加成
+    const modeBonus: Record<ManagerMode, number> = {
+      classic: 1.2, timeTrial: 1.0, bossRush: 1.5, endlessRush: 1.3,
+      daily: 1.8, tower: 1.6, challenge: 2.0,
+    };
+    const pointsGained = Math.floor(
+      kills * (modeBonus[data.mode] ?? 1.0) + (data.bossKills ?? 0) * 50
+    );
+    meta.antiFraudPoints += pointsGained;
+    meta.totalKills += kills;
+    if (data.bossKills && data.bossKills > 0) {
+      meta.totalBossKills += data.bossKills;
+    }
+    // 金币掉落（按击杀数 + 模式加成）
+    meta.coins += Math.floor(kills * 2 * (modeBonus[data.mode] ?? 1.0));
+    this.state.managerMeta = { ...meta };
+
     // 触发成就检查（使用 manager 专属 lastGame 上下文）
     const ctx = this.buildContext({
       gameId: "manager",
@@ -769,6 +999,334 @@ class PlatformStore {
       .sort((a, b) => b.kills - a.kills);
     const totalAgentKills = masteryRanking.reduce((s, r) => s + r.kills, 0);
     return { ...m, masteryRanking, totalAgentKills };
+  }
+
+  // ============ v6：反诈职业经理人模块跨局元进度 ============
+
+  /** 元进度（只读视图） */
+  managerMetaProgress(): ManagerMetaProgression {
+    return { ...this.state.managerMeta };
+  }
+
+  /** 探员是否已解锁 */
+  isAgentUnlocked(agentId: string): boolean {
+    return this.state.managerMeta.unlockedAgents.includes(agentId);
+  }
+
+  /** 解锁探员（消耗反诈积分），返回是否成功 */
+  unlockAgent(agentId: string, cost: number): boolean {
+    const meta = this.state.managerMeta;
+    if (meta.unlockedAgents.includes(agentId)) return true;
+    if (meta.antiFraudPoints < cost) return false;
+    meta.antiFraudPoints -= cost;
+    meta.unlockedAgents = [...meta.unlockedAgents, agentId];
+    meta.agentCodex = Array.from(new Set([...meta.agentCodex, `codex_agent_${agentId}`]));
+    this.state.managerMeta = { ...meta };
+    this.save();
+    return true;
+  }
+
+  /** 解锁天赋节点（消耗天赋点），返回是否成功 */
+  unlockTalentNode(agentId: string, branch: TalentBranch, tier: number, cost: number): boolean {
+    const meta = this.state.managerMeta;
+    if (meta.talentPoints < cost) return false;
+    const current = meta.agentTalents[agentId]?.[branch] ?? 0;
+    if (tier <= current) return false; // 已解锁
+    if (tier !== current + 1) return false; // 必须按层级顺序
+    meta.talentPoints -= cost;
+    meta.agentTalents = {
+      ...meta.agentTalents,
+      [agentId]: { ...(meta.agentTalents[agentId] ?? {}), [branch]: tier },
+    };
+    this.state.managerMeta = { ...meta };
+    this.save();
+    return true;
+  }
+
+  /** 反诈积分兑换天赋点（100:1） */
+  convertPointsToTalent(points: number): boolean {
+    const meta = this.state.managerMeta;
+    if (meta.antiFraudPoints < points || points < 100) return false;
+    meta.antiFraudPoints -= points;
+    meta.talentPoints += Math.floor(points / 100);
+    this.state.managerMeta = { ...meta };
+    this.save();
+    return true;
+  }
+
+  /** 装备/卸下遗物（最多 3 件） */
+  toggleRelic(relicId: string): boolean {
+    const meta = this.state.managerMeta;
+    if (!meta.ownedRelics.includes(relicId)) return false;
+    if (meta.equippedRelics.includes(relicId)) {
+      meta.equippedRelics = meta.equippedRelics.filter((r) => r !== relicId);
+    } else {
+      if (meta.equippedRelics.length >= 3) return false;
+      meta.equippedRelics = [...meta.equippedRelics, relicId];
+    }
+    this.state.managerMeta = { ...meta };
+    this.save();
+    return true;
+  }
+
+  /** 获得遗物（BOSS 击破 / 爬塔奖励 / 答题奖励） */
+  grantRelic(relicId: string): void {
+    const meta = this.state.managerMeta;
+    if (!meta.ownedRelics.includes(relicId)) {
+      meta.ownedRelics = [...meta.ownedRelics, relicId];
+      this.state.managerMeta = { ...meta };
+      this.save();
+    }
+  }
+
+  /** 探员装备 / 卸下装备 */
+  equipAgentEquipment(agentId: string, equipmentId: string | null): boolean {
+    const meta = this.state.managerMeta;
+    if (equipmentId !== null && !meta.ownedEquipment.includes(equipmentId)) return false;
+    if (equipmentId === null) {
+      const { [agentId]: _removed, ...rest } = meta.agentEquipment;
+      void _removed;
+      meta.agentEquipment = rest;
+    } else {
+      // 同一装备只能给一个探员
+      for (const [aid, eid] of Object.entries(meta.agentEquipment)) {
+        if (eid === equipmentId && aid !== agentId) return false;
+      }
+      meta.agentEquipment = { ...meta.agentEquipment, [agentId]: equipmentId };
+    }
+    this.state.managerMeta = { ...meta };
+    this.save();
+    return true;
+  }
+
+  /** 合成装备（消耗材料） */
+  craftEquipment(equipmentId: string, cost: Record<string, number>): boolean {
+    const meta = this.state.managerMeta;
+    if (meta.ownedEquipment.includes(equipmentId)) return true;
+    if (cost.coins && meta.coins < cost.coins) return false;
+    if (cost.intel && meta.intel < cost.intel) return false;
+    if (cost.caseFiles && meta.caseFiles < cost.caseFiles) return false;
+    if (cost.coins) meta.coins -= cost.coins;
+    if (cost.intel) meta.intel -= cost.intel;
+    if (cost.caseFiles) meta.caseFiles -= cost.caseFiles;
+    meta.ownedEquipment = [...meta.ownedEquipment, equipmentId];
+    this.state.managerMeta = { ...meta };
+    this.save();
+    return true;
+  }
+
+  /** 解锁图鉴条目 */
+  unlockCodexEntry(codexId: string, category: CodexCategory): void {
+    const meta = this.state.managerMeta;
+    const list = category === "enemy" ? meta.enemyCodex
+      : category === "agent" ? meta.agentCodex
+      : meta.caseCodex;
+    if (list.includes(codexId)) return;
+    if (category === "enemy") meta.enemyCodex = [...meta.enemyCodex, codexId];
+    else if (category === "agent") meta.agentCodex = [...meta.agentCodex, codexId];
+    else meta.caseCodex = [...meta.caseCodex, codexId];
+    this.state.managerMeta = { ...meta };
+    this.save();
+  }
+
+  /** 记录战间答题 */
+  recordQuizAnswer(correct: boolean): void {
+    const meta = this.state.managerMeta;
+    meta.quizTotalCount += 1;
+    if (correct) meta.quizCorrectCount += 1;
+    this.state.managerMeta = { ...meta };
+    this.save();
+  }
+
+  /** 记录爬塔进度（到达某层） */
+  recordTowerFloor(floor: number, isWin: boolean): void {
+    const meta = this.state.managerMeta;
+    meta.towerFloor = isWin ? floor + 1 : meta.towerFloor;
+    if (floor > meta.towerMaxFloor) meta.towerMaxFloor = floor;
+    this.state.managerMeta = { ...meta };
+    this.save();
+  }
+
+  /** 增加赛季积分 */
+  addSeasonScore(n: number): void {
+    const meta = this.state.managerMeta;
+    meta.seasonScore += Math.max(0, n);
+    this.state.managerMeta = { ...meta };
+    this.save();
+  }
+
+  /** 完成周常任务（标记已领取） */
+  completeWeeklyQuest(questId: string): void {
+    const meta = this.state.managerMeta;
+    if (!meta.weeklyCompleted.includes(questId)) {
+      meta.weeklyCompleted = [...meta.weeklyCompleted, questId];
+      this.state.managerMeta = { ...meta };
+      this.save();
+    }
+  }
+
+  /** 探员大招使用次数累加（用于解锁皮肤等） */
+  recordUltUsed(): void {
+    const meta = this.state.managerMeta;
+    meta.totalUltUsed += 1;
+    this.state.managerMeta = { ...meta };
+    this.save();
+  }
+
+  /** 获得皮肤 */
+  grantSkin(skinId: string): void {
+    const meta = this.state.managerMeta;
+    if (!meta.ownedSkins.includes(skinId)) {
+      meta.ownedSkins = [...meta.ownedSkins, skinId];
+      this.state.managerMeta = { ...meta };
+      this.save();
+    }
+  }
+
+  /** 设置探员当前皮肤 */
+  setAgentSkin(agentId: string, skinId: string): boolean {
+    const meta = this.state.managerMeta;
+    if (!meta.ownedSkins.includes(skinId)) return false;
+    meta.agentSkins = { ...meta.agentSkins, [agentId]: skinId };
+    this.state.managerMeta = { ...meta };
+    this.save();
+    return true;
+  }
+
+  // ============ v7 全面升级：错题记录 / 口诀 / 案例 / 排行榜 / 引导 / 可访问性 / 剧情 / 事件 ============
+
+  /**
+   * 记录战间答题（v7 扩展：同时维护错题记录）
+   * - 答对：错题计数 -1（减到 0 时移除）
+   * - 答错：错题计数 +1
+   */
+  recordQuizAnswerV7(correct: boolean, quizId: string): void {
+    const meta = this.state.managerMeta;
+    meta.quizTotalCount += 1;
+    if (correct) {
+      meta.quizCorrectCount += 1;
+      // 错题计数递减
+      const cur = meta.quizWrongRecords[quizId] ?? 0;
+      if (cur > 0) {
+        const next = cur - 1;
+        if (next <= 0) {
+          const { [quizId]: _r, ...rest } = meta.quizWrongRecords;
+          void _r;
+          meta.quizWrongRecords = rest;
+        } else {
+          meta.quizWrongRecords = { ...meta.quizWrongRecords, [quizId]: next };
+        }
+      }
+    } else {
+      // 错题计数递增
+      meta.quizWrongRecords = {
+        ...meta.quizWrongRecords,
+        [quizId]: (meta.quizWrongRecords[quizId] ?? 0) + 1,
+      };
+    }
+    this.state.managerMeta = { ...meta };
+    this.save();
+  }
+
+  /** 收集反诈口诀（idx 0..35） */
+  collectTerm(idx: number): boolean {
+    const meta = this.state.managerMeta;
+    if (meta.collectedTerms.includes(idx)) return false;
+    meta.collectedTerms = [...meta.collectedTerms, idx].sort((a, b) => a - b);
+    this.state.managerMeta = { ...meta };
+    this.save();
+    return true;
+  }
+
+  /** 解锁真实案例 */
+  unlockCase(caseId: string): boolean {
+    const meta = this.state.managerMeta;
+    if (meta.unlockedCases.includes(caseId)) return false;
+    meta.unlockedCases = [...meta.unlockedCases, caseId];
+    this.state.managerMeta = { ...meta };
+    this.save();
+    return true;
+  }
+
+  /**
+   * 更新排行榜（每日/每周/赛季）
+   * 仅当新分数高于旧分数时更新，返回是否破纪录
+   */
+  updateLeaderboard(type: "daily" | "weekly" | "season", score: number, key: string): boolean {
+    const meta = this.state.managerMeta;
+    if (type === "daily") {
+      const cur = meta.leaderboard.daily;
+      if (key !== cur.date || score > cur.score) {
+        meta.leaderboard = {
+          ...meta.leaderboard,
+          daily: { date: key, score, rank: 0 },
+        };
+        this.state.managerMeta = { ...meta };
+        this.save();
+        return true;
+      }
+    } else if (type === "weekly") {
+      const cur = meta.leaderboard.weekly;
+      if (key !== cur.weekKey || score > cur.score) {
+        meta.leaderboard = {
+          ...meta.leaderboard,
+          weekly: { weekKey: key, score, rank: 0 },
+        };
+        this.state.managerMeta = { ...meta };
+        this.save();
+        return true;
+      }
+    } else {
+      const cur = meta.leaderboard.season;
+      if (score > cur.score) {
+        meta.leaderboard = {
+          ...meta.leaderboard,
+          season: { score, rank: 0 },
+        };
+        this.state.managerMeta = { ...meta };
+        this.save();
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** 标记引导完成 */
+  completeTutorial(step: "deploy" | "battle" | "progression" | "codex" | "season"): void {
+    const meta = this.state.managerMeta;
+    if (meta.tutorialCompleted[step]) return;
+    meta.tutorialCompleted = { ...meta.tutorialCompleted, [step]: true };
+    this.state.managerMeta = { ...meta };
+    this.save();
+  }
+
+  /** 设置可访问性选项 */
+  setAccessibility(opts: Partial<{ colorBlindMode: boolean; fontSize: "small" | "medium" | "large" }>): void {
+    const meta = this.state.managerMeta;
+    meta.accessibility = {
+      colorBlindMode: opts.colorBlindMode ?? meta.accessibility.colorBlindMode,
+      fontSize: opts.fontSize ?? meta.accessibility.fontSize,
+    };
+    this.state.managerMeta = { ...meta };
+    this.save();
+  }
+
+  /** 完成剧情章节 */
+  completeStoryChapter(chapterId: string): boolean {
+    const meta = this.state.managerMeta;
+    if (meta.completedStoryChapters.includes(chapterId)) return false;
+    meta.completedStoryChapters = [...meta.completedStoryChapters, chapterId];
+    this.state.managerMeta = { ...meta };
+    this.save();
+    return true;
+  }
+
+  /** 记录爬塔事件选择（用于复盘） */
+  recordTowerEventChoice(floor: number, optionId: string): void {
+    const meta = this.state.managerMeta;
+    meta.towerEventChoices = { ...meta.towerEventChoices, [floor]: optionId };
+    this.state.managerMeta = { ...meta };
+    this.save();
   }
 
   rank(): Rank {

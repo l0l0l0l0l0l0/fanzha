@@ -18,10 +18,18 @@ type SfxName =
   | "weaponUp"     // 武器升级（新增）
   | "timeSlow"     // 时间减速（新增）
   | "laser"        // 激光扫射（新增）
-  | "shieldBreak"; // 护盾击破（新增）
+  | "shieldBreak"  // 护盾击破（新增）
+  | "ultimate"      // 连击大招释放（包C）
+  | "comboTier"     // 连击色阶升级（包C）
+  | "cardFlip"      // 卡片翻转（包F 3D 翻转）
+  | "achievementUnlock" // 成就解锁（包E）
+  | "rankUp"        // 段位晋级（包E）
+  | "wrongRecord"   // 错题记录（包D）
+  | "bossSkill"     // Boss 技能触发
+  | "specialEvent";  // 特殊波次事件
 
 /** v2：BGM 曲目名 */
-export type BgmName = "hub" | "battle" | "tense" | "none";
+export type BgmName = "hub" | "battle" | "tense" | "bossBattle" | "ultReady" | "none";
 
 let ctx: AudioContext | null = null;
 let muted = false;
@@ -85,6 +93,24 @@ const BGM_TRACKS: Record<Exclude<BgmName, "none">, BgmTrack> = {
     bassPattern: [0, -1, -1, -1, 0, -1, -1, -1],
     oscType: "sine",
     bassType: "triangle",
+  },
+  // BossBattle：紧张激烈的 Boss 战氛围，C 自然小调
+  bossBattle: {
+    name: "bossBattle", bpm: 145, root: 130,
+    scale: [0, 2, 3, 5, 7, 8, 10], // 自然小调
+    pattern: [0, -1, 3, 4, -1, 3, 0, 4, 5, -1, 4, 3, -1, 5, 4, -1],
+    bassPattern: [0, 0, -1, 0, 4, -1, 0, 4],
+    oscType: "sawtooth",
+    bassType: "square",
+  },
+  // UltReady：神秘就绪氛围，G 大调五声
+  ultReady: {
+    name: "ultReady", bpm: 100, root: 196,
+    scale: [0, 2, 4, 7, 9], // 大调五声
+    pattern: [0, 2, 4, 2, 4, 5, 4, 2, 0, 2, 4, 5, 4, 2, 0, -1],
+    bassPattern: [0, -1, -1, 0, -1, -1, 0, -1],
+    oscType: "triangle",
+    bassType: "sine",
   },
 };
 
@@ -340,6 +366,51 @@ export function playSfx(name: SfxName): void {
       // 护盾击破：玻璃碎裂感
       playNoise(0.18, 0.18, 3200);
       playTone({ freq: 1800, type: "triangle", duration: 0.12, gain: 0.12, freqEnd: 600 });
+      break;
+    case "ultimate":
+      // 连击大招释放：三连上行 sweep + 共鸣
+      [330, 440, 660].forEach((f, i) =>
+        setTimeout(() => playTone({ freq: f, type: "triangle", duration: 0.18, gain: 0.2 }), i * 60)
+      );
+      playNoise(0.3, 0.12, 2000);
+      break;
+    case "comboTier":
+      // 连击色阶升级：单音上行 sweep
+      playTone({ freq: 880, type: "triangle", duration: 0.15, gain: 0.15, freqEnd: 1320 });
+      break;
+    case "cardFlip":
+      // 卡片翻转：短促双音
+      playTone({ freq: 600, type: "square", duration: 0.04, gain: 0.08, freqEnd: 900 });
+      setTimeout(() => playTone({ freq: 1000, type: "square", duration: 0.05, gain: 0.06, freqEnd: 700 }), 30);
+      break;
+    case "achievementUnlock":
+      // 成就解锁：五音上行琶音
+      [523, 659, 784, 988, 1175].forEach((f, i) =>
+        setTimeout(() => playTone({ freq: f, type: "triangle", duration: 0.14, gain: 0.16 }), i * 70)
+      );
+      break;
+    case "rankUp":
+      // 段位晋级：宏伟上行 + 末尾长音
+      [392, 523, 659, 784, 1047].forEach((f, i) =>
+        setTimeout(() => playTone({ freq: f, type: "triangle", duration: 0.2, gain: 0.18 }), i * 100)
+      );
+      setTimeout(() => playTone({ freq: 1568, type: "sine", duration: 0.4, gain: 0.12 }), 5 * 100);
+      break;
+    case "wrongRecord":
+      // 错题记录：下行 sad tone
+      [440, 330, 247].forEach((f, i) =>
+        setTimeout(() => playTone({ freq: f, type: "sine", duration: 0.2, gain: 0.12 }), i * 130)
+      );
+      break;
+    case "bossSkill":
+      // Boss 技能：低频威胁 + 噪声
+      playTone({ freq: 110, type: "sawtooth", duration: 0.3, gain: 0.2, freqEnd: 220 });
+      playNoise(0.2, 0.1, 800);
+      break;
+    case "specialEvent":
+      // 特殊事件：神秘提示 + 短 ping
+      playTone({ freq: 660, type: "sine", duration: 0.25, gain: 0.15, freqEnd: 990 });
+      setTimeout(() => playTone({ freq: 1320, type: "triangle", duration: 0.1, gain: 0.1 }), 150);
       break;
   }
 }

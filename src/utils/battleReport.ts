@@ -5,6 +5,12 @@
  *
  * 不依赖引擎渲染管线，直接使用 document.createElement('canvas')，
  * 因为这是面向"导出/分享"的一次性渲染，需要原始 DOM Canvas 的 toBlob 能力。
+ *
+ * v7：当 v7ManagerData 存在时（反诈职业经理人模块），追加渲染
+ *   - 模式徽章（经典/限时/BOSS Rush/无尽/每日/爬塔/极限）
+ *   - 真实案例还原（标题 + 摘要 + 96110）
+ *   - 本局新收集反诈口诀（最多展示 6 句）
+ *   - 排行榜段位（每日/每周/赛季）
  */
 import { Theme, withAlpha } from "@/ui/Theme";
 import { getGame, GAMES } from "@/data/games";
@@ -12,23 +18,57 @@ import { TIPS } from "@/data/tips";
 import { platformStore, rankProgress, CODEX_TOTAL } from "@/store/platformStore";
 import type { GameResultPayload } from "@/types";
 import type { Achievement } from "@/data/achievements";
+import type { RealCaseDef, ManagerMode } from "@/games/manager/types";
+import { MAZE_TERMS } from "@/games/manager/maze";
 
 const W = 1080;
 const H = 1620;
+
+/**
+ * v7：反诈职业经理人专属战报数据
+ * 仅 manager 模块传入；其他游戏保持 undefined，战报图回退到 v2 通用布局
+ */
+export interface V7ManagerReportData {
+  /** 本局模式 */
+  mode: ManagerMode;
+  /** 模式中文名（如"经典战役"/"BOSS Rush"） */
+  modeLabel: string;
+  /** 爬塔层数（仅 tower 模式 > 0） */
+  towerFloor: number;
+  /** 本局还原的真实案例（最后击破的 BOSS 关联，可选） */
+  realCase?: RealCaseDef;
+  /** 本局新收集的口诀索引列表（对应 MAZE_TERMS 下标） */
+  newlyCollectedTerms: number[];
+  /** 当前赛季段位名（如"反诈新星"，空字符串表示无） */
+  seasonRank: string;
+  /** 当前赛季分数 */
+  seasonScore: number;
+  /** 每日排行榜名次（0 表示未上榜） */
+  leaderboardDailyRank: number;
+  /** 每周排行榜名次（0 表示未上榜） */
+  leaderboardWeeklyRank: number;
+}
 
 export interface BattleReportData {
   result: GameResultPayload;
   /** 本局新解锁成就（由 ResultOverlay 传入） */
   unlockedAchievements: Achievement[];
+  /** v7：反诈职业经理人专属数据（可选，仅 manager 模块传入） */
+  v7ManagerData?: V7ManagerReportData;
 }
 
 /**
  * 生成战报图，返回 HTMLCanvasElement（用于 toBlob）
  */
 export function renderBattleReportCanvas(data: BattleReportData): HTMLCanvasElement {
+  // v7：动态扩展画布高度（仅当 manager 模块传入 v7 数据时）
+  const v7 = data.v7ManagerData;
+  const v7ExtraH = v7 ? computeV7SectionsHeight(v7) : 0;
+  const totalH = H + v7ExtraH;
+
   const canvas = document.createElement("canvas");
   canvas.width = W;
-  canvas.height = H;
+  canvas.height = totalH;
   const ctx = canvas.getContext("2d")!;
   const game = getGame(data.result.gameId);
   const accent = game.accent;
@@ -40,19 +80,19 @@ export function renderBattleReportCanvas(data: BattleReportData): HTMLCanvasElem
 
   // ===== 背景 =====
   // 深蓝渐变底
-  const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
+  const bgGrad = ctx.createLinearGradient(0, 0, 0, totalH);
   bgGrad.addColorStop(0, "#0A1929");
   bgGrad.addColorStop(0.5, "#0E2438");
   bgGrad.addColorStop(1, "#08111E");
   ctx.fillStyle = bgGrad;
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(0, 0, W, totalH);
 
   // 顶部光晕
   const glowGrad = ctx.createRadialGradient(W * 0.5, H * 0.15, 0, W * 0.5, H * 0.15, H * 0.6);
   glowGrad.addColorStop(0, withAlpha(accent, 0.18));
   glowGrad.addColorStop(1, "transparent");
   ctx.fillStyle = glowGrad;
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(0, 0, W, totalH);
 
   // 网格
   ctx.save();
@@ -62,10 +102,10 @@ export function renderBattleReportCanvas(data: BattleReportData): HTMLCanvasElem
   for (let x = 0; x < W; x += step) {
     ctx.beginPath();
     ctx.moveTo(x, 0);
-    ctx.lineTo(x, H);
+    ctx.lineTo(x, totalH);
     ctx.stroke();
   }
-  for (let y = 0; y < H; y += step) {
+  for (let y = 0; y < totalH; y += step) {
     ctx.beginPath();
     ctx.moveTo(0, y);
     ctx.lineTo(W, y);
@@ -76,7 +116,7 @@ export function renderBattleReportCanvas(data: BattleReportData): HTMLCanvasElem
   // 扫描线
   ctx.save();
   ctx.fillStyle = withAlpha(Theme.colors.neon.DEFAULT, 0.025);
-  for (let y = 0; y < H; y += 6) {
+  for (let y = 0; y < totalH; y += 6) {
     ctx.fillRect(0, y, W, 2);
   }
   ctx.restore();
@@ -233,8 +273,13 @@ export function renderBattleReportCanvas(data: BattleReportData): HTMLCanvasElem
     achY += achH + 20;
   }
 
+  // ===== v7：反诈职业经理人专属区块（如有） =====
+  if (v7) {
+    drawV7ManagerSections(ctx, achY, W, v7);
+  }
+
   // ===== 底部反诈热线 + 段位进度 =====
-  const footY = 1340;
+  const footY = 1340 + v7ExtraH;
   // 段位进度条
   ctx.save();
   ctx.font = `400 22px ${Theme.fonts.mono}`;
@@ -273,18 +318,18 @@ export function renderBattleReportCanvas(data: BattleReportData): HTMLCanvasElem
   ctx.fillStyle = withAlpha(Theme.colors.ink.DEFAULT, 0.9);
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
-  ctx.fillText("全民反诈 · 天下无诈", W / 2, H - 90);
+  ctx.fillText("全民反诈 · 天下无诈", W / 2, totalH - 90);
 
   ctx.font = `400 18px ${Theme.fonts.mono}`;
   ctx.fillStyle = withAlpha(Theme.colors.ink.muted, 0.7);
-  ctx.fillText("// ANTI-FRAUD ARCADE · 在娱乐中识破套路", W / 2, H - 50);
+  ctx.fillText("// ANTI-FRAUD ARCADE · 在娱乐中识破套路", W / 2, totalH - 50);
   ctx.restore();
 
   // ===== 四角霓虹括号 =====
   drawCornerBracket(ctx, 30, 30, 80, 80, accent);
   drawCornerBracket(ctx, W - 110, 30, 80, 80, accent, "tr");
-  drawCornerBracket(ctx, 30, H - 110, 80, 80, accent, "bl");
-  drawCornerBracket(ctx, W - 110, H - 110, 80, 80, accent, "br");
+  drawCornerBracket(ctx, 30, totalH - 110, 80, 80, accent, "bl");
+  drawCornerBracket(ctx, W - 110, totalH - 110, 80, 80, accent, "br");
 
   return canvas;
 }
@@ -423,6 +468,238 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number)
   }
   if (line) lines.push(line);
   return lines.slice(0, 4); // 最多 4 行
+}
+
+// ============================================================
+// v7：反诈职业经理人专属战报区块
+// ============================================================
+
+/**
+ * 计算 v7 专属区块总高度（用于动态扩展画布）
+ * - 区块标题：60px
+ * - 模式 + 爬塔层数行：100px
+ * - 真实案例面板：280px（仅 realCase 存在时）
+ * - 新收集口诀面板：140px（仅 newlyCollectedTerms > 0 时）
+ * - 排行榜段位面板：140px
+ */
+function computeV7SectionsHeight(v7: V7ManagerReportData): number {
+  let h = 60 + 100 + 140; // 标题 + 模式行 + 排行榜
+  if (v7.realCase) h += 280;
+  if (v7.newlyCollectedTerms.length > 0) h += 140;
+  return h;
+}
+
+/**
+ * 渲染 v7 专属区块（在成就区块与底部热线之间）
+ * 返回结束 y 坐标（供后续 footer 定位参考，此处 footY 已由 v7ExtraH 推下）
+ */
+function drawV7ManagerSections(
+  ctx: CanvasRenderingContext2D,
+  startY: number,
+  W: number,
+  v7: V7ManagerReportData,
+): number {
+  const v7Accent = "#9D6BFF"; // v7 主题色（与知识图谱/manager 模块一致）
+  let y = startY;
+
+  // ===== 区块标题 =====
+  ctx.save();
+  ctx.font = `400 22px ${Theme.fonts.mono}`;
+  ctx.fillStyle = withAlpha(v7Accent, 0.85);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillText("// MANAGER v7 · 反诈职业经理人战报", 60, y);
+  ctx.restore();
+  // 分隔线
+  ctx.save();
+  const lg = ctx.createLinearGradient(60, y + 32, W - 60, y + 32);
+  lg.addColorStop(0, "transparent");
+  lg.addColorStop(0.5, withAlpha(v7Accent, 0.6));
+  lg.addColorStop(1, "transparent");
+  ctx.fillStyle = lg;
+  ctx.fillRect(60, y + 32, W - 120, 2);
+  ctx.restore();
+  y += 60;
+
+  // ===== 模式徽章 + 爬塔层数 =====
+  const modeH = 80;
+  ctx.save();
+  ctx.fillStyle = withAlpha(v7Accent, 0.06);
+  roundRectPath(ctx, 60, y, W - 120, modeH, 16);
+  ctx.fill();
+  ctx.fillStyle = v7Accent;
+  ctx.fillRect(60, y, 6, modeH);
+
+  // 模式徽章
+  ctx.font = `400 20px ${Theme.fonts.mono}`;
+  ctx.fillStyle = withAlpha(v7Accent, 0.85);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillText("本局模式", 90, y + 18);
+  ctx.font = `700 36px ${Theme.fonts.display}`;
+  ctx.fillStyle = v7Accent;
+  ctx.shadowColor = withAlpha(v7Accent, 0.5);
+  ctx.shadowBlur = 12;
+  ctx.fillText(v7.modeLabel, 90, y + 42);
+  ctx.shadowBlur = 0;
+
+  // 爬塔层数（仅 tower 模式）
+  if (v7.towerFloor > 0) {
+    ctx.font = `400 20px ${Theme.fonts.mono}`;
+    ctx.fillStyle = withAlpha(v7Accent, 0.85);
+    ctx.textAlign = "right";
+    ctx.textBaseline = "top";
+    ctx.fillText("爬塔层数", W - 90, y + 18);
+    ctx.font = `700 36px ${Theme.fonts.mono}`;
+    ctx.fillStyle = "#FFD666";
+    ctx.shadowColor = withAlpha("#FFD666", 0.5);
+    ctx.shadowBlur = 12;
+    ctx.fillText(`${v7.towerFloor} 层`, W - 90, y + 42);
+    ctx.shadowBlur = 0;
+  }
+  ctx.restore();
+  y += modeH + 20;
+
+  // ===== 真实案例还原（如有） =====
+  if (v7.realCase) {
+    const rc = v7.realCase;
+    const rcH = 260;
+    ctx.save();
+    ctx.fillStyle = withAlpha(rc.color, 0.06);
+    roundRectPath(ctx, 60, y, W - 120, rcH, 16);
+    ctx.fill();
+    ctx.fillStyle = rc.color;
+    ctx.fillRect(60, y, 6, rcH);
+
+    // 标题行：emoji + 案件标题 + 年份
+    ctx.font = `700 32px ${Theme.fonts.display}`;
+    ctx.fillStyle = rc.color;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.shadowColor = withAlpha(rc.color, 0.4);
+    ctx.shadowBlur = 10;
+    ctx.fillText(`${rc.emoji}  ${rc.title}`, 90, y + 22);
+    ctx.shadowBlur = 0;
+    ctx.font = `400 18px ${Theme.fonts.mono}`;
+    ctx.fillStyle = withAlpha(Theme.colors.ink.muted, 0.9);
+    ctx.textAlign = "right";
+    ctx.fillText(`${rc.year} · 真实案例`, W - 90, y + 28);
+
+    // 摘要正文（换行）
+    ctx.font = `400 22px ${Theme.fonts.body}`;
+    ctx.fillStyle = withAlpha(Theme.colors.ink.DEFAULT, 0.9);
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    const summaryLines = wrapText(ctx, rc.summary, W - 180);
+    summaryLines.forEach((line, i) => ctx.fillText(line, 90, y + 80 + i * 30));
+
+    // 关键数据行
+    const statsY = y + 80 + summaryLines.length * 30 + 12;
+    ctx.font = `700 20px ${Theme.fonts.mono}`;
+    ctx.fillStyle = Theme.colors.warn.DEFAULT;
+    ctx.textAlign = "left";
+    ctx.fillText(`💰 涉案 ${formatAmount(rc.amount)}`, 90, statsY);
+    ctx.fillStyle = withAlpha(Theme.colors.ink.muted, 0.95);
+    ctx.fillText(`👤 ${rc.victim}`, 90 + 280, statsY);
+    ctx.fillText(`🛡️ ${rc.bustedBy}`, 90, statsY + 28);
+
+    // 反诈提示
+    ctx.font = `700 22px ${Theme.fonts.display}`;
+    ctx.fillStyle = rc.color;
+    ctx.fillText(`💡 ${rc.tip}`, 90, statsY + 64);
+    ctx.restore();
+    y += rcH + 20;
+  }
+
+  // ===== 新收集反诈口诀（如有） =====
+  if (v7.newlyCollectedTerms.length > 0) {
+    const termH = 120;
+    const termAccent = "#FFD666";
+    ctx.save();
+    ctx.fillStyle = withAlpha(termAccent, 0.06);
+    roundRectPath(ctx, 60, y, W - 120, termH, 16);
+    ctx.fill();
+    ctx.fillStyle = termAccent;
+    ctx.fillRect(60, y, 6, termH);
+
+    ctx.font = `400 20px ${Theme.fonts.mono}`;
+    ctx.fillStyle = termAccent;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillText(`★ 本局新收集 ${v7.newlyCollectedTerms.length} 句反诈口诀`, 90, y + 18);
+
+    // 口诀文本（最多展示 6 句，每句前加📜）
+    const showCount = Math.min(v7.newlyCollectedTerms.length, 6);
+    ctx.font = `700 22px ${Theme.fonts.display}`;
+    ctx.fillStyle = withAlpha(termAccent, 0.95);
+    for (let i = 0; i < showCount; i++) {
+      const idx = v7.newlyCollectedTerms[i];
+      const term = MAZE_TERMS[idx] ?? `口诀 ${idx}`;
+      ctx.fillText(`📜 ${term}`, 90, y + 50 + i * 28);
+    }
+    if (v7.newlyCollectedTerms.length > 6) {
+      ctx.font = `400 18px ${Theme.fonts.mono}`;
+      ctx.fillStyle = withAlpha(Theme.colors.ink.muted, 0.8);
+      ctx.fillText(`... 及其他 ${v7.newlyCollectedTerms.length - 6} 句`, 90, y + 50 + 6 * 28);
+    }
+    ctx.restore();
+    y += termH + 20;
+  }
+
+  // ===== 排行榜段位面板 =====
+  const lbH = 120;
+  const lbAccent = "#FFD666";
+  ctx.save();
+  ctx.fillStyle = withAlpha(lbAccent, 0.06);
+  roundRectPath(ctx, 60, y, W - 120, lbH, 16);
+  ctx.fill();
+  ctx.fillStyle = lbAccent;
+  ctx.fillRect(60, y, 6, lbH);
+
+  // 赛季段位（核心视觉）
+  ctx.font = `400 20px ${Theme.fonts.mono}`;
+  ctx.fillStyle = withAlpha(lbAccent, 0.85);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillText("当前赛季段位", 90, y + 18);
+  ctx.font = `700 32px ${Theme.fonts.display}`;
+  ctx.fillStyle = lbAccent;
+  ctx.shadowColor = withAlpha(lbAccent, 0.5);
+  ctx.shadowBlur = 12;
+  ctx.fillText(v7.seasonRank || "—", 90, y + 48);
+  ctx.shadowBlur = 0;
+  ctx.font = `400 18px ${Theme.fonts.mono}`;
+  ctx.fillStyle = withAlpha(Theme.colors.ink.muted, 0.9);
+  ctx.fillText(`${v7.seasonScore} 分`, 90, y + 88);
+
+  // 每日/每周排名（右侧）
+  ctx.font = `400 20px ${Theme.fonts.mono}`;
+  ctx.fillStyle = withAlpha(lbAccent, 0.85);
+  ctx.textAlign = "right";
+  ctx.textBaseline = "top";
+  ctx.fillText("每日排名", W - 320, y + 18);
+  ctx.fillText("每周排名", W - 90, y + 18);
+  ctx.font = `700 36px ${Theme.fonts.mono}`;
+  ctx.fillStyle = lbAccent;
+  ctx.shadowColor = withAlpha(lbAccent, 0.5);
+  ctx.shadowBlur = 12;
+  const dailyRankText = v7.leaderboardDailyRank > 0 ? `#${v7.leaderboardDailyRank}` : "—";
+  const weeklyRankText = v7.leaderboardWeeklyRank > 0 ? `#${v7.leaderboardWeeklyRank}` : "—";
+  ctx.fillText(dailyRankText, W - 320, y + 48);
+  ctx.fillText(weeklyRankText, W - 90, y + 48);
+  ctx.shadowBlur = 0;
+  ctx.restore();
+  y += lbH + 20;
+
+  return y;
+}
+
+/** 涉案金额格式化（万/亿） */
+function formatAmount(amount: number): string {
+  if (amount <= 0) return "未知";
+  if (amount >= 100000000) return `${(amount / 100000000).toFixed(2)} 亿元`;
+  if (amount >= 10000) return `${(amount / 10000).toFixed(1)} 万元`;
+  return `${amount} 元`;
 }
 
 // ============================================================

@@ -20,7 +20,10 @@ import {
   isSpecialWave, pickSpecialEvent, specialEventName, specialEventDesc,
   pickChainFollowUp, pickNormalQuestion,
 } from "./data";
-import type { FBQuestion, FBHud, FBQuestionKind, FBItemType, FBBoss, FBSpecialEvent, FBBossSkill, FBStats } from "./types";
+import { MAN_TIERS } from "./data";
+import type { FBQuestion, FBHud, FBHudSecondCard, FBQuestionKind, FBItemType, FBBoss, FBSpecialEvent, FBBossSkill, FBStats, FBDifficulty, FBWrongRecord, FBPsychology, FBSwipeDir, FBVictimProfile, FBKnowledgeGraph, FBCaseArchive, FBBranchStep, FBBranchChoice, FBAudioClip, FBSeason, FBHudBranchState, FBHudAudioState } from "./types";
+import { updateFBSaveAfterRun, loadFBSave, getItemLevel, currentBossWeekKey } from "./storage";
+import { matchVictimProfile, buildKnowledgeGraph, collectCaseArchives, getItemUpgradeDef, currentSeason, pickBossWeek } from "./dataV2";
 
 const W = 800;
 const H = 480;
@@ -89,6 +92,20 @@ interface Card {
   chainGroup?: string;
   /** 是否为连锁追问 */
   isChainFollowUp?: boolean;
+  /** 3D 翻转进度 0..1（0=正面题目，1=反面答案），reveal 阶段推进 */
+  flipProgress: number;
+  /** 滑动手势偏移比 -1..1（判断题，负=左滑举报，正=右滑通过），0=未滑动 */
+  swipeOffset: number;
+  /** 双卡模式下的卡位索引（0=左卡，1=右卡），undefined=单卡模式 */
+  dualIndex?: number;
+  /** 填空题：玩家输入文本（kind=fill） */
+  fillInput: string;
+  /** 连线题：玩家配对 linkSel[i] = 玩家为左列第 i 项选择的右列下标，-1=未选 */
+  linkSel: number[];
+  /** 连线题：右列呈现顺序（打乱后的原始下标序列） */
+  linkRightOrder: number[];
+  /** 排序题：玩家当前排列（选项索引序列） */
+  sortArr: number[];
 }
 
 export class FraudBusterEngine extends GameEngine {
@@ -152,6 +169,12 @@ export class FraudBusterEngine extends GameEngine {
     itemsUsed: 0,
     chainCompleted: 0,
     specialCleared: 0,
+    wrongRecords: [],
+    knowledgeStats: [],
+    ultimateUsed: 0,
+    psychologyStats: {},
+    tierDownCount: 0,
+    dualCleared: 0,
   };
   /** 当前特殊波次事件（null=普通波次） */
   private specialEvent: FBSpecialEvent | null = null;
@@ -165,6 +188,61 @@ export class FraudBusterEngine extends GameEngine {
   private itemLocked = false;
   /** 特殊事件通知文案（用于显示事件名称） */
   private specialEventToast: { text: string; until: number } | null = null;
+  // ===== 全面升级新增状态 =====
+  /** 上一帧段位等级（用于检测段位变化，触发升级/掉段特效） */
+  private prevManLevel = 0;
+  /** 段位变化方向（场景层一次性消费后置 null） */
+  private manLevelDelta: "up" | "down" | null = null;
+  /** 双重诈骗同屏双卡（dualMode=true 时长度为 2，否则为 0） */
+  private dualCards: Card[] = [];
+  /** 双重诈骗模式：两张卡均答对才得分翻倍 */
+  private dualMode = false;
+  /** 双卡模式下的答题结果记录（用于判定双对/单对/全错） */
+  private dualResults: Array<"correct" | "wrong" | null> = [null, null];
+  /** 滑动手势状态：当前正在滑动的卡位（0=主卡/左卡，1=右卡，null=未在滑动） */
+  private swipingCardIdx: number | null = null;
+  /** 滑动起始 x 坐标（画布坐标） */
+  private swipeStartX = 0;
+  /** 滑动当前 x 坐标（画布坐标） */
+  private swipeCurX = 0;
+  // ===== 包C/D/F 新增状态 =====
+  /** 终极技能量 0..100（连击≥10 可释放反诈必杀技） */
+  private ultimateEnergy = 0;
+  /** 终极技是否就绪（能量满 100） */
+  private ultimateReady = false;
+  /** 答案模糊剩余秒（Boss answerBlur 技能） */
+  private answerBlurRemaining = 0;
+  /** 时间被偷取标记（Boss timeSteal 技能，本题生效） */
+  private timeStolen = false;
+  /** 急速连答剩余题数（rapidFire 事件） */
+  private rapidFireRemaining = 0;
+  /** 道具禁用波次标记（itemLock 事件） */
+  private itemLockActive = false;
+  /** 3D 卡片翻转进度（0..1，入场时翻转） */
+  private cardFlipProgress = 0;
+  /** 难度模式（包A，默认 normal） */
+  private difficulty: FBDifficulty = "normal";
+  // ===== v2 升级新增状态 =====
+  /** 道具升级等级（B4，从存档加载，1-3） */
+  private itemLevels: Record<string, number> = { freeze: 1, fifty: 1, skip: 1, double: 1, hint: 1, undo: 1 };
+  /** 当前季节标签（A4） */
+  private currentSeasonTag: import("./types").FBSeason | null = null;
+  /** Boss 周挑战模式（A6） */
+  private bossWeekActive = false;
+  /** Boss 周 Boss ID（A6） */
+  private bossWeekBossId: string | null = null;
+  /** 本局遭遇的题目（用于案例档案收集 A1） */
+  private encounteredQuestions: FBQuestion[] = [];
+  /** 分支题状态（B3）：currentStepId / history / ended */
+  private branchState: { stepId: string; history: Array<{ stepId: string; choiceText: string }>; ended: boolean; ending?: "safe" | "scammed" | "warning"; endingDesc?: string } | null = null;
+  /** AI 语音题播放状态（A2） */
+  private audioState: { playing: boolean; progress: number; finished: boolean } = { playing: false, progress: 0, finished: false };
+  /** 错题复盘模式（A5） */
+  private reviewMode = false;
+  /** 错题复盘队列（A5） */
+  private reviewQueue: FBQuestion[] = [];
+  /** 错题复盘已清除 ID（A5） */
+  private reviewClearedIds: string[] = [];
 
   constructor(canvas: GameCanvas) {
     super(canvas);
@@ -172,6 +250,17 @@ export class FraudBusterEngine extends GameEngine {
     canvas.height = H;
     this.startedAt = performance.now();
     this.nextSpawnAt = 0.6;
+    // ===== v2 升级初始化 =====
+    // B4: 从存档加载道具升级等级
+    const save = loadFBSave();
+    this.itemLevels = { ...save.itemUpgradeLevels };
+    // A4: 设置当前季节
+    this.currentSeasonTag = currentSeason();
+    // A6: 检查 Boss 周挑战（本周已击败则激活标记）
+    const weekKey = currentBossWeekKey();
+    if (save.bossWeek && save.bossWeek.weekKey === weekKey) {
+      this.bossWeekBossId = save.bossWeek.bossId;
+    }
   }
 
   /**
@@ -187,6 +276,11 @@ export class FraudBusterEngine extends GameEngine {
     const c = this.current;
     if (c.state !== "show") return;
     const kind = c.q.kind ?? "single";
+    // ===== v2: 分支题走独立流程（B3） =====
+    if (kind === "branch") {
+      this.chooseBranch(idx);
+      return;
+    }
     if (kind === "multi") {
       // 多选题：切换选中状态
       const i = c.multiSelected.indexOf(idx);
@@ -215,7 +309,126 @@ export class FraudBusterEngine extends GameEngine {
     this.submit();
   }
 
-  /** 统一提交按钮入口：单选/判断用 pendingIdx，多选用 multiSelected */
+  // ===== v2 升级：分支题选择（B3） =====
+  /** 分支题：选择第 choiceIdx 个回复 */
+  chooseBranch(choiceIdx: number): void {
+    if (this.state.over || !this.current || !this.branchState || this.branchState.ended) return;
+    const c = this.current;
+    const steps = c.q.branchSteps ?? [];
+    const curStep = steps.find((s) => s.id === this.branchState!.stepId);
+    if (!curStep || choiceIdx < 0 || choiceIdx >= curStep.choices.length) return;
+    const choice = curStep.choices[choiceIdx];
+    // 记录历史
+    this.branchState.history.push({ stepId: curStep.id, choiceText: choice.text });
+    playSfx("tick");
+    // 心理手法统计
+    if (choice.psychology) {
+      for (const p of choice.psychology) {
+        const k = p as string;
+        const cur = this.stats.psychologyStats[k] ?? { correct: 0, total: 0 };
+        cur.total += 1;
+        if (choice.safe) cur.correct += 1;
+        this.stats.psychologyStats[k] = cur;
+      }
+    }
+    if (choice.nextStep == null) {
+      // 到达结局
+      this.branchState.ended = true;
+      this.branchState.ending = choice.ending ?? "warning";
+      this.branchState.endingDesc = choice.endingDesc;
+      // 判定对错：safe 结局=对，scammed=错，warning=半对
+      if (choice.ending === "safe") {
+        c.correct = true;
+        this.onBranchComplete(true);
+      } else if (choice.ending === "scammed") {
+        c.correct = false;
+        this.onBranchComplete(false);
+      } else {
+        // warning：算对但不加分
+        c.correct = true;
+        this.onBranchComplete(true, false);
+      }
+    } else {
+      // 进入下一步
+      this.branchState.stepId = choice.nextStep;
+    }
+    this.emitHud();
+  }
+
+  /** 分支题完成处理 */
+  private onBranchComplete(correct: boolean, addScore = true): void {
+    const c = this.current!;
+    this.stats.branchCompleted = (this.stats.branchCompleted ?? 0) + 1;
+    if (correct) {
+      this.state.combo += 1;
+      this.state.busted += 1;
+      if (addScore) {
+        const base = 100 + c.q.difficulty * 50;
+        const comboBonus = Math.min(this.state.combo * 10, 200);
+        this.state.score += base + comboBonus;
+      }
+      playSfx("good");
+      this.particles.spawnBurst(CARD_CX, CARD_CY, "#1AD670", { sparks: 12, dots: 14, speed: 180, life: 0.8, size: 3 });
+    } else {
+      this.state.combo = 0;
+      this.state.stamina -= 1;
+      playSfx("bad");
+      postFX.shake(6, 10);
+      this.recordWrong(c, "wrong");
+      if (this.state.stamina <= 0) {
+        this.gameOver();
+        return;
+      }
+    }
+    // 分支题完成后进入 reveal 然后下一题
+    c.state = "reveal";
+    c.flipProgress = 1;
+    this.revealUntil = this.t + 2.0;
+  }
+
+  // ===== v2 升级：AI 语音题播放控制（A2） =====
+  /** 切换音频播放 */
+  toggleAudio(): void {
+    if (this.state.over || !this.current) return;
+    const c = this.current;
+    if (c.q.cardType !== "audio" || !c.q.audioClip) return;
+    if (this.audioState.finished) return;
+    this.audioState.playing = !this.audioState.playing;
+    playSfx("tick");
+    this.emitHud();
+  }
+
+  /** 构建分支题 HUD 状态（B3） */
+  private buildBranchHud(c: Card): FBHudBranchState | null {
+    if (!this.branchState || !c.q.branchSteps) return null;
+    const curStep = c.q.branchSteps.find((s) => s.id === this.branchState!.stepId);
+    if (!curStep) return null;
+    return {
+      currentStepId: curStep.id,
+      currentTitle: curStep.title,
+      currentScene: curStep.scene,
+      choices: curStep.choices,
+      history: this.branchState.history,
+      ended: this.branchState.ended,
+      ending: this.branchState.ending,
+      endingDesc: this.branchState.endingDesc,
+    };
+  }
+
+  /** 构建 AI 语音题 HUD 状态（A2） */
+  private buildAudioHud(c: Card): FBHudAudioState | null {
+    if (!c.q.audioClip) return null;
+    return {
+      playing: this.audioState.playing,
+      progress: this.audioState.progress,
+      finished: this.audioState.finished,
+      transcript: c.q.audioClip.transcript,
+      isSynthetic: c.q.audioClip.isSynthetic,
+      synthTech: c.q.audioClip.synthTech,
+    };
+  }
+
+  /** 统一提交按钮入口：单选/判断用 pendingIdx，多选用 multiSelected，填空/连线/排序用各自状态 */
   submit(): void {
     if (this.state.over || !this.current) return;
     const c = this.current;
@@ -227,6 +440,25 @@ export class FraudBusterEngine extends GameEngine {
         return;
       }
       this.revealCard(-1);
+    } else if (kind === "fill") {
+      if (!c.fillInput || c.fillInput.trim().length === 0) {
+        playSfx("bad");
+        return;
+      }
+      this.revealCard(-2);
+    } else if (kind === "link") {
+      // 所有左列项都必须配对
+      if (c.linkSel.length === 0 || c.linkSel.some((s) => s === -1)) {
+        playSfx("bad");
+        return;
+      }
+      this.revealCard(-3);
+    } else if (kind === "sort") {
+      if (c.sortArr.length === 0) {
+        playSfx("bad");
+        return;
+      }
+      this.revealCard(-4);
     } else {
       if (c.pendingIdx === null) {
         playSfx("bad");
@@ -239,6 +471,175 @@ export class FraudBusterEngine extends GameEngine {
   /** 多选题提交按钮入口（兼容旧调用，转发到 submit） */
   submitMulti(): void {
     this.submit();
+  }
+
+  // ===== 滑动手势接口（判断题专用：左滑=举报, 右滑=通过） =====
+
+  /**
+   * 开始滑动：记录起始位置
+   * @param cardIdx 0=主卡/左卡, 1=右卡（双卡模式）
+   */
+  swipeStart(cardIdx: number): void {
+    if (this.state.over) return;
+    const c = cardIdx === 0 ? this.current : this.dualCards[1];
+    if (!c || c.state !== "show") return;
+    const kind = c.q.kind ?? "single";
+    if (kind !== "judge") return;
+    this.swipingCardIdx = cardIdx;
+    this.emitHud();
+  }
+
+  /**
+   * 滑动中更新偏移比：驱动卡片视觉跟随手指
+   * @param offsetRatio -1..1（负=左滑, 正=右滑）
+   */
+  swipeMove(offsetRatio: number): void {
+    if (this.swipingCardIdx === null) return;
+    const c = this.swipingCardIdx === 0 ? this.current : this.dualCards[1];
+    if (!c) return;
+    c.swipeOffset = Math.max(-1, Math.min(1, offsetRatio));
+    this.emitHud();
+  }
+
+  /**
+   * 滑动释放：达到阈值则提交判定，否则回弹
+   * 阈值：|offset| >= 0.35
+   */
+  swipeEnd(): void {
+    if (this.swipingCardIdx === null) return;
+    const cardIdx = this.swipingCardIdx;
+    const c = cardIdx === 0 ? this.current : this.dualCards[1];
+    this.swipingCardIdx = null;
+    if (!c || c.state !== "show") return;
+    const offset = c.swipeOffset;
+    const threshold = 0.35;
+    if (Math.abs(offset) < threshold) {
+      // 未达阈值：回弹归零
+      c.swipeOffset = 0;
+      this.emitHud();
+      return;
+    }
+    // 达到阈值：判定方向
+    // 左滑 = 举报 = 选项 0（"正确：是诈骗"）
+    // 右滑 = 通过 = 选项 1（"错误：非诈骗"）
+    const dir: FBSwipeDir = offset < 0 ? "left" : "right";
+    const answerIdx = dir === "left" ? 0 : 1;
+    c.swipeOffset = 0; // 提交后归零，进入翻转
+    if (cardIdx === 0) {
+      this.answer(answerIdx);
+    } else {
+      // 双卡模式第二张卡：直接判定
+      this.answerDualCard(1, answerIdx);
+    }
+  }
+
+  /** 取消滑动（手指离开卡片区域或被中断） */
+  swipeCancel(): void {
+    if (this.swipingCardIdx === null) return;
+    const c = this.swipingCardIdx === 0 ? this.current : this.dualCards[1];
+    this.swipingCardIdx = null;
+    if (c) c.swipeOffset = 0;
+    this.emitHud();
+  }
+
+  // ===== 双重诈骗同屏双卡接口 =====
+
+  /**
+   * 双卡模式下回答第二张卡（索引 1）
+   * 答案判定与主卡一致，但两张卡均答对才得分翻倍
+   */
+  private answerDualCard(idx: number, answerIdx: number): void {
+    if (!this.dualMode || idx >= this.dualCards.length) return;
+    const c = this.dualCards[idx];
+    if (!c || c.state !== "show") return;
+    c.pendingIdx = answerIdx;
+    this.revealDualCard(idx, answerIdx);
+  }
+
+  /** 双卡模式揭示某张卡：判定 + 翻转，双卡均完成后统一结算 */
+  private revealDualCard(idx: number, answerIdx: number): void {
+    const c = this.dualCards[idx];
+    if (!c) return;
+    c.selectedIdx = answerIdx;
+    c.state = "reveal";
+    c.flipProgress = 0;
+    const correct = answerIdx === (c.q.answer ?? -1);
+    c.correct = correct;
+    const riskList = c.q.risk ?? [];
+    c.riskTriggered = riskList.includes(answerIdx);
+    // 记录结果
+    this.dualResults[idx] = correct ? "correct" : "wrong";
+    // 统计
+    this.stats.totalAnswered += 1;
+    const typeId = c.q.typeId;
+    const prev = this.stats.byType[typeId] ?? { correct: 0, total: 0 };
+    prev.total += 1;
+    if (correct) prev.correct += 1;
+    this.stats.byType[typeId] = prev;
+    if (correct) this.stats.correctCount += 1;
+    else {
+      this.stats.wrongCount += 1;
+      this.recordWrong(c, "wrong");
+    }
+    // 视觉反馈
+    if (correct) {
+      this.particles.spawnBurst(idx === 0 ? CARD_CX : CARD_CX + 400, CARD_CY, ACCENT, { ring: true, sparks: 12, dots: 14, speed: 220, life: 0.7, size: 3, color2: "#FFD666" });
+      playSfx("good");
+    } else {
+      this.particles.spawnBurst(idx === 0 ? CARD_CX : CARD_CX + 400, CARD_CY, "#E5353B", { ring: true, sparks: 14, dots: 16, speed: 260, life: 0.7, size: 3, color2: "#FFB020" });
+      postFX.glitch(0.3, 2);
+      playSfx("bad");
+    }
+    // 检查双卡是否均已作答
+    if (this.dualResults[0] !== null && this.dualResults[1] !== null) {
+      this.settleDualCards();
+    }
+    this.emitHud();
+  }
+
+  /** 双卡模式结算：双对得分翻倍，任一错则扣分扣血 */
+  private settleDualCards(): void {
+    const bothCorrect = this.dualResults[0] === "correct" && this.dualResults[1] === "correct";
+    const baseScore = 200 + this.state.wave * 15;
+    if (bothCorrect) {
+      const gain = baseScore * 2; // 双倍奖励
+      this.state.score += gain;
+      this.state.busted += 2;
+      this.state.combo += 1;
+      this.state.maxCombo = Math.max(this.state.maxCombo, this.state.combo);
+      this.stats.maxCombo = Math.max(this.stats.maxCombo, this.state.combo);
+      this.stats.dualCleared += 1;
+      this.particles.spawnText(CARD_CX + 200, CARD_CY - 60, `双卡全中！+${gain}`, "#FFD666", { size: 18, life: 1.4 });
+      this.particles.spawnBurst(CARD_CX + 200, CARD_CY, "#FFD666", { ring: true, sparks: 24, dots: 28, speed: 320, life: 1.0, size: 4, color2: ACCENT, shockwave: true });
+      postFX.flash("#FFD666", 0.4, 3);
+      postFX.shake(6, 12);
+      this.toast = { text: `⚡ 双重诈骗全中！+${gain} · 双倍奖励`, tone: "good", until: this.t + 2.6 };
+    } else {
+      // 任一错：扣血扣分
+      this.state.combo = 0;
+      this.state.stamina -= 1;
+      this.manHurtUntil = this.t + 0.6;
+      const prevScore = this.state.score;
+      this.state.score = Math.max(0, this.state.score - 60);
+      const lostScore = prevScore - this.state.score;
+      this.shakeUntil = this.t + 0.35;
+      this.taunt = { text: SCAMMER_MOCKS[Math.floor(Math.random() * SCAMMER_MOCKS.length)], until: this.t + 2.4 };
+      this.crack = { until: this.t + 1.2, seed: Math.floor(Math.random() * 9999) };
+      this.particles.spawnText(CARD_CX + 200, CARD_CY - 40, `-${lostScore}`, "#E5353B", { size: 18, life: 1.0 });
+      this.toast = { text: `双重诈骗失败！扣 ${lostScore} 分。${this.dualCards[0]?.q.explain ?? ""}`, tone: "bad", until: this.t + 2.8 };
+      postFX.flash("#E5353B", 0.4, 2);
+      postFX.glitch(0.4, 3);
+      postFX.shake(7, 14);
+    }
+    // 安排双卡退出
+    setTimeout(() => {
+      this.dualCards = [];
+      this.dualMode = false;
+      this.dualResults = [null, null];
+      this.current = null;
+      this.nextSpawnAt = this.t + 0.5;
+      this.emitHud();
+    }, 1100);
   }
 
   /**
@@ -256,6 +657,13 @@ export class FraudBusterEngine extends GameEngine {
     if (this.itemLocked && type !== "undo") {
       playSfx("bad");
       this.toast = { text: "🔒 道具被 Boss 封印！本题无法使用道具", tone: "bad", until: this.t + 1.6 };
+      this.emitHud();
+      return;
+    }
+    // itemLock 特殊事件：本波次禁用所有道具（undo 例外）
+    if (this.itemLockActive && type !== "undo") {
+      playSfx("bad");
+      this.toast = { text: "🚫 道具禁用波次！纯靠判断", tone: "bad", until: this.t + 1.6 };
       this.emitHud();
       return;
     }
@@ -279,54 +687,85 @@ export class FraudBusterEngine extends GameEngine {
       const correct = this.current.q.answer ?? -1;
       const wrongs = this.current.q.options.map((_, i) => i).filter((i) => i !== correct);
       if (wrongs.length < 2) { playSfx("bad"); return; }
-      // 随机选 2 个错误项
+      // B4: 根据升级等级移除错误选项
+      const lv = this.itemLevels.fifty ?? 1;
+      const def = getItemUpgradeDef("fifty", lv);
+      const removeCount = def?.params.remove ?? 2;
       const shuffled = wrongs.sort(() => Math.random() - 0.5);
-      this.current.fiftyRemoved = shuffled.slice(0, 2);
+      this.current.fiftyRemoved = removeCount >= 99 ? shuffled : shuffled.slice(0, Math.min(removeCount, wrongs.length));
       this.items.fifty -= 1;
       this.stats.itemsUsed += 1;
       playSfx("good");
-      this.toast = { text: "🧰 50-50 已移除 2 个错误选项", tone: "info", until: this.t + 1.6 };
+      const label = lv >= 3 ? "必中" : lv >= 2 ? "75-25" : "50-50";
+      this.toast = { text: `🧰 ${label} 已移除 ${this.current.fiftyRemoved.length} 个错误选项`, tone: "info", until: this.t + 1.6 };
       this.emitHud();
       return;
     }
     if (type === "freeze") {
       if (!this.current || this.current.state !== "show") { playSfx("bad"); return; }
       if (this.freezeRemaining > 0) { playSfx("bad"); return; }
-      this.freezeRemaining = 5;
+      // B4: 根据升级等级决定冻结时长
+      const lv = this.itemLevels.freeze ?? 1;
+      const def = getItemUpgradeDef("freeze", lv);
+      const freezeSec = def?.params.duration ?? 5;
+      this.freezeRemaining = freezeSec;
       this.items.freeze -= 1;
       this.stats.itemsUsed += 1;
       playSfx("good");
       postFX.flash("#00E5FF", 0.25, 2);
-      this.toast = { text: "❄ 时间冻结 5 秒", tone: "info", until: this.t + 1.6 };
+      const label = lv >= 3 ? "绝对零度" : lv >= 2 ? "寒冰屏障" : "冰霜新星";
+      this.toast = { text: `❄ ${label} 时间冻结 ${freezeSec} 秒`, tone: "info", until: this.t + 1.6 };
       this.emitHud();
       return;
     }
     if (type === "double") {
       if (!this.current || this.current.state !== "show") { playSfx("bad"); return; }
       if (this.doubleRemaining > 0) { playSfx("bad"); return; }
-      this.doubleRemaining = 2;
+      // B4: 根据升级等级决定倍数与题数
+      const lv = this.itemLevels.double ?? 1;
+      const def = getItemUpgradeDef("double", lv);
+      const count = def?.params.count ?? 1;
+      this.doubleRemaining = count;
       this.items.double -= 1;
       this.stats.itemsUsed += 1;
       playSfx("good");
       postFX.flash("#FFD666", 0.25, 2);
-      this.toast = { text: "✨ 双倍分已激活（本题 + 下一题）", tone: "info", until: this.t + 1.6 };
+      const mult = def?.params.mult ?? 2;
+      const label = lv >= 3 ? "五倍连击" : lv >= 2 ? "三倍分" : "双倍分";
+      this.toast = { text: `✨ ${label} 已激活（下 ${count} 题 ×${mult}）`, tone: "info", until: this.t + 1.6 };
       this.emitHud();
       return;
     }
     if (type === "hint") {
-      // 提示：高亮1个正确倾向的选项（不移除，仅视觉标记）
+      // 提示：高亮正确倾向的选项（不移除，仅视觉标记）
       if (!this.current || this.current.state !== "show") { playSfx("bad"); return; }
       const kind = this.current.q.kind ?? "single";
       if (kind === "multi") { playSfx("bad"); return; }
       if (this.current.hintHighlighted.length > 0) { playSfx("bad"); return; }
       const correct = this.current.q.answer ?? -1;
-      // 高亮正确选项（给玩家一个明确提示）
-      this.current.hintHighlighted = [correct];
+      // B4: 根据升级等级决定高亮行为
+      const lv = this.itemLevels.hint ?? 1;
+      const def = getItemUpgradeDef("hint", lv);
+      if (def?.params.reveal) {
+        // 满级：直接显示正确选项
+        this.current.fiftyRemoved = this.current.q.options.map((_, i) => i).filter((i) => i !== correct);
+        this.current.hintHighlighted = [correct];
+        this.toast = { text: "💡 全知：已直接显示正确选项", tone: "info", until: this.t + 1.6 };
+      } else {
+        const hintCount = def?.params.count ?? 1;
+        this.current.hintHighlighted = [correct];
+        if (hintCount >= 2) {
+          // 洞察：额外高亮一个排除项（帮助 narrowing）
+          const wrongs = this.current.q.options.map((_, i) => i).filter((i) => i !== correct && !this.current!.fiftyRemoved.includes(i));
+          if (wrongs.length > 0) this.current.hintHighlighted.push(wrongs[0]);
+        }
+        const label = lv >= 2 ? "洞察" : "提示";
+        this.toast = { text: `💡 ${label}：已高亮正确倾向选项`, tone: "info", until: this.t + 1.6 };
+      }
       this.items.hint -= 1;
       this.stats.itemsUsed += 1;
       playSfx("good");
       postFX.flash("#B388FF", 0.2, 2);
-      this.toast = { text: "💡 提示：已高亮正确选项", tone: "info", until: this.t + 1.6 };
       this.emitHud();
       return;
     }
@@ -392,12 +831,12 @@ export class FraudBusterEngine extends GameEngine {
     this.emitHud();
   }
 
-  /** 揭示答题结果（单选 idx 直接传入；多选 idx 传 -1 用 multiSelected） */
+  /** 揭示答题结果（单选 idx 直接传入；多选 idx=-1；填空 idx=-2；连线 idx=-3；排序 idx=-4） */
   private revealCard(idx: number): void {
     const c = this.current;
     if (!c) return;
     const kind = c.q.kind ?? "single";
-    c.selectedIdx = kind === "multi" ? -1 : idx;
+    c.selectedIdx = (kind === "multi" || kind === "fill" || kind === "link" || kind === "sort") ? -1 : idx;
     c.state = "reveal";
     this.revealUntil = this.t + 1.0;
     // 判定正确性
@@ -408,6 +847,26 @@ export class FraudBusterEngine extends GameEngine {
       // 风险触发：选中任意 risk 选项
       const riskList = c.q.risk ?? [];
       c.riskTriggered = c.multiSelected.some((i) => riskList.includes(i));
+    } else if (kind === "fill") {
+      // 填空题：忽略大小写和首尾空格，匹配 fillAnswer 或 fillAccept 列表
+      const ans = c.fillInput.trim().toLowerCase();
+      const accept = [c.q.fillAnswer, ...(c.q.fillAccept ?? [])]
+        .filter((s): s is string => !!s)
+        .map((s) => s.trim().toLowerCase());
+      c.correct = accept.includes(ans);
+      c.riskTriggered = false;
+    } else if (kind === "link") {
+      // 连线题：linkPairing[i] = 右列原始下标对应左列第 i 项
+      const pairing = c.q.linkPairing ?? [];
+      c.correct = pairing.length === c.linkSel.length &&
+        pairing.every((orig, i) => c.linkSel[i] === orig);
+      c.riskTriggered = false;
+    } else if (kind === "sort") {
+      // 排序题：玩家排列与正确顺序完全一致
+      const correct = c.q.sortCorrect ?? [];
+      c.correct = correct.length === c.sortArr.length &&
+        correct.every((v, i) => c.sortArr[i] === v);
+      c.riskTriggered = false;
     } else {
       c.correct = idx === (c.q.answer ?? -1);
       const riskList = c.q.risk ?? [];
@@ -482,14 +941,51 @@ export class FraudBusterEngine extends GameEngine {
       // 击中顿挫感：短暂冻结 + 卡片弹动（爽感强化）
       this.hitStopRemain = 0.06;
       this.cardPulse = 1;
+      // 大招能量增长（答对+12，combo≥5 额外+3）
+      if (!c.skippedViaItem) {
+        const energyGain = 12 + (this.state.combo >= 5 ? 3 : 0);
+        this.ultimateEnergy = Math.min(100, this.ultimateEnergy + energyGain);
+        if (this.ultimateEnergy >= 100 && !this.ultimateReady) {
+          this.ultimateReady = true;
+          playSfx("ultimate");
+          postFX.flash("#FFD666", 0.4, 3);
+          this.particles.spawnText(CARD_CX, CARD_CY - 90, "⚡ 必杀技就绪！", "#FFD666", { size: 18, life: 1.4 });
+        }
+        // 连击色阶升级提示
+        const newTier = this.comboTierLevel(this.state.combo);
+        const prevTier = this.comboTierLevel(this.state.combo - 1);
+        if (newTier > prevTier && this.state.combo > 1) {
+          playSfx("comboTier");
+        }
+      }
+      // 心理手法统计（答对）
+      this.trackPsychology(c.q, true);
     } else {
       this.state.combo = 0;
       if (!c.skippedViaItem) this.stats.wrongCount += 1;
+      // 大招能量衰减（答错-20，不低于0）
+      this.ultimateEnergy = Math.max(0, this.ultimateEnergy - 20);
+      this.ultimateReady = false;
+      // 错题记录（非跳过道具，最多保留 20 条）
+      if (!c.skippedViaItem) {
+        this.recordWrong(c, "wrong");
+        playSfx("wrongRecord");
+      }
+      // 心理手法统计（答错）
+      this.trackPsychology(c.q, false);
       // 风险选项：扣 2 血；普通错答：扣 1 血
       const penalty = c.riskTriggered ? 2 : 1;
       this.state.stamina -= penalty;
       this.manHurtUntil = this.t + 0.6;
-      const wrong = c.riskTriggered ? `⚠ 风险选项！扣除 ${penalty} 点体力。` : "错答！正确答案将高亮显示。";
+      // 错答掉段机制：错答扣分（风险 -100，普通 -50），分数不低于 0
+      const scorePenalty = c.riskTriggered ? 100 : 50;
+      const prevScore = this.state.score;
+      this.state.score = Math.max(0, this.state.score - scorePenalty);
+      const lostScore = prevScore - this.state.score;
+      if (lostScore > 0) {
+        this.particles.spawnText(CARD_CX, CARD_CY - 16, `-${lostScore}`, "#E5353B", { size: 18, life: 1.0 });
+      }
+      const wrong = c.riskTriggered ? `⚠ 风险选项！扣除 ${penalty} 点体力，扣 ${lostScore} 分。` : `错答！扣 ${lostScore} 分，正确答案将高亮显示。`;
       this.toast = { text: `${wrong} ${c.q.explain}`, tone: "bad", until: this.t + 2.8 };
       this.shakeUntil = this.t + 0.35;
       // 诈骗分子嘲讽 + 屏幕裂纹（压迫感）
@@ -509,6 +1005,45 @@ export class FraudBusterEngine extends GameEngine {
     this.state.over = true;
     // 同步最终 maxCombo
     this.stats.maxCombo = Math.max(this.stats.maxCombo, this.state.maxCombo);
+    // ===== v2 升级：计算受害者档案 / 知识图谱 / 案例档案 =====
+    // B2: 受害者档案
+    this.stats.victimProfile = matchVictimProfile(
+      this.stats.psychologyStats,
+      this.stats.wrongCount,
+      this.stats.totalAnswered,
+    );
+    // B1: 知识图谱
+    const knowledgeStats = this.aggregateKnowledgeStats();
+    const kg = buildKnowledgeGraph(knowledgeStats);
+    this.stats.knowledgeGraph = kg;
+    // A1: 案例档案
+    this.stats.caseArchives = collectCaseArchives(this.encounteredQuestions);
+    // A2: AI 语音题答对数
+    this.stats.audioCorrect = this.encounteredQuestions.filter(
+      (q) => q.cardType === "audio",
+    ).length > 0 ? this.stats.correctCount : 0;
+    // B3: 分支题完成数（已在 onBranchComplete 累加）
+    // ===== 存档系统：局后结算（累计识破/Boss/最高分/段位/成就） =====
+    const saveResult = updateFBSaveAfterRun({
+      score: this.state.score,
+      wave: this.state.wave,
+      busted: this.state.busted,
+      bossDefeated: this.stats.bossDefeated,
+      byType: this.stats.byType,
+      branchCompleted: this.stats.branchCompleted ?? 0,
+      audioCorrect: this.stats.audioCorrect ?? 0,
+      seasonalEncountered: this.encounteredQuestions.filter((q) => (q.season ?? []).some((s) => s !== "all")).length,
+      bossWeekDefeated: this.bossWeekActive && this.boss?.defeated ? 1 : 0,
+      bossWeekBossId: this.bossWeekBossId ?? undefined,
+      clearedWrongIds: this.reviewClearedIds,
+    });
+    // 成就解锁音效 + 段位晋级音效
+    if (saveResult.newAchievements.length > 0) {
+      playSfx("achievementUnlock");
+    }
+    if (saveResult.rankUp) {
+      playSfx("rankUp");
+    }
     this.result = {
       gameId: "fraud-buster",
       win: false,
@@ -517,13 +1052,38 @@ export class FraudBusterEngine extends GameEngine {
       bustedCount: this.state.busted,
       maxCombo: this.state.maxCombo,
       tipId: randomTip(this.state.wave).id,
-      stats: { ...this.stats, byType: { ...this.stats.byType } },
+      stats: {
+        ...this.stats,
+        byType: { ...this.stats.byType },
+        save: saveResult.save,
+        newAchievements: saveResult.newAchievements,
+        rankUp: saveResult.rankUp,
+      },
     };
     postFX.flash("#E5353B", 0.5, 2);
     postFX.glitch(0.8, 4);
     postFX.shake(10, 16);
     playSfx("lose");
     this.emit({ type: "result", payload: this.result });
+  }
+
+  /** 聚合知识点统计（从 byType 与 knowledgePoints 映射） */
+  private aggregateKnowledgeStats(): Array<{ point: string; correct: number; total: number }> {
+    const map: Record<string, { correct: number; total: number }> = {};
+    for (const q of this.encounteredQuestions) {
+      const kps = q.knowledgePoints ?? [];
+      if (kps.length === 0) continue;
+      // 查找本题是否答对（从 byType 近似，无法精确到题——用 typeId 正确率近似）
+      const stat = this.stats.byType[q.typeId] ?? { correct: 0, total: 0 };
+      const rate = stat.total > 0 ? stat.correct / stat.total : 0;
+      for (const kp of kps) {
+        const cur = map[kp] ?? { correct: 0, total: 0 };
+        cur.total += 1;
+        cur.correct += rate > 0.5 ? 1 : 0;
+        map[kp] = cur;
+      }
+    }
+    return Object.entries(map).map(([point, stat]) => ({ point, ...stat }));
   }
 
   protected update(dt: number): void {
@@ -547,6 +1107,17 @@ export class FraudBusterEngine extends GameEngine {
       if (this.freezeRemaining === 0) this.emitHud();
     }
 
+    // ===== v2: AI 语音题播放进度推进（A2） =====
+    if (this.audioState.playing && this.current?.q.audioClip) {
+      const dur = this.current.q.audioClip.duration;
+      this.audioState.progress = Math.min(1, this.audioState.progress + dt / dur);
+      if (this.audioState.progress >= 1) {
+        this.audioState.playing = false;
+        this.audioState.finished = true;
+      }
+      this.emitHud();
+    }
+
     // 心跳强度：随倒计时紧迫度上升（压迫感）
     this.heartbeat = this.computeHeartbeat();
     // 高压时偶发诈骗挑衅（无嘲讽时）
@@ -556,6 +1127,11 @@ export class FraudBusterEngine extends GameEngine {
     if (this.taunt && this.t >= this.taunt.until) this.taunt = null;
     if (this.crack && this.t >= this.crack.until) this.crack = null;
 
+    // 双重诈骗同屏双卡：独立处理第二张卡的状态机
+    if (this.dualMode && this.dualCards.length === 2) {
+      this.updateDualSecondCard(dt);
+    }
+
     if (this.current) {
       const c = this.current;
       if (c.state === "in") {
@@ -564,7 +1140,19 @@ export class FraudBusterEngine extends GameEngine {
       } else if (c.state === "show") {
         const elapsed = this.t - c.spawnTs;
         if (elapsed >= c.duration) {
-          if (this.boss?.active) {
+          if (this.dualMode) {
+            // 双卡模式超时：直接判定为错，触发 revealDualCard
+            this.dualResults[0] = "wrong";
+            c.selectedIdx = null;
+            c.state = "reveal";
+            c.flipProgress = 0;
+            c.correct = false;
+            // 检查双卡是否均已作答
+            if (this.dualResults[0] !== null && this.dualResults[1] !== null) {
+              this.settleDualCards();
+            }
+            this.emitHud();
+          } else if (this.boss?.active) {
             // Boss 战超时：Boss 回血/嘲讽，不扣体力，不会结束游戏
             c.selectedIdx = null;
             c.pendingIdx = null;
@@ -587,7 +1175,16 @@ export class FraudBusterEngine extends GameEngine {
             this.state.combo = 0;
             this.state.stamina -= 1;
             this.manHurtUntil = this.t + 0.6;
-            this.toast = { text: `超时未作答！${c.q.explain}`, tone: "bad", until: this.t + 2.6 };
+            // 超时扣分 -30（轻于错答，分数不低于 0）
+            const prevScore = this.state.score;
+            this.state.score = Math.max(0, this.state.score - 30);
+            const lostScore = prevScore - this.state.score;
+            if (lostScore > 0) {
+              this.particles.spawnText(CARD_CX, CARD_CY - 16, `-${lostScore}`, "#FFB020", { size: 16, life: 1.0 });
+            }
+            // 记录超时到错题本
+            this.recordWrong(c, "timeout");
+            this.toast = { text: `超时未作答！扣 ${lostScore} 分。${c.q.explain}`, tone: "bad", until: this.t + 2.6 };
             this.shakeUntil = this.t + 0.35;
             // 超时也触发诈骗嘲讽 + 裂纹
             this.taunt = { text: SCAMMER_MOCKS[Math.floor(Math.random() * SCAMMER_MOCKS.length)], until: this.t + 2.4 };
@@ -601,8 +1198,14 @@ export class FraudBusterEngine extends GameEngine {
           }
         }
       } else if (c.state === "reveal") {
+        // 3D 翻转进度推进：reveal 阶段 0→1，约 0.5 秒完成
+        if (c.flipProgress < 1) {
+          c.flipProgress = Math.min(1, c.flipProgress + dt * 2.2);
+        }
         if (this.t >= this.revealUntil) {
-          if (this.boss?.active && !this.boss.defeated) {
+          if (this.dualMode) {
+            // 双卡模式：由 settleDualCards 的 setTimeout 控制退出，这里不处理
+          } else if (this.boss?.active && !this.boss.defeated) {
             // Boss 战继续：加载下一题，不退出卡片
             this.loadNextBossQuestion();
           } else {
@@ -620,11 +1223,24 @@ export class FraudBusterEngine extends GameEngine {
           if (this.specialEvent && c.correct) {
             this.stats.specialCleared += 1;
           }
+          // rapidFire 事件：连答未结束则继续下一题（不推进 wave）
+          if (this.specialEvent === "rapidFire" && this.rapidFireRemaining > 0) {
+            this.rapidFireRemaining -= 1;
+            if (this.rapidFireRemaining > 0) {
+              // 继续下一题
+              this.current = null;
+              this.nextSpawnAt = this.t + 0.2;
+              this.emitHud();
+              return;
+            }
+          }
           this.state.wave += 1;
           // 特殊波次结束：清除事件状态
           if (this.specialEvent) {
             this.specialEvent = null;
             this.specialEventActive = false;
+            this.rapidFireRemaining = 0;
+            this.itemLockActive = false;
           }
           // 每 10 wave 奖励随机道具
           if (this.state.wave % 10 === 0) {
@@ -642,12 +1258,120 @@ export class FraudBusterEngine extends GameEngine {
     if (this.specialEventToast && this.t >= this.specialEventToast.until) {
       this.specialEventToast = null;
     }
+    // 答案模糊衰减（Boss answerBlur 技能）
+    if (this.answerBlurRemaining > 0) {
+      this.answerBlurRemaining = Math.max(0, this.answerBlurRemaining - dt);
+      if (this.answerBlurRemaining === 0) this.emitHud();
+    }
+    // 3D 卡片翻转进度推进（入场时翻转半圈）
+    if (this.current && this.current.state === "in") {
+      this.cardFlipProgress = Math.min(1, this.cardFlipProgress + dt * 3);
+    } else if (!this.current) {
+      this.cardFlipProgress = 0;
+    }
+  }
+
+  /** 双卡模式：更新第二张卡（dualCards[1]）的独立状态机 */
+  private updateDualSecondCard(dt: number): void {
+    const c = this.dualCards[1];
+    if (!c) return;
+    if (c.state === "in") {
+      c.entered = Math.min(1, c.entered + dt * 4);
+      if (c.entered >= 1) c.state = "show";
+    } else if (c.state === "show") {
+      const elapsed = this.t - c.spawnTs;
+      if (elapsed >= c.duration) {
+        // 第二张卡超时：判定为错
+        this.dualResults[1] = "wrong";
+        c.selectedIdx = null;
+        c.state = "reveal";
+        c.flipProgress = 0;
+        c.correct = false;
+        if (this.dualResults[0] !== null && this.dualResults[1] !== null) {
+          this.settleDualCards();
+        }
+        this.emitHud();
+      }
+    } else if (c.state === "reveal") {
+      // 3D 翻转进度推进
+      if (c.flipProgress < 1) {
+        c.flipProgress = Math.min(1, c.flipProgress + dt * 2.2);
+      }
+    }
+  }
+
+  /**
+   * 生成双重诈骗同屏双卡（specialEvent === "double"）
+   * - 两张判断题卡片，左右排列
+   * - 各自独立倒计时，支持滑动手势
+   * - 双对得分翻倍，任一错扣分扣血
+   */
+  private spawnDualCards(): void {
+    const cfg = waveConfig(this.state.wave);
+    // 选取两道判断题
+    const judgePool = QUESTION_BANK.filter(
+      (q) => !this.usedIds.has(q.id)
+        && (q.kind ?? "single") === "judge"
+        && q.difficulty <= cfg.maxDifficulty
+        && !q.isNormal
+        && q.chainStep !== 2
+    );
+    const fallback = QUESTION_BANK.filter(
+      (q) => (q.kind ?? "single") === "judge" && !q.isNormal && q.chainStep !== 2
+    );
+    const pool = judgePool.length >= 2 ? judgePool : fallback;
+    const q1 = pool[Math.floor(Math.random() * pool.length)];
+    let q2 = pool[Math.floor(Math.random() * pool.length)];
+    // 确保两题不同
+    let attempts = 0;
+    while (q2.id === q1.id && attempts < 10) {
+      q2 = pool[Math.floor(Math.random() * pool.length)];
+      attempts++;
+    }
+    this.usedIds.add(q1.id);
+    this.usedIds.add(q2.id);
+    if (this.usedIds.size > QUESTION_BANK.length - 4) {
+      this.usedIds = new Set(Array.from(this.usedIds).slice(-6));
+    }
+    const duration = Math.max(4, cfg.duration * this.diffDurationMult()); // 双卡时长略宽裕
+    const card1: Card = {
+      q: q1, spawnTs: this.t, duration, entered: 0, exited: 0,
+      state: "in", selectedIdx: null, pendingIdx: null, multiSelected: [],
+      correct: false, riskTriggered: false, fiftyRemoved: [], hintHighlighted: [],
+      optionOrder: q1.options.map((_, i) => i), skippedViaItem: false,
+      flipProgress: 0, swipeOffset: 0, dualIndex: 0,
+      fillInput: "", linkSel: [], linkRightOrder: [], sortArr: [],
+    };
+    const card2: Card = {
+      q: q2, spawnTs: this.t, duration, entered: 0, exited: 0,
+      state: "in", selectedIdx: null, pendingIdx: null, multiSelected: [],
+      correct: false, riskTriggered: false, fiftyRemoved: [], hintHighlighted: [],
+      optionOrder: q2.options.map((_, i) => i), skippedViaItem: false,
+      flipProgress: 0, swipeOffset: 0, dualIndex: 1,
+      fillInput: "", linkSel: [], linkRightOrder: [], sortArr: [],
+    };
+    this.dualCards = [card1, card2];
+    this.dualMode = true;
+    this.dualResults = [null, null];
+    this.current = card1; // 主卡引用，保持兼容
+    // 双重诈骗登场特效
+    postFX.flash("#B388FF", 0.35, 2);
+    this.particles.spawnBurst(CARD_CX, CARD_CY, "#B388FF", { ring: true, sparks: 18, dots: 20, speed: 280, life: 0.9, size: 4, color2: "#FFD666", shockwave: true });
+    this.particles.spawnText(CARD_CX + 200, CARD_CY - 80, "⚡ 双重诈骗 · 同屏双卡", "#B388FF", { size: 16, life: 1.4 });
+    playSfx("boss");
+    this.toast = { text: "⚡ 双重诈骗：同屏双卡，左滑举报 / 右滑通过，双对得分翻倍！", tone: "info", until: this.t + 3.0 };
+    this.emitHud();
   }
 
   private spawnCard(): void {
     // Boss 波次（每 20 波）：生成 Boss 卡片
     if (isBossWave(this.state.wave) && !this.boss?.active) {
       this.spawnBoss();
+      return;
+    }
+    // 双重诈骗事件：生成同屏双卡（真同屏双卡模式）
+    if (this.specialEvent === "double" && !this.dualMode && !this.current) {
+      this.spawnDualCards();
       return;
     }
     const cfg = waveConfig(this.state.wave);
@@ -720,9 +1444,18 @@ export class FraudBusterEngine extends GameEngine {
       optionOrder = finalQ.options.map((_, i) => i);
     }
     // timeCompress 事件：倒计时减半
-    let duration = cfg.duration;
+    let duration = cfg.duration * this.diffDurationMult();
     if (this.specialEvent === "timeCompress") {
-      duration = Math.max(2, cfg.duration / 2);
+      duration = Math.max(2, duration / 2);
+    }
+    // rapidFire 事件：每题时长缩短 40%
+    if (this.specialEvent === "rapidFire") {
+      duration = Math.max(3, duration * 0.6);
+      if (this.rapidFireRemaining === 0) this.rapidFireRemaining = 3;
+    }
+    // itemLock 事件：本波次禁用所有道具
+    if (this.specialEvent === "itemLock") {
+      this.itemLockActive = true;
     }
 
     this.current = {
@@ -743,7 +1476,39 @@ export class FraudBusterEngine extends GameEngine {
       skippedViaItem: false,
       chainGroup,
       isChainFollowUp,
+      flipProgress: 0,
+      swipeOffset: 0,
+      fillInput: "",
+      linkSel: [],
+      linkRightOrder: [],
+      sortArr: [],
     };
+    // 连线题：打乱右列顺序，初始化玩家选择为 -1
+    if (finalQ.kind === "link" && finalQ.linkRight && finalQ.linkLeft) {
+      this.current.linkRightOrder = finalQ.linkRight.map((_, i) => i).sort(() => Math.random() - 0.5);
+      this.current.linkSel = finalQ.linkLeft.map(() => -1);
+    }
+    // 排序题：初始排列为打乱后的选项顺序
+    if (finalQ.kind === "sort" && finalQ.sortCorrect) {
+      this.current.sortArr = finalQ.sortCorrect.slice().sort(() => Math.random() - 0.5);
+    }
+    // ===== v2 升级初始化 =====
+    // A1: 追踪遭遇题目（用于案例档案收集）
+    this.encounteredQuestions.push(finalQ);
+    // B3: 分支题初始化状态
+    if (finalQ.kind === "branch" && finalQ.branchSteps && finalQ.branchSteps.length > 0) {
+      this.branchState = {
+        stepId: finalQ.branchSteps[0].id,
+        history: [],
+        ended: false,
+      };
+    } else {
+      this.branchState = null;
+    }
+    // A2: AI 语音题重置播放状态
+    if (finalQ.cardType === "audio" && finalQ.audioClip) {
+      this.audioState = { playing: false, progress: 0, finished: false };
+    }
     playSfx("tick");
     this.emitHud();
   }
@@ -776,7 +1541,7 @@ export class FraudBusterEngine extends GameEngine {
     this.current = {
       q,
       spawnTs: this.t,
-      duration: cfg.duration,
+      duration: cfg.duration * this.diffDurationMult(),
       entered: 0,
       exited: 0,
       state: "in",
@@ -789,6 +1554,12 @@ export class FraudBusterEngine extends GameEngine {
       hintHighlighted: [],
       optionOrder: q.options.map((_, i) => i),
       skippedViaItem: false,
+      flipProgress: 0,
+      swipeOffset: 0,
+      fillInput: "",
+      linkSel: [],
+      linkRightOrder: [],
+      sortArr: [],
     };
     // Boss 第一题也触发技能
     this.triggerBossSkill();
@@ -806,7 +1577,7 @@ export class FraudBusterEngine extends GameEngine {
     }
     c.q = q;
     c.spawnTs = this.t;
-    c.duration = waveConfig(this.state.wave).duration;
+    c.duration = waveConfig(this.state.wave).duration * this.diffDurationMult();
     c.state = "show";
     c.selectedIdx = null;
     c.pendingIdx = null;
@@ -817,6 +1588,15 @@ export class FraudBusterEngine extends GameEngine {
     c.hintHighlighted = [];
     c.optionOrder = q.options.map((_, i) => i);
     c.skippedViaItem = false;
+    c.flipProgress = 0;
+    c.swipeOffset = 0;
+    c.fillInput = "";
+    c.linkSel = [];
+    c.linkRightOrder = [];
+    c.sortArr = [];
+    // 重置上一题的 Boss 技能临时状态
+    this.timeStolen = false;
+    this.answerBlurRemaining = 0;
     // 每题触发随机 Boss 技能
     this.triggerBossSkill();
     playSfx("tick");
@@ -858,8 +1638,21 @@ export class FraudBusterEngine extends GameEngine {
     } else if (skill === "lockItem") {
       this.itemLocked = true;
       this.toast = { text: "🔒 Boss 技能：道具被封印！", tone: "bad", until: this.t + 2.0 };
+    } else if (skill === "timeSteal") {
+      // 偷取时间：本题倒计时-3s（通过推进 spawnTs 实现）
+      this.timeStolen = true;
+      if (this.current) {
+        this.current.spawnTs += 3;
+      }
+      this.particles.spawnText(CARD_CX, CARD_CY - 80, "⏱ -3s", "#E5353B", { size: 16, life: 1.0 });
+      this.toast = { text: "⏱ Boss 技能：偷取 3 秒时间！", tone: "bad", until: this.t + 2.0 };
+    } else if (skill === "answerBlur") {
+      // 选项模糊：选项文字短暂模糊（持续 2.5s）
+      this.answerBlurRemaining = 2.5;
+      this.toast = { text: "🌫 Boss 技能：选项文字模糊！", tone: "bad", until: this.t + 2.0 };
     }
     postFX.flash("#E5353B", 0.25, 2);
+    playSfx("bossSkill");
   }
 
   /**
@@ -964,15 +1757,294 @@ export class FraudBusterEngine extends GameEngine {
     return 0.5 + (0.25 - ratio) / 0.25 * 0.5; // 0.5..1
   }
 
+  /** 连击色阶等级 0-3（用于检测色阶升级播放音效） */
+  private comboTierLevel(combo: number): number {
+    if (combo >= 20) return 3;
+    if (combo >= 10) return 2;
+    if (combo >= 5) return 1;
+    return 0;
+  }
+
+  /** 心理手法遭遇统计（教育分析：识别玩家心理弱点） */
+  private trackPsychology(q: FBQuestion, correct: boolean): void {
+    if (!q.psychology || q.psychology.length === 0) return;
+    for (const tag of q.psychology) {
+      const cur = this.stats.psychologyStats[tag] ?? { correct: 0, total: 0 };
+      cur.total += 1;
+      if (correct) cur.correct += 1;
+      this.stats.psychologyStats[tag] = cur;
+    }
+    // 更新最弱心理手法（正确率最低且至少遭遇 2 次）
+    let weakest: string | undefined;
+    let weakestRate = 1;
+    for (const [tag, s] of Object.entries(this.stats.psychologyStats)) {
+      if (s.total >= 2) {
+        const rate = s.correct / s.total;
+        if (rate < weakestRate) {
+          weakestRate = rate;
+          weakest = tag;
+        }
+      }
+    }
+    this.stats.weakestPsychology = weakest;
+  }
+
+  /** 记录错题到错题本（最多保留 20 条，FIFO） */
+  private recordWrong(c: Card, kind: "wrong" | "timeout" | "risk"): void {
+    const finalKind = c.riskTriggered && kind === "wrong" ? "risk" : kind;
+    this.stats.wrongRecords.push({
+      questionId: c.q.id,
+      typeId: c.q.typeId,
+      type: c.q.type,
+      title: c.q.title,
+      body: c.q.body,
+      options: c.q.options,
+      playerAnswer: c.selectedIdx ?? -1,
+      correctAnswer: c.q.answer ?? -1,
+      explain: c.q.explain,
+      cues: c.q.cues,
+      psychology: c.q.psychology,
+      atTs: this.t,
+      kind: finalKind,
+    });
+    if (this.stats.wrongRecords.length > 20) {
+      this.stats.wrongRecords.shift();
+    }
+  }
+
+  /**
+   * 释放反诈必杀技（连击大招）：满能量时由场景层按钮触发
+   * - 清空当前题为正确（得分翻倍 + 额外奖励）
+   * - 全屏特效：金光爆发 + 粒子环 + 屏幕震动
+   * - 重置能量为 0
+   */
+  useUltimate(): void {
+    if (this.state.over || !this.ultimateReady) {
+      playSfx("bad");
+      return;
+    }
+    if (!this.current || this.current.state !== "show") {
+      playSfx("bad");
+      return;
+    }
+    const c = this.current;
+    // 重置能量
+    this.ultimateEnergy = 0;
+    this.ultimateReady = false;
+    this.stats.ultimateUsed += 1;
+    // 判定为正确并触发揭示
+    c.selectedIdx = c.q.answer ?? 0;
+    c.correct = true;
+    c.riskTriggered = false;
+    c.skippedViaItem = true; // 标记为道具判定，避免重复统计
+    c.state = "reveal";
+    c.flipProgress = 0;
+    this.revealUntil = this.t + 1.4;
+    // 大招得分：基础 200 + 波次加成 + 连击加成
+    const base = 200 + this.state.wave * 20 + this.state.combo * 15;
+    this.state.score += base;
+    this.state.combo += 1;
+    this.state.maxCombo = Math.max(this.state.maxCombo, this.state.combo);
+    this.state.busted += 1;
+    // Boss 模式：大招额外扣 Boss 1 血
+    if (this.boss?.active) {
+      this.boss.hp = Math.max(0, this.boss.hp - 1);
+    }
+    // 全屏特效
+    postFX.flash("#FFD666", 0.6, 4);
+    postFX.shake(10, 18);
+    postFX.glitch(0.3, 2);
+    this.particles.spawnBurst(CARD_CX, CARD_CY, "#FFD666", { ring: true, sparks: 30, dots: 40, speed: 400, life: 1.2, size: 6, color2: "#FFFFFF" });
+    this.particles.spawnText(CARD_CX, CARD_CY - 60, `⚡ 必杀技！+${base}`, "#FFD666", { size: 24, life: 1.6 });
+    this.particles.spawnText(CARD_CX, CARD_CY - 30, "反诈必杀·一击识破！", "#FFFFFF", { size: 14, life: 1.4 });
+    playSfx("ultimate");
+    this.hitStopRemain = 0.1;
+    this.cardPulse = 1;
+    this.toast = { text: `⚡ 反诈必杀技释放！+${base} 分 · ${c.q.explain}`, tone: "good", until: this.t + 3.0 };
+    this.emitHud();
+  }
+
+  /** 设置难度模式（开始界面调用，影响倒计时长度） */
+  setDifficulty(d: FBDifficulty): void {
+    this.difficulty = d;
+  }
+
+  // ===== v2 升级：Boss 周挑战模式（A6） =====
+  /** 启动 Boss 周挑战：本周固定一个高难 Boss */
+  startBossWeek(): void {
+    const weekKey = currentBossWeekKey();
+    const boss = pickBossWeek(weekKey);
+    this.bossWeekActive = true;
+    this.bossWeekBossId = boss.id;
+    // 直接进入 Boss 战（跳过常规波次）
+    this.state.wave = 20; // Boss 出现在第 20 波
+    this.boss = { def: boss, hp: boss.hp, maxHp: boss.hp, active: true, defeated: false };
+    this.specialEvent = null;
+    this.specialEventActive = false;
+    this.itemLocked = false;
+    this.bossSkill = null;
+    postFX.flash("#B388FF", 0.5, 3);
+    postFX.shake(8, 14);
+    this.particles.spawnBurst(CARD_CX, CARD_CY, "#B388FF", { ring: true, sparks: 20, dots: 24, speed: 300, life: 1.2, size: 5, color2: "#FFB020", shockwave: true });
+    this.particles.spawnText(CARD_CX, CARD_CY - 60, `📅 Boss 周：${boss.name}`, "#B388FF", { size: 18, life: 1.8 });
+    playSfx("boss");
+    this.toast = { text: `📅 Boss 周挑战：${boss.name}`, tone: "info", until: this.t + 3.0 };
+    this.emitHud();
+  }
+
+  // ===== v2 升级：错题复盘模式（A5） =====
+  /** 启动错题复盘：用存档中的错题生成专属补漏关卡 */
+  startReviewMode(wrongRecords: FBWrongRecord[]): void {
+    if (wrongRecords.length === 0) return;
+    this.reviewMode = true;
+    // 从错题记录重建题目（简化：从 QUESTION_BANK 按 ID 查找）
+    const allQuestions = QUESTION_BANK;
+    this.reviewQueue = wrongRecords
+      .map((r) => allQuestions.find((q) => q.id === r.questionId))
+      .filter((q): q is FBQuestion => !!q)
+      .slice(0, 5); // 最多 5 题
+    if (this.reviewQueue.length === 0) return;
+    this.state.wave = 1;
+    this.usedIds.clear();
+    this.toast = { text: `📝 错题复盘：${this.reviewQueue.length} 题补漏挑战`, tone: "info", until: this.t + 2.5 };
+    // 立即生成第一道复盘题
+    const q = this.reviewQueue.shift()!;
+    this.usedIds.add(q.id);
+    this.spawnReviewCard(q);
+  }
+
+  /** 生成复盘卡片（复用 spawnCard 的卡片结构，但题目固定） */
+  private spawnReviewCard(q: FBQuestion): void {
+    const optionOrder = q.options.map((_, i) => i);
+    const duration = 15; // 复盘模式时长宽裕
+    this.current = {
+      q, spawnTs: this.t, duration, entered: 0, exited: 0, state: "in",
+      selectedIdx: null, pendingIdx: null, multiSelected: [], correct: false,
+      riskTriggered: false, fiftyRemoved: [], hintHighlighted: [], optionOrder,
+      skippedViaItem: false, flipProgress: 0, swipeOffset: 0, fillInput: "",
+      linkSel: [], linkRightOrder: [], sortArr: [],
+    };
+    if (q.kind === "link" && q.linkRight && q.linkLeft) {
+      this.current.linkRightOrder = q.linkRight.map((_, i) => i).sort(() => Math.random() - 0.5);
+      this.current.linkSel = q.linkLeft.map(() => -1);
+    }
+    if (q.kind === "sort" && q.sortCorrect) {
+      this.current.sortArr = q.sortCorrect.slice().sort(() => Math.random() - 0.5);
+    }
+    this.encounteredQuestions.push(q);
+    this.branchState = q.kind === "branch" && q.branchSteps ? { stepId: q.branchSteps[0].id, history: [], ended: false } : null;
+    this.audioState = q.cardType === "audio" ? { playing: false, progress: 0, finished: false } : this.audioState;
+    playSfx("tick");
+    this.emitHud();
+  }
+
+  /** 填空题：设置玩家输入文本（场景层键盘输入调用） */
+  setFillInput(text: string): void {
+    if (this.state.over || !this.current || this.current.state !== "show") return;
+    if ((this.current.q.kind ?? "single") !== "fill") return;
+    this.current.fillInput = text;
+    this.emitHud();
+  }
+
+  /** 连线题：为左列第 leftIdx 项选择右列显示位置 rightDisplayIdx 的项 */
+  setLinkSel(leftIdx: number, rightDisplayIdx: number): void {
+    if (this.state.over || !this.current || this.current.state !== "show") return;
+    if ((this.current.q.kind ?? "single") !== "link") return;
+    const c = this.current;
+    if (leftIdx < 0 || leftIdx >= c.linkSel.length) return;
+    if (rightDisplayIdx < 0 || rightDisplayIdx >= c.linkRightOrder.length) return;
+    // 取消之前选过同一右列项的配对
+    const rightOrig = c.linkRightOrder[rightDisplayIdx];
+    for (let i = 0; i < c.linkSel.length; i++) {
+      if (c.linkSel[i] === rightOrig) c.linkSel[i] = -1;
+    }
+    // 切换：再次点击同一配对则取消
+    if (c.linkSel[leftIdx] === rightOrig) {
+      c.linkSel[leftIdx] = -1;
+    } else {
+      c.linkSel[leftIdx] = rightOrig;
+    }
+    playSfx("tick");
+    this.emitHud();
+  }
+
+  /** 排序题：交换排列中位置 i 和 j 的项 */
+  swapSortItem(i: number, j: number): void {
+    if (this.state.over || !this.current || this.current.state !== "show") return;
+    if ((this.current.q.kind ?? "single") !== "sort") return;
+    const arr = this.current.sortArr;
+    if (i < 0 || i >= arr.length || j < 0 || j >= arr.length || i === j) return;
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+    playSfx("tick");
+    this.emitHud();
+  }
+
+  /** 获取当前填空题正确答案文本（场景层揭示态显示用） */
+  getCurrentFillAnswer(): string {
+    if (!this.current) return "";
+    return this.current.q.fillAnswer ?? "";
+  }
+
+  /** 难度倒计时乘数：easy=1.3 / normal=1.0 / hard=0.75 */
+  private diffDurationMult(): number {
+    if (this.difficulty === "easy") return 1.3;
+    if (this.difficulty === "hard") return 0.75;
+    return 1.0;
+  }
+
   private emitHud(): void {
     const tier = manTierFor(this.state.score);
     const c = this.current;
+    // 段位变化检测：比较当前 tier 与上一帧 prevManLevel
+    if (tier.level !== this.prevManLevel) {
+      this.manLevelDelta = tier.level > this.prevManLevel ? "up" : "down";
+      if (this.manLevelDelta === "down") {
+        this.stats.tierDownCount += 1;
+        // 掉段特效：红闪 + 震屏 + 飘字
+        postFX.flash("#E5353B", 0.5, 2);
+        postFX.shake(8, 14);
+        this.particles.spawnText(CARD_CX, 120, `▼ 段位下降 ${MAN_TIERS[this.prevManLevel]?.name ?? ""} → ${tier.name}`, "#E5353B", { size: 14, life: 1.8 });
+      } else if (this.manLevelDelta === "up") {
+        // 升级特效：金光 + 飘字
+        postFX.flash("#FFD666", 0.4, 2);
+        this.particles.spawnBurst(CARD_CX, 140, "#FFD666", { ring: true, sparks: 16, dots: 18, speed: 260, life: 1.0, size: 4, color2: "#FFFFFF" });
+        this.particles.spawnText(CARD_CX, 120, `▲ 段位提升！${tier.name}`, "#FFD666", { size: 14, life: 1.8 });
+      }
+      this.prevManLevel = tier.level;
+    } else {
+      this.manLevelDelta = null;
+    }
     // Boss hideTimer 技能：倒计时强制显示满（视觉隐藏）
     const hideTimer = this.bossSkill === "hideTimer" && this.boss?.active;
     const timerRatio = c && (c.state === "show" || c.state === "in")
       ? (hideTimer ? 1 : clamp(1 - (this.t - c.spawnTs) / c.duration, 0, 1))
       : c && c.state === "reveal" ? 0 : 1;
     const kind: FBQuestionKind = c ? (c.q.kind ?? "single") : "single";
+    // 双卡模式：构建第二张卡的精简状态
+    let secondCard: FBHudSecondCard | null = null;
+    if (this.dualMode && this.dualCards.length === 2) {
+      const s = this.dualCards[1];
+      const sHideTimer = this.bossSkill === "hideTimer" && this.boss?.active;
+      const sRatio = s && (s.state === "show" || s.state === "in")
+        ? (sHideTimer ? 1 : clamp(1 - (this.t - s.spawnTs) / s.duration, 0, 1))
+        : s && s.state === "reveal" ? 0 : 1;
+      secondCard = {
+        options: s.q.options,
+        qType: s.q.type,
+        qKind: s.q.kind ?? "single",
+        title: s.q.title,
+        body: s.q.body,
+        cardType: s.q.cardType,
+        timerRatio: sRatio,
+        selectedIdx: s.state === "reveal" ? s.selectedIdx : null,
+        correctIdx: s.state === "reveal" ? (s.q.answer ?? null) : null,
+        riskTriggered: s.riskTriggered,
+        swipeOffset: s.swipeOffset !== 0 ? s.swipeOffset : null,
+        flipProgress: s.flipProgress,
+        isNormal: !!s.q.isNormal,
+        riskIdx: s.q.risk ?? [],
+      };
+    }
     const hud: FBHud = {
       wave: this.state.wave,
       score: this.state.score,
@@ -1012,6 +2084,38 @@ export class FraudBusterEngine extends GameEngine {
       chainStep: c ? (c.q.chainStep ?? (c.isChainFollowUp ? 2 : null)) : null,
       isNormal: c ? !!c.q.isNormal : false,
       optionOrder: c ? c.optionOrder.slice() : [],
+      // ===== 全面升级新增字段 =====
+      dualMode: this.dualMode,
+      second: secondCard,
+      flipProgress: c ? c.flipProgress : 0,
+      manLevelPrev: this.prevManLevel,
+      manLevelDelta: this.manLevelDelta,
+      swipeOffset: c && c.state === "show" && kind === "judge" ? (c.swipeOffset !== 0 ? c.swipeOffset : null) : null,
+      swipeHint: !!c && c.state === "show" && kind === "judge" && c.swipeOffset === 0 && c.selectedIdx === null,
+      wrongRecords: this.stats.wrongRecords.slice(),
+      tierDownCount: this.stats.tierDownCount,
+      dualCleared: this.stats.dualCleared,
+      // ===== 包C/D/A 新增字段 =====
+      ultimateReady: this.ultimateReady,
+      ultimateEnergy: this.ultimateEnergy,
+      answerBlur: this.answerBlurRemaining > 0,
+      timeStolen: this.timeStolen,
+      rapidFireRemaining: this.rapidFireRemaining,
+      psychology: c ? c.q.psychology : undefined,
+      fillInput: c ? c.fillInput : "",
+      linkSel: c ? c.linkSel.slice() : [],
+      linkRightOrder: c ? c.linkRightOrder.slice() : [],
+      sortArr: c ? c.sortArr.slice() : [],
+      linkLeft: c ? c.q.linkLeft : undefined,
+      linkRight: c ? c.q.linkRight : undefined,
+      difficulty: this.difficulty,
+      // ===== v2 升级新增字段 =====
+      itemLevels: this.itemLevels,
+      branch: c && kind === "branch" ? this.buildBranchHud(c) : null,
+      audio: c && c.q.cardType === "audio" ? this.buildAudioHud(c) : null,
+      caseArchive: c && c.state === "reveal" ? (c.q.caseArchive ?? null) : null,
+      seasonTag: this.currentSeasonTag,
+      bossWeekActive: this.bossWeekActive,
     };
     this.emit({ type: "hud", payload: hud as unknown as Record<string, string | number> });
     if (this.toast && this.t < this.toast.until) {
@@ -1039,8 +2143,15 @@ export class FraudBusterEngine extends GameEngine {
     // 顶部科技框
     this.drawTechHeader(ctx);
 
-    // 当前卡片
-    if (this.current) {
+    // 当前卡片（双卡模式：同屏左右双卡）
+    if (this.dualMode && this.dualCards.length === 2) {
+      // 双卡分隔线 + 中央 VS 标记
+      this.drawDualDivider(ctx);
+      // 左卡（offsetX=0）：CARD_X=20 → 20~380
+      this.drawCard(ctx, this.dualCards[0], 0);
+      // 右卡（offsetX=400）：CARD_X+400=420 → 420~780
+      this.drawCard(ctx, this.dualCards[1], 400);
+    } else if (this.current) {
       this.drawCard(ctx, this.current);
     } else if (!this.state.over) {
       drawText(ctx, `反诈波次 ${this.state.wave}`, CARD_CX, H / 2, {
@@ -1208,11 +2319,12 @@ export class FraudBusterEngine extends GameEngine {
     }
   }
 
-  private drawCard(ctx: CanvasRenderingContext2D, c: Card): void {
-    const cardX = CARD_X;
+  private drawCard(ctx: CanvasRenderingContext2D, c: Card, offsetX = 0): void {
+    const cardX = CARD_X + offsetX;
     const cardY = CARD_Y;
     const cardW = CARD_W;
     const cardH = CARD_H;
+    const cardCx = CARD_CX + offsetX;
     let y = cardY;
     let alpha = 1;
     let scale = 1;
@@ -1238,11 +2350,19 @@ export class FraudBusterEngine extends GameEngine {
     }
     // 击中弹动：cardPulse 驱动 scale 瞬间放大再回弹（爽感）
     scale *= 1 + this.cardPulse * 0.08;
+    // 3D 翻转：reveal 阶段 Y 轴翻转，flipProgress 0→1
+    // 0~0.5 显示正面（scaleX: 1→0），0.5~1 显示反面（scaleX: 0→1）
+    const flip = c.flipProgress;
+    const flipScaleX = flip < 0.5 ? 1 - flip * 2 : (flip - 0.5) * 2;
+    const showBack = flip >= 0.5;
+    // 滑动偏移：判断题手势跟随手指
+    const swipeShift = c.swipeOffset * 60; // 最大偏移 60px
+
     ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.translate(CARD_CX, y + cardH / 2);
-    ctx.scale(scale, scale);
-    ctx.translate(-CARD_CX, -(y + cardH / 2));
+    ctx.translate(cardCx + swipeShift, y + cardH / 2);
+    ctx.scale(scale * flipScaleX, scale);
+    ctx.translate(-cardCx, -(y + cardH / 2));
     // Boss 卡片故障感：随机水平微偏移
     if (isBoss) {
       ctx.translate((Math.random() - 0.5) * 3, 0);
@@ -1355,12 +2475,197 @@ export class FraudBusterEngine extends GameEngine {
     // ===== 状态徽章（连锁/特殊事件/Boss技能/正常情境）=====
     this.drawCardBadges(ctx, c, cardX, y + 44 + headerH, cardW);
 
-    // 内容（Boss 卡片因头部占位整体下移）
-    this.drawCardContent(ctx, c, cardX + 18, y + 66 + headerH, cardW - 36, accent);
+    // 内容：3D 翻转到背面（reveal 且 flipProgress>=0.5）时显示答案揭示，否则显示题目
+    if (showBack && c.state === "reveal") {
+      this.drawCardReveal(ctx, c, cardX + 18, y + 66 + headerH, cardW - 36, accent);
+    } else {
+      this.drawCardContent(ctx, c, cardX + 18, y + 66 + headerH, cardW - 36, accent);
+    }
 
     // 科技角标
     this.drawCardCorners(ctx, cardX, y, cardW, cardH, accent);
 
+    ctx.restore();
+  }
+
+  /** 双卡模式中央分隔线 + VS 标记 */
+  private drawDualDivider(ctx: CanvasRenderingContext2D): void {
+    const midX = 400; // 画布中央
+    ctx.save();
+    // 竖直虚线
+    ctx.strokeStyle = "rgba(179,136,255,0.25)";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 6]);
+    ctx.beginPath();
+    ctx.moveTo(midX, 84);
+    ctx.lineTo(midX, 456);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // 中央 VS 圆标
+    const vsY = CARD_CY;
+    ctx.beginPath();
+    ctx.arc(midX, vsY, 18, 0, Math.PI * 2);
+    const g = ctx.createRadialGradient(midX, vsY, 2, midX, vsY, 18);
+    g.addColorStop(0, "rgba(179,136,255,0.9)");
+    g.addColorStop(1, "rgba(120,60,200,0.4)");
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = "#B388FF";
+    ctx.shadowColor = "#B388FF";
+    ctx.shadowBlur = 8;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.font = `900 11px ${Theme.fonts.mono}`;
+    ctx.fillStyle = "#FFFFFF";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("VS", midX, vsY + 1);
+    ctx.restore();
+  }
+
+  /**
+   * 卡片背面（答案揭示面）：3D 翻转过半后显示
+   * - 大号 ✓/✗ 判定图标
+   * - 正确答案文本
+   * - 玩家选择（若错误）
+   * - 识别要点（cues）
+   * - 96110 反诈提示
+   */
+  private drawCardReveal(ctx: CanvasRenderingContext2D, c: Card, x: number, y: number, w: number, accent: string): void {
+    const q = c.q;
+    // 分隔线
+    ctx.strokeStyle = "rgba(0,229,255,0.15)";
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + w, y);
+    ctx.stroke();
+
+    // 顶部：判定结果大图标
+    const iconY = y + 28;
+    const iconColor = c.correct ? "#1AD670" : "#E5353B";
+    const iconText = c.correct ? "✓" : "✗";
+    const resultText = c.correct ? "识破诈骗！" : (c.riskTriggered ? "⚠ 触发风险！" : "判断失误");
+    ctx.save();
+    ctx.font = `900 42px ${Theme.fonts.mono}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = iconColor;
+    ctx.shadowColor = iconColor;
+    ctx.shadowBlur = 14;
+    ctx.fillText(iconText, x + w / 2, iconY);
+    ctx.shadowBlur = 0;
+    ctx.font = `900 13px ${Theme.fonts.mono}`;
+    ctx.fillStyle = iconColor;
+    ctx.fillText(resultText, x + w / 2, iconY + 32);
+    ctx.restore();
+
+    // 正确答案
+    const ansY = iconY + 56;
+    ctx.save();
+    ctx.font = `700 10px ${Theme.fonts.mono}`;
+    ctx.fillStyle = "#7A8FB0";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillText("正确答案", x, ansY);
+    const correctIdx = q.answer ?? -1;
+    const correctText = correctIdx >= 0 ? q.options[correctIdx] : "—";
+    ctx.font = `700 12px 'Noto Sans SC', sans-serif`;
+    ctx.fillStyle = "#1AD670";
+    wrapText(ctx, correctText, x, ansY + 14, w, 16, { size: 12, color: "#1AD670", weight: "700" });
+    ctx.restore();
+
+    // 玩家选择（错误时显示）
+    if (!c.correct && c.selectedIdx !== null && c.selectedIdx >= 0) {
+      const playerY = ansY + 40;
+      ctx.save();
+      ctx.font = `700 10px ${Theme.fonts.mono}`;
+      ctx.fillStyle = "#7A8FB0";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText("你的选择", x, playerY);
+      ctx.font = `700 12px 'Noto Sans SC', sans-serif`;
+      ctx.fillStyle = "#E5353B";
+      wrapText(ctx, q.options[c.selectedIdx] ?? "—", x, playerY + 14, w, 16, { size: 12, color: "#E5353B", weight: "700" });
+      ctx.restore();
+    }
+
+    // 识别要点（cues）
+    if (q.cues && q.cues.length > 0) {
+      const cuesY = ansY + (c.correct ? 40 : 76);
+      ctx.save();
+      ctx.font = `700 10px ${Theme.fonts.mono}`;
+      ctx.fillStyle = "#FFD666";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText("🔍 识别要点", x, cuesY);
+      ctx.font = `500 11px 'Noto Sans SC', sans-serif`;
+      ctx.fillStyle = "#F0F4FF";
+      let cy = cuesY + 16;
+      for (const cue of q.cues.slice(0, 3)) {
+        ctx.fillText(`· ${cue}`, x, cy);
+        cy += 16;
+      }
+      ctx.restore();
+    }
+
+    // 话术解析（心理操控手法标签）
+    if (q.psychology && q.psychology.length > 0) {
+      const psyY = ansY + (c.correct ? 96 : 132);
+      ctx.save();
+      ctx.font = `700 10px ${Theme.fonts.mono}`;
+      ctx.fillStyle = "#B388FF";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText("🧠 话术解析", x, psyY);
+      // 心理手法标签横排
+      let bx = x;
+      const by = psyY + 14;
+      for (const tag of q.psychology.slice(0, 3)) {
+        const label = this.psychologyLabel(tag);
+        ctx.font = `700 9px ${Theme.fonts.mono}`;
+        const tw = ctx.measureText(label).width + 10;
+        roundRect(ctx, bx, by, tw, 14, 7);
+        ctx.fillStyle = "rgba(179,136,255,0.15)";
+        ctx.fill();
+        ctx.lineWidth = 0.8;
+        ctx.strokeStyle = "rgba(179,136,255,0.6)";
+        roundRect(ctx, bx, by, tw, 14, 7);
+        ctx.stroke();
+        ctx.fillStyle = "#D4B8FF";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(label, bx + tw / 2, by + 7);
+        bx += tw + 4;
+        if (bx + 60 > x + w) break;
+      }
+      ctx.restore();
+    }
+
+    // 96110 反诈提示（底部）
+    const tipY = y + 260;
+    ctx.save();
+    roundRect(ctx, x, tipY, w, 38, 6);
+    const g = ctx.createLinearGradient(x, tipY, x, tipY + 38);
+    g.addColorStop(0, "rgba(229,53,59,0.18)");
+    g.addColorStop(1, "rgba(229,53,59,0.08)");
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(229,53,59,0.5)";
+    roundRect(ctx, x, tipY, w, 38, 6);
+    ctx.stroke();
+    ctx.font = `900 13px ${Theme.fonts.mono}`;
+    ctx.fillStyle = "#FF6B6B";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.shadowColor = "#E5353B";
+    ctx.shadowBlur = 6;
+    ctx.fillText("☎ 96110 反诈专线", x + w / 2, tipY + 6);
+    ctx.shadowBlur = 0;
+    ctx.font = `500 9px 'Noto Sans SC', sans-serif`;
+    ctx.fillStyle = "#FFC0C0";
+    ctx.fillText("遇诈即拨 · 快速止付", x + w / 2, tipY + 22);
     ctx.restore();
   }
 
@@ -1418,6 +2723,24 @@ export class FraudBusterEngine extends GameEngine {
       case "hideTimer": return "🕶 隐藏倒计时";
       case "summonMinion": return "🌀 召唤小怪";
       case "lockItem": return "🔒 道具封印";
+      case "timeSteal": return "⏱ 偷取时间";
+      case "answerBlur": return "🌫 选项模糊";
+    }
+  }
+
+  /** 心理操控手法中文标签（话术解析） */
+  private psychologyLabel(tag: FBPsychology): string {
+    switch (tag) {
+      case "urgency": return "紧迫施压";
+      case "authority": return "权威恐吓";
+      case "greed": return "贪婪诱惑";
+      case "fear": return "恐惧施压";
+      case "trust": return "信任建立";
+      case "intimacy": return "情感亲密";
+      case "curiosity": return "好奇心";
+      case "conformity": return "从众压力";
+      case "scarcity": return "稀缺暗示";
+      case "sunkCost": return "沉没成本";
     }
   }
 
@@ -1504,6 +2827,12 @@ export class FraudBusterEngine extends GameEngine {
       this.drawTransferScreen(ctx, q, x, bodyY, w, bodyColor);
     } else if (q.cardType === "popup") {
       this.drawPopupScreen(ctx, q, x, bodyY, w, bodyColor);
+    } else if (q.cardType === "qrcode") {
+      this.drawQrcodeScreen(ctx, q, x, bodyY, w, bodyColor);
+    } else if (q.cardType === "voice") {
+      this.drawVoiceScreen(ctx, q, x, bodyY, w, accent, bodyColor);
+    } else if (q.cardType === "app") {
+      this.drawAppScreen(ctx, q, x, bodyY, w, bodyColor);
     } else {
       this.drawChatScreen(ctx, q, x, bodyY, w, accent, bodyColor);
     }
@@ -1899,6 +3228,290 @@ export class FraudBusterEngine extends GameEngine {
     return `${h}:${m}`;
   }
 
+  /** 二维码扫描界面：扫码框 + 伪装二维码 + 风险提示 */
+  private drawQrcodeScreen(ctx: CanvasRenderingContext2D, q: FBQuestion, x: number, y: number, w: number, bodyColor: string): void {
+    // 顶栏（深色，模拟扫码界面）
+    const headerH = 32;
+    ctx.save();
+    roundRect(ctx, x, y, w, headerH, 6);
+    const hg = ctx.createLinearGradient(x, y, x, y + headerH);
+    hg.addColorStop(0, "#1A1A2E");
+    hg.addColorStop(1, "#0A0A14");
+    ctx.fillStyle = hg;
+    ctx.fill();
+    ctx.restore();
+    drawText(ctx, "📷 扫一扫", x + 14, y + 16, { size: 12, color: "#00E5FF", weight: "700", baseline: "middle" });
+    drawText(ctx, "⚠", x + w - 14, y + 16, { size: 14, color: "#FFD666", weight: "900", align: "right", baseline: "middle" });
+
+    // 扫码取景框（中央）
+    const frameSize = 120;
+    const frameX = x + (w - frameSize) / 2;
+    const frameY = y + headerH + 16;
+    ctx.save();
+    // 暗色背景
+    roundRect(ctx, x, frameY - 8, w, frameSize + 16, 4);
+    ctx.fillStyle = "#0A0A14";
+    ctx.fill();
+    // 取景框边角
+    ctx.strokeStyle = "#00E5FF";
+    ctx.lineWidth = 3;
+    const cornerLen = 16;
+    const corners: [number, number, number, number][] = [
+      [frameX, frameY, 1, 1],
+      [frameX + frameSize, frameY, -1, 1],
+      [frameX, frameY + frameSize, 1, -1],
+      [frameX + frameSize, frameY + frameSize, -1, -1],
+    ];
+    for (const [cx, cy, dx, dy] of corners) {
+      ctx.beginPath();
+      ctx.moveTo(cx, cy + dy * cornerLen);
+      ctx.lineTo(cx, cy);
+      ctx.lineTo(cx + dx * cornerLen, cy);
+      ctx.stroke();
+    }
+    // 扫描线动画
+    const scanY = frameY + ((this.t * 80) % frameSize);
+    const scanG = ctx.createLinearGradient(frameX, scanY - 8, frameX, scanY + 8);
+    scanG.addColorStop(0, "rgba(0,229,255,0)");
+    scanG.addColorStop(0.5, "rgba(0,229,255,0.8)");
+    scanG.addColorStop(1, "rgba(0,229,255,0)");
+    ctx.fillStyle = scanG;
+    ctx.fillRect(frameX, scanY - 8, frameSize, 16);
+    ctx.restore();
+
+    // 伪装二维码（取景框内）
+    ctx.save();
+    const cellSize = 8;
+    const gridN = frameSize / cellSize;
+    for (let i = 0; i < gridN; i++) {
+      for (let j = 0; j < gridN; j++) {
+        // 伪随机图案（基于固定种子，稳定不闪烁）
+        const seed = (i * 31 + j * 17 + 7) % 7;
+        if (seed < 3) {
+          ctx.fillStyle = "#0A0A14";
+        } else {
+          ctx.fillStyle = "#E8E8E8";
+        }
+        ctx.fillRect(frameX + i * cellSize, frameY + j * cellSize, cellSize, cellSize);
+      }
+    }
+    // 三个定位角（左上、右上、左下）
+    const drawLocator = (lx: number, ly: number) => {
+      ctx.fillStyle = "#000";
+      ctx.fillRect(lx, ly, 24, 24);
+      ctx.fillStyle = "#FFF";
+      ctx.fillRect(lx + 4, ly + 4, 16, 16);
+      ctx.fillStyle = "#000";
+      ctx.fillRect(lx + 8, ly + 8, 8, 8);
+    };
+    drawLocator(frameX + 4, frameY + 4);
+    drawLocator(frameX + frameSize - 28, frameY + 4);
+    drawLocator(frameX + 4, frameY + frameSize - 28);
+    ctx.restore();
+
+    // 识别结果提示
+    const resultY = frameY + frameSize + 16;
+    drawText(ctx, q.title, x + w / 2, resultY, {
+      size: 12, color: "#FFD666", weight: "700", align: "center", max: 30,
+    });
+    // 内容（风险提示）
+    wrapText(ctx, q.body, x + 12, resultY + 18, w - 24, 15, { size: 11, color: bodyColor, weight: "500", align: "center" });
+  }
+
+  /** 语音消息界面：聊天顶栏 + 语音气泡 + 波形动画 */
+  private drawVoiceScreen(ctx: CanvasRenderingContext2D, q: FBQuestion, x: number, y: number, w: number, accent: string, bodyColor: string): void {
+    // 顶栏（与聊天一致，深色）
+    const headerH = 32;
+    ctx.save();
+    roundRect(ctx, x, y, w, headerH, 6);
+    const hg = ctx.createLinearGradient(x, y, x, y + headerH);
+    hg.addColorStop(0, "#2E2E2E");
+    hg.addColorStop(1, "#1F1F1F");
+    ctx.fillStyle = hg;
+    ctx.fill();
+    ctx.restore();
+    // 返回箭头
+    ctx.save();
+    ctx.strokeStyle = "#52C41A";
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(x + 14, y + 16);
+    ctx.lineTo(x + 9, y + 16);
+    ctx.lineTo(x + 14, y + 11);
+    ctx.moveTo(x + 9, y + 16);
+    ctx.lineTo(x + 14, y + 21);
+    ctx.stroke();
+    ctx.restore();
+    drawText(ctx, q.title, x + w / 2, y + 16, { size: 12, color: "#F0F4FF", weight: "700", align: "center", max: 22 });
+    drawText(ctx, "⋯", x + w - 14, y + 16, { size: 16, color: "#52C41A", weight: "900", align: "right", baseline: "middle" });
+
+    // 时间戳
+    const chatY = y + headerH + 10;
+    drawText(ctx, this.formatChatTime(), x + w / 2, chatY, {
+      size: 9, color: "#7A8FB0", weight: "500", align: "center", font: Theme.fonts.mono,
+    });
+
+    // 头像（左侧）
+    const avX = x + 8;
+    const avY = chatY + 14;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(avX + 14, avY + 14, 14, 0, Math.PI * 2);
+    const av = ctx.createLinearGradient(avX, avY, avX + 28, avY + 28);
+    av.addColorStop(0, "#FF7A1A");
+    av.addColorStop(1, "#D4380D");
+    ctx.fillStyle = av;
+    ctx.fill();
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "900 12px 'Noto Sans SC', sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("🎤", avX + 14, avY + 14);
+    ctx.restore();
+
+    // 语音气泡（绿色，左侧）
+    const bubbleX = avX + 32;
+    const bubbleY = avY - 4;
+    const bubbleW = 180;
+    const bubbleH = 40;
+    ctx.save();
+    roundRect(ctx, bubbleX, bubbleY, bubbleW, bubbleH, 8);
+    const bg = ctx.createLinearGradient(bubbleX, bubbleY, bubbleX, bubbleY + bubbleH);
+    bg.addColorStop(0, "#95DE64");
+    bg.addColorStop(1, "#73D13D");
+    ctx.fillStyle = bg;
+    ctx.fill();
+    // 气泡尖角
+    ctx.beginPath();
+    ctx.moveTo(bubbleX, bubbleY + 12);
+    ctx.lineTo(bubbleX - 6, bubbleY + 16);
+    ctx.lineTo(bubbleX, bubbleY + 20);
+    ctx.closePath();
+    ctx.fillStyle = "#73D13D";
+    ctx.fill();
+    ctx.restore();
+
+    // 语音波形（动态跳动）
+    ctx.save();
+    const waveX = bubbleX + 12;
+    const waveY = bubbleY + bubbleH / 2;
+    const barCount = 18;
+    const barW = 3;
+    const barGap = 5;
+    for (let i = 0; i < barCount; i++) {
+      const phase = (this.t * 6 + i * 0.4) % (Math.PI * 2);
+      const amp = (Math.sin(phase) * 0.5 + 0.5) * (0.4 + Math.sin(i * 0.7) * 0.3 + 0.3);
+      const barH = Math.max(3, amp * 22);
+      ctx.fillStyle = "#1F1F1F";
+      ctx.fillRect(waveX + i * (barW + barGap), waveY - barH / 2, barW, barH);
+    }
+    ctx.restore();
+
+    // 时长 + 播放图标（右侧）
+    drawText(ctx, "▶ 0:03", bubbleX + bubbleW - 12, bubbleY + bubbleH / 2, {
+      size: 10, color: "#1F1F1F", weight: "700", align: "right", baseline: "middle", font: Theme.fonts.mono,
+    });
+
+    // "未读"红点
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(bubbleX + bubbleW + 8, bubbleY + bubbleH / 2, 5, 0, Math.PI * 2);
+    ctx.fillStyle = "#E5353B";
+    ctx.fill();
+    ctx.restore();
+
+    // 语音转文字提示（下方）
+    const textY = bubbleY + bubbleH + 14;
+    ctx.save();
+    roundRect(ctx, avX + 32, textY, w - 60, 18, 4);
+    ctx.fillStyle = "rgba(255,255,255,0.08)";
+    ctx.fill();
+    ctx.restore();
+    drawText(ctx, "💬 文字内容", avX + 42, textY + 9, { size: 10, color: "#7A8FB0", weight: "500", baseline: "middle" });
+    // 语音转写的正文
+    wrapText(ctx, q.body, avX + 32, textY + 22, w - 60, 14, { size: 10, color: bodyColor, weight: "500" });
+  }
+
+  /** APP 安装/权限界面：安装弹窗 + 权限列表 */
+  private drawAppScreen(ctx: CanvasRenderingContext2D, q: FBQuestion, x: number, y: number, w: number, bodyColor: string): void {
+    // 顶栏（系统状态栏样式）
+    const headerH = 28;
+    ctx.save();
+    roundRect(ctx, x, y, w, headerH, 6);
+    ctx.fillStyle = "#1A1A2E";
+    ctx.fill();
+    ctx.restore();
+    drawText(ctx, "⚙ 应用安装", x + 14, y + 14, { size: 11, color: "#7A8FB0", weight: "700", baseline: "middle" });
+    drawText(ctx, "⚠", x + w - 14, y + 14, { size: 14, color: "#FFD666", weight: "900", align: "right", baseline: "middle" });
+
+    // APP 图标 + 名称（中央）
+    const iconY = y + headerH + 18;
+    const iconCx = x + w / 2;
+    ctx.save();
+    // 图标背景（带警告色调）
+    roundRect(ctx, iconCx - 24, iconY, 48, 48, 12);
+    const ig = ctx.createLinearGradient(iconCx - 24, iconY, iconCx + 24, iconY + 48);
+    ig.addColorStop(0, "#FF7A1A");
+    ig.addColorStop(1, "#D4380D");
+    ctx.fillStyle = ig;
+    ctx.fill();
+    ctx.shadowColor = "#FF7A1A";
+    ctx.shadowBlur = 12;
+    roundRect(ctx, iconCx - 24, iconY, 48, 48, 12);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    // 图标内文字
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "900 20px 'Noto Sans SC', sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("📲", iconCx, iconY + 24);
+    ctx.restore();
+
+    // APP 名称
+    drawText(ctx, q.title, iconCx, iconY + 60, {
+      size: 13, color: "#F0F4FF", weight: "700", align: "center", max: 30,
+    });
+    drawText(ctx, "未知来源 · 风险应用", iconCx, iconY + 76, {
+      size: 10, color: "#E5353B", weight: "700", align: "center", font: Theme.fonts.mono,
+    });
+
+    // 权限列表
+    const permY = iconY + 96;
+    ctx.save();
+    roundRect(ctx, x, permY, w, 86, 6);
+    ctx.fillStyle = "rgba(229,53,59,0.08)";
+    ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(229,53,59,0.3)";
+    roundRect(ctx, x, permY, w, 86, 6);
+    ctx.stroke();
+    ctx.restore();
+    drawText(ctx, "⚠ 该应用将获取以下权限：", x + 12, permY + 12, {
+      size: 10, color: "#FFD666", weight: "700", baseline: "top",
+    });
+    // 权限项
+    const perms = ["📞 通讯录", "💬 短信读取", "📷 相机/相册", "📍 定位", "🔒 无障碍服务"];
+    for (let i = 0; i < perms.length; i++) {
+      const py = permY + 28 + i * 12;
+      drawText(ctx, perms[i], x + 16, py, { size: 10, color: bodyColor, weight: "500", baseline: "top" });
+      drawText(ctx, "✗", x + w - 16, py, { size: 11, color: "#E5353B", weight: "900", align: "right", baseline: "top" });
+    }
+
+    // 安装按钮（红色，醒目）
+    const btnY = permY + 96;
+    ctx.save();
+    roundRect(ctx, x + 20, btnY, w - 40, 30, 15);
+    const btnG = ctx.createLinearGradient(x, btnY, x, btnY + 30);
+    btnG.addColorStop(0, "#FF4D4F");
+    btnG.addColorStop(1, "#CF1322");
+    ctx.fillStyle = btnG;
+    ctx.fill();
+    ctx.restore();
+    drawText(ctx, "安装", x + w / 2, btnY + 15, { size: 12, color: "#FFFFFF", weight: "900", align: "center", baseline: "middle" });
+  }
+
   private cardTypeLabel(t: FBQuestion["cardType"]): string {
     switch (t) {
       case "chat": return "💬 CHAT · 聊天消息";
@@ -1907,6 +3520,9 @@ export class FraudBusterEngine extends GameEngine {
       case "transfer": return "💸 TRANSFER · 资金操作";
       case "popup": return "⚠ POPUP · 网页弹窗";
       case "sms": return "📨 SMS · 短信通知";
+      case "qrcode": return "📱 QR · 二维码";
+      case "voice": return "🎙 VOICE · 语音消息";
+      case "app": return "📲 APP · 安装/权限";
     }
   }
 }

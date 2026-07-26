@@ -1,6 +1,22 @@
 import type {
   AgentDef, EnemyDef, Wave, WaveEntry, BossRushDef, ManagerMode, UpgradeChoice,
   LevelDef, CultAgentDef, Element, DailyModifier, LevelTheme, BossPhase,
+  // v6 全面升级新增类型
+  TalentTree, TalentNode, TalentBranch, TalentEffect,
+  RelicDef,
+  EquipmentDef,
+  BossDialogue,
+  QuizQuestion,
+  CodexEntry,
+  TacticalDeviceDef,
+  SkillLink,
+  ElementReactionDef,
+  TowerFloorDef,
+  WeeklyQuest,
+  ChallengeAffix,
+  AgentSkin,
+  SeasonRank,
+  SeasonInfo,
 } from "./types";
 
 // ====================================================================
@@ -92,6 +108,19 @@ export const MODE_META: Record<ManagerMode, { label: string; tagline: string; de
     tagline: "今日限定词缀",
     desc: "每日固定种子 + 3 个随机修饰符，完成获额外积分。",
     accent: "#FFD666",
+  },
+  // ===== v6 新增模式 =====
+  tower: {
+    label: "爬塔挑战",
+    tagline: "100 层递进",
+    desc: "100 层递进迷宫，每 10 层一个 BOSS，每 5 层获奖励，登顶解锁限定皮肤。",
+    accent: "#9D6BFF",
+  },
+  challenge: {
+    label: "极限挑战",
+    tagline: "自选词缀",
+    desc: "自选 1-3 个极限词缀，词缀越严积分倍率越高，反诈极限玩家专属。",
+    accent: "#FF3B6B",
   },
 };
 
@@ -240,6 +269,115 @@ export const AGENTS: AgentDef[] = [
       value: 5.0,
     },
   },
+  // ===== v6 新增探员（4 名，覆盖新型诈骗） =====
+  {
+    id: "fayi",
+    name: "法务审计师",
+    role: "法务审计",
+    emoji: "⚖️",
+    hp: 110,
+    attack: 20,
+    range: 240,
+    fireRate: 1.3,
+    projectileSpeed: 500,
+    color: "#3D8BFD",
+    ult: "资金冻结",
+    ultDesc: "冻结全场敌人 2 秒，期间受伤 +30%",
+    bio: "注册会计师 + 法律顾问，专攻复杂资金链审计与冻结",
+    element: "law",
+    silhouette: "medic",
+    ultDef: {
+      kind: "freeze",
+      name: "资金冻结",
+      desc: "冻结全场敌人 2 秒，期间受伤 +30%",
+      value: 2.0,
+      duration: 2,
+    },
+    unlockHint: "反诈积分 500 解锁",
+    unlockCost: 500,
+    isNew: true,
+  },
+  {
+    id: "yuce",
+    name: "数据预测师",
+    role: "数据预测",
+    emoji: "🔮",
+    hp: 75,
+    attack: 16,
+    range: 320,
+    fireRate: 1.8,
+    projectileSpeed: 580,
+    color: "#00C9A7",
+    ult: "时间扭曲",
+    ultDesc: "敌人时间减慢 50%，持续 4 秒",
+    bio: "AI 风控模型工程师，用机器学习预测诈骗团伙下一步行动",
+    element: "tech",
+    silhouette: "tech",
+    ultDef: {
+      kind: "timeWarp",
+      name: "时间扭曲",
+      desc: "敌人时间减慢 50%，持续 4 秒",
+      value: 0.5,
+      duration: 4,
+    },
+    unlockHint: "反诈积分 800 解锁",
+    unlockCost: 800,
+    isNew: true,
+  },
+  {
+    id: "kuajing",
+    name: "跨境联络官",
+    role: "跨境联络",
+    emoji: "🌐",
+    hp: 130,
+    attack: 24,
+    range: 200,
+    fireRate: 1.2,
+    projectileSpeed: 460,
+    color: "#FF8A3D",
+    ult: "联合行动",
+    ultDesc: "召唤一名临时探员协战 8 秒（属性 = 主战探员 70%）",
+    bio: "国际刑警组织联络官，协调跨境联合执法行动",
+    element: "threat",
+    silhouette: "comms",
+    ultDef: {
+      kind: "summon",
+      name: "联合行动",
+      desc: "召唤一名临时探员协战 8 秒（属性 = 主战探员 70%）",
+      value: 0.7,
+      duration: 8,
+    },
+    unlockHint: "反诈积分 1200 解锁",
+    unlockCost: 1200,
+    isNew: true,
+  },
+  {
+    id: "jianwei",
+    name: "AI 鉴伪师",
+    role: "AI 鉴伪",
+    emoji: "🤖",
+    hp: 95,
+    attack: 22,
+    range: 280,
+    fireRate: 1.5,
+    projectileSpeed: 620,
+    color: "#A8E6CF",
+    ult: "鉴伪护盾",
+    ultDesc: "所有探员获得 50% 最大生命值的护盾，持续 5 秒",
+    bio: "Deepfake 检测专家，识破每一帧 AI 换脸与合成语音",
+    element: "tech",
+    silhouette: "drone",
+    ultDef: {
+      kind: "shieldWall",
+      name: "鉴伪护盾",
+      desc: "所有探员获得 50% 最大生命值的护盾，持续 5 秒",
+      value: 0.5,
+      duration: 5,
+    },
+    unlockHint: "反诈积分 1500 解锁",
+    unlockCost: 1500,
+    isNew: true,
+  },
 ];
 
 /**
@@ -258,6 +396,16 @@ export const FRAUD_TERMS: Record<string, string> = {
   boss_popup: "假客服必挂",
   boss_threat: "假警官必假",
   boss_kingpin: "跨境必究",
+  // ===== v6 新增 =====
+  deepfake: "AI 换脸核实",
+  investApp: "理财认持牌",
+  fakeLeader: "领导转账核实",
+  etcFraud: "ETC 官方办",
+  refundFraud: "退费走官方",
+  loanCancel: "注销校园贷是骗",
+  boss_deepfake: "AI 诈骗必究",
+  boss_invest: "虚假平台必崩",
+  boss_loan: "校园贷骗局必破",
 };
 
 export const ENEMIES: Record<string, EnemyDef> = {
@@ -345,6 +493,103 @@ export const ENEMIES: Record<string, EnemyDef> = {
     element: "money",
     ability: "shield",
     shape: "card",
+  },
+  // ===== v6 新增敌人（6 种，覆盖新型诈骗） =====
+  deepfake: {
+    id: "deepfake",
+    name: "AI 换脸",
+    emoji: "🎭",
+    hp: 110,
+    speed: 55,
+    damage: 16,
+    reward: 200,
+    color: "#A8E6CF",
+    fraudType: "AI 换脸冒充熟人",
+    element: "tech",
+    ability: "invisible",
+    shape: "virus",
+    isNew: true,
+    codexId: "codex_deepfake",
+  },
+  investApp: {
+    id: "investApp",
+    name: "虚假理财 APP",
+    emoji: "📱",
+    hp: 180,
+    speed: 42,
+    damage: 22,
+    reward: 280,
+    color: "#FF6B9D",
+    fraudType: "虚假投资平台诈骗",
+    element: "money",
+    ability: "reflect",
+    shape: "wallet",
+    isNew: true,
+    codexId: "codex_investApp",
+  },
+  fakeLeader: {
+    id: "fakeLeader",
+    name: "冒充领导",
+    emoji: "👔",
+    hp: 140,
+    speed: 48,
+    damage: 20,
+    reward: 220,
+    color: "#4ECDC4",
+    fraudType: "冒充领导熟人转账",
+    element: "emotion",
+    ability: "taunt",
+    shape: "mask",
+    isNew: true,
+    codexId: "codex_fakeLeader",
+  },
+  etcFraud: {
+    id: "etcFraud",
+    name: "ETC 诈骗",
+    emoji: "🚗",
+    hp: 70,
+    speed: 85,
+    damage: 12,
+    reward: 160,
+    color: "#FFA07A",
+    fraudType: "ETC 过期短信诈骗",
+    element: "tech",
+    ability: "speedBoost",
+    shape: "briefcase",
+    isNew: true,
+    codexId: "codex_etcFraud",
+  },
+  refundFraud: {
+    id: "refundFraud",
+    name: "退费诈骗",
+    emoji: "💸",
+    hp: 95,
+    speed: 60,
+    damage: 14,
+    reward: 180,
+    color: "#FFB347",
+    fraudType: "假冒客服退费诈骗",
+    element: "emotion",
+    ability: "split",
+    shape: "wallet",
+    isNew: true,
+    codexId: "codex_refundFraud",
+  },
+  loanCancel: {
+    id: "loanCancel",
+    name: "注销校园贷",
+    emoji: "📚",
+    hp: 160,
+    speed: 38,
+    damage: 24,
+    reward: 260,
+    color: "#9B59B6",
+    fraudType: "假冒注销校园贷诈骗",
+    element: "threat",
+    ability: "fear",
+    shape: "briefcase",
+    isNew: true,
+    codexId: "codex_loanCancel",
   },
 };
 
@@ -522,6 +767,91 @@ export const BOSS_RUSH_BOSSES: BossRushDef[] = [
       { atHp: 0.4, name: "金钟护体", desc: "获得 30% 减伤护盾", effect: "shield", value: 0.3 },
       { atHp: 0.15, name: "末日狂暴", desc: "速度 ×2.0，伤害 ×1.8", effect: "enrage" },
     ],
+  },
+  // ===== v6 新增 BOSS（3 个，覆盖新型诈骗） =====
+  {
+    id: "boss_deepfake",
+    name: "AI 换脸师 · 镜像",
+    emoji: "🎭",
+    hp: 1100,
+    speed: 32,
+    damage: 42,
+    reward: 1200,
+    color: "#A8E6CF",
+    fraudType: "AI 换脸冒充熟人首脑",
+    scale: 1.6,
+    summonTypeId: "deepfake",
+    summonInterval: 4.0,
+    summonCount: 2,
+    summonLane: 1,
+    enrageAtHp: 0.5,
+    enrageSpeedMul: 1.6,
+    enrageDamageMul: 1.4,
+    skillName: "镜像伪装",
+    skillDesc: "召唤 AI 换脸小怪，间歇隐身规避投射物",
+    element: "tech",
+    shape: "mask",
+    phases: [
+      { atHp: 0.6, name: "镜像分身", desc: "召唤数 ×2", effect: "doubleSummon", value: 2 },
+      { atHp: 0.3, name: "镜中幻影", desc: "敌人间歇隐身 + 速度 ×1.6", effect: "invisible" },
+    ],
+    isNew: true,
+  },
+  {
+    id: "boss_invest",
+    name: "虚假平台 · 钱生钱",
+    emoji: "💰",
+    hp: 1300,
+    speed: 28,
+    damage: 46,
+    reward: 1400,
+    color: "#FF6B9D",
+    fraudType: "虚假投资理财首脑",
+    scale: 1.8,
+    summonTypeId: "investApp",
+    summonInterval: 3.5,
+    summonCount: 2,
+    summonLane: 0,
+    enrageAtHp: 0.55,
+    enrageSpeedMul: 1.5,
+    enrageDamageMul: 1.5,
+    skillName: "金流反噬",
+    skillDesc: "召唤理财 APP 反弹 20% 投射物伤害",
+    element: "money",
+    shape: "wallet",
+    phases: [
+      { atHp: 0.6, name: "平台暴雷", desc: "召唤数 ×2", effect: "doubleSummon", value: 2 },
+      { atHp: 0.3, name: "金钟反伤", desc: "敌人反射 20% 伤害 + 速度 ×1.5", effect: "reflect" },
+    ],
+    isNew: true,
+  },
+  {
+    id: "boss_loan",
+    name: "校园贷毒瘤 · 蜡笔老哥",
+    emoji: "📚",
+    hp: 980,
+    speed: 36,
+    damage: 50,
+    reward: 1300,
+    color: "#9B59B6",
+    fraudType: "注销校园贷诈骗首脑",
+    scale: 1.7,
+    summonTypeId: "loanCancel",
+    summonInterval: 3.8,
+    summonCount: 2,
+    summonLane: 2,
+    enrageAtHp: 0.5,
+    enrageSpeedMul: 1.7,
+    enrageDamageMul: 1.5,
+    skillName: "注销恐吓",
+    skillDesc: "高伤冲锋 + 召唤注销校园贷小怪恐惧附近探员",
+    element: "threat",
+    shape: "briefcase",
+    phases: [
+      { atHp: 0.6, name: "连环恐吓", desc: "召唤数 ×2", effect: "doubleSummon", value: 2 },
+      { atHp: 0.3, name: "末日冲锋", desc: "速度 ×1.7，伤害 ×1.5", effect: "enrage" },
+    ],
+    isNew: true,
   },
 ];
 
@@ -1094,4 +1424,937 @@ export function applyBossPhase(
       break;
   }
   return { speed, damage, summonInterval, summonCount, healPerSec, damageReduction };
+}
+
+// ====================================================================
+// v6 全面升级：BOSS 剧情对话（8 个 BOSS × intro/outro 各 3-4 句）
+// ====================================================================
+
+export const BOSS_DIALOGUES: BossDialogue[] = [
+  {
+    bossId: "boss_farmer",
+    intro: [
+      { speaker: "钱叔", emoji: "💳", text: "年轻人，你查不到我的，银行卡都是别人名字。", color: "#B388FF", side: "enemy" },
+      { speaker: "沈锋", emoji: "🔫", text: "断卡行动早已启动，你的卡池我们一清二楚。", color: "#FF7A1A", side: "player" },
+      { speaker: "钱叔", emoji: "💳", text: "哼，金流走 7 道壳，你追得上吗？", color: "#B388FF", side: "enemy" },
+    ],
+    outro: [
+      { speaker: "沈锋", emoji: "🔫", text: "7 层壳，全部冻结。从今天起你只剩 96110 一个号能打。", color: "#FF7A1A", side: "player" },
+      { speaker: "钱叔", emoji: "💳", text: "……我认。但你们追不完所有卡农。", color: "#B388FF", side: "enemy" },
+      { speaker: "苏岩", emoji: "📊", text: "数据会追完。下一个，已经在名单上。", color: "#FFD666", side: "player" },
+    ],
+  },
+  {
+    bossId: "boss_sweet",
+    intro: [
+      { speaker: "婉清", emoji: "💔", text: "哥哥，咱们存的恋爱基金，可别听外人瞎说。", color: "#FF7AB8", side: "enemy" },
+      { speaker: "王婆婆", emoji: "👵", text: "甜言蜜语藏刀子，姑娘我见多了。", color: "#52C41A", side: "player" },
+      { speaker: "婉清", emoji: "💔", text: "婆婆你不懂，这是真心。", color: "#FF7AB8", side: "enemy" },
+    ],
+    outro: [
+      { speaker: "王婆婆", emoji: "👵", text: "真心不会让你转账。每一句甜话，都是钩子。", color: "#52C41A", side: "player" },
+      { speaker: "婉清", emoji: "💔", text: "……下一个目标，还会有人上钩的。", color: "#FF7AB8", side: "enemy" },
+      { speaker: "苏岩", emoji: "📊", text: "杀猪盘必破，下个窝点坐标已锁定。", color: "#FFD666", side: "player" },
+    ],
+  },
+  {
+    bossId: "boss_popup",
+    intro: [
+      { speaker: "客服007", emoji: "💬", text: "您好，您的订单异常，需要点击链接处理～", color: "#FFB020", side: "enemy" },
+      { speaker: "林书影", emoji: "📡", text: "96110 不会主动发链接，挂了。", color: "#00E5FF", side: "player" },
+      { speaker: "客服007", emoji: "💬", text: "哎呀别急嘛，链接里有您的赔付～", color: "#FFB020", side: "enemy" },
+    ],
+    outro: [
+      { speaker: "林书影", emoji: "📡", text: "假客服必挂，真客服不催。弹窗一万次也无效。", color: "#00E5FF", side: "player" },
+      { speaker: "客服007", emoji: "💬", text: "……脚本被识破，下个号再来。", color: "#FFB020", side: "enemy" },
+    ],
+  },
+  {
+    bossId: "boss_threat",
+    intro: [
+      { speaker: "假警官", emoji: "📞", text: "你涉嫌洗钱，立即按我说的操作，否则拘捕！", color: "#E5353B", side: "enemy" },
+      { speaker: "陈默", emoji: "🥷", text: "公检法不电办，更不会让你转账到「安全账户」。", color: "#E5353B", side: "player" },
+      { speaker: "假警官", emoji: "📞", text: "你敢挂？后果自负！", color: "#E5353B", side: "enemy" },
+    ],
+    outro: [
+      { speaker: "陈默", emoji: "🥷", text: "挂了。你那张拘捕令是 PS 的，背景字体都对不上。", color: "#E5353B", side: "player" },
+      { speaker: "假警官", emoji: "📞", text: "……你怎么知道？", color: "#E5353B", side: "enemy" },
+      { speaker: "林书影", emoji: "📡", text: "因为你的剧本，96110 一天能接 200 个。", color: "#00E5FF", side: "player" },
+    ],
+  },
+  {
+    bossId: "boss_kingpin",
+    intro: [
+      { speaker: "缅北枭雄", emoji: "👑", text: "跨境？你们管不到这里。", color: "#FF3B6B", side: "enemy" },
+      { speaker: "跨境联络官", emoji: "🌐", text: "国际刑警已经协调完毕，今天就是终点。", color: "#FF8A3D", side: "player" },
+      { speaker: "缅北枭雄", emoji: "👑", text: "哼，我的园区千名「员工」，你们抓得完？", color: "#FF3B6B", side: "enemy" },
+      { speaker: "陈默", emoji: "🥷", text: "卧底三年，名单我都带回去了。", color: "#E5353B", side: "player" },
+    ],
+    outro: [
+      { speaker: "跨境联络官", emoji: "🌐", text: "跨境必究。你的园区今日清零。", color: "#FF8A3D", side: "player" },
+      { speaker: "缅北枭雄", emoji: "👑", text: "……还会有下一个园区。", color: "#FF3B6B", side: "enemy" },
+      { speaker: "沈锋", emoji: "🔫", text: "那就逐个清。反诈没有终点。", color: "#FF7A1A", side: "player" },
+    ],
+  },
+  {
+    bossId: "boss_deepfake",
+    intro: [
+      { speaker: "镜像", emoji: "🎭", text: "（模仿你母亲的声音）孩子，妈急用钱，转 5 万过来。", color: "#A8E6CF", side: "enemy" },
+      { speaker: "AI 鉴伪师", emoji: "🤖", text: "AI 换脸。声纹有 3 处合成痕迹，视频眨眼频率异常。", color: "#A8E6CF", side: "player" },
+      { speaker: "镜像", emoji: "🎭", text: "你识破了？那再看我这张脸——", color: "#A8E6CF", side: "enemy" },
+    ],
+    outro: [
+      { speaker: "AI 鉴伪师", emoji: "🤖", text: "每一帧合成都有破绽，AI 鉴伪一直在升级。", color: "#A8E6CF", side: "player" },
+      { speaker: "镜像", emoji: "🎭", text: "……技术也会进化。", color: "#A8E6CF", side: "enemy" },
+      { speaker: "周衡", emoji: "💻", text: "那就比谁快。下一个换脸样本，已入库训练。", color: "#B388FF", side: "player" },
+    ],
+  },
+  {
+    bossId: "boss_invest",
+    intro: [
+      { speaker: "钱生钱", emoji: "💰", text: "稳赚不赔，年化 30%，老师带单，错过等一年。", color: "#FF6B9D", side: "enemy" },
+      { speaker: "法务审计师", emoji: "⚖️", text: "持牌机构查询不到你，这不是理财，是资金盘。", color: "#3D8BFD", side: "player" },
+      { speaker: "钱生钱", emoji: "💰", text: "你看群里晒单，谁都在赚～", color: "#FF6B9D", side: "enemy" },
+    ],
+    outro: [
+      { speaker: "法务审计师", emoji: "⚖️", text: "理财认持牌，群里的晒单都是托。平台今天崩盘。", color: "#3D8BFD", side: "player" },
+      { speaker: "钱生钱", emoji: "💰", text: "……本金已经转移。", color: "#FF6B9D", side: "enemy" },
+      { speaker: "苏岩", emoji: "📊", text: "资金链我们追得到。下一个盘，提前预警。", color: "#FFD666", side: "player" },
+    ],
+  },
+  {
+    bossId: "boss_loan",
+    intro: [
+      { speaker: "蜡笔老哥", emoji: "📚", text: "同学，不注销校园贷影响征信，按我操作就能洗白。", color: "#9B59B6", side: "enemy" },
+      { speaker: "数据预测师", emoji: "🔮", text: "校园贷注销是骗局。征信只能本人到央行查。", color: "#00C9A7", side: "player" },
+      { speaker: "蜡笔老哥", emoji: "📚", text: "你懂什么？这可是内部政策！", color: "#9B59B6", side: "enemy" },
+    ],
+    outro: [
+      { speaker: "数据预测师", emoji: "🔮", text: "校园贷骗局必破，「内部政策」是假的，恐吓是真的。", color: "#00C9A7", side: "player" },
+      { speaker: "蜡笔老哥", emoji: "📚", text: "……新学期还有新生上钩。", color: "#9B59B6", side: "enemy" },
+      { speaker: "王婆婆", emoji: "👵", text: "所以我们进校园宣讲，一届一届讲下去。", color: "#52C41A", side: "player" },
+    ],
+  },
+];
+
+/** 根据 BOSS id 取剧情对话 */
+export function getBossDialogue(bossId: string): BossDialogue | undefined {
+  return BOSS_DIALOGUES.find((d) => d.bossId === bossId);
+}
+
+// ====================================================================
+// v6 全面升级：战间答题题库（25 题，覆盖 10+ 诈骗类型）
+// 每波 5 的倍数弹出 1 题，答对获 buff
+// ====================================================================
+
+export const QUIZ_BANK: QuizQuestion[] = [
+  {
+    id: "q01",
+    question: "接到自称「96110」的电话，对方说涉嫌洗钱要你转账到「安全账户」，该怎么办？",
+    options: ["立即转账配合调查", "挂断并拨打 110 核实", "按对方要求下载 APP", "提供银行卡密码"],
+    correctIdx: 1,
+    explanation: "公检法不会电话办案，更不存在「安全账户」。96110 是反诈专线，不会让你转账。",
+    fraudType: "冒充公检法",
+    difficulty: 1,
+  },
+  {
+    id: "q02",
+    question: "网友推荐「稳赚不赔」的理财 APP，老师带单、群内晒单，下列判断正确的是？",
+    options: ["立即跟单赚一笔", "先小额试水再加大投入", "持牌金融机构名录里查不到就是骗局", "把养老金 all in"],
+    correctIdx: 2,
+    explanation: "理财认持牌。可在证监会、银保监会官网核查机构资质，查不到的一律是资金盘。",
+    fraudType: "虚假投资理财",
+    difficulty: 2,
+  },
+  {
+    id: "q03",
+    question: "收到「ETC 过期/禁用」短信，附带链接要求补办，正确做法是？",
+    options: ["点链接补办", "回拨短信中的电话", "通过 ETC 发行方官方 APP/客服核实", "把卡号发过去"],
+    correctIdx: 2,
+    explanation: "ETC 官方办。ETC 不会以短信链接形式索要银行卡、密码、验证码。",
+    fraudType: "ETC 诈骗",
+    difficulty: 1,
+  },
+  {
+    id: "q04",
+    question: "视频里「妈妈」说急用钱让你转 5 万，但画面有些卡顿，最稳妥的做法是？",
+    options: ["立即转账", "换个话题问只有家人知道的事核实", "按对方要求下载借款 APP", "拉黑所有家人"],
+    correctIdx: 1,
+    explanation: "AI 换脸核实。换脸视频常有卡顿、眨眼异常。换话题问私密信息是最快的核实方式。",
+    fraudType: "AI 换脸冒充熟人",
+    difficulty: 3,
+  },
+  {
+    id: "q05",
+    question: "客服主动来电说「商品质量问题双倍退款」，要求下载会议 APP 共享屏幕，这是？",
+    options: ["真客服，配合操作", "骗局，共享屏幕会泄露验证码", "把短信验证码读给对方加速办理", "把银行卡密码告诉对方"],
+    correctIdx: 1,
+    explanation: "退费走官方。共享屏幕=对方能看到你的所有验证码和密码，立即挂断并退出屏幕共享。",
+    fraudType: "冒充客服退费",
+    difficulty: 2,
+  },
+  {
+    id: "q06",
+    question: "初恋网恋对象聊了 3 个月，从未见面，今天让你转账一起「投资」买币，应该？",
+    options: ["转账，真爱无价", "拒绝，并在平台举报", "借钱也要转", "把朋友也拉进来"],
+    correctIdx: 1,
+    explanation: "网恋不转账。杀猪盘核心是养-杀-收割，凡是没见过面就让你投资的，100% 是骗局。",
+    fraudType: "杀猪盘情感诈骗",
+    difficulty: 2,
+  },
+  {
+    id: "q07",
+    question: "自称「领导」加微信，让你帮忙转一笔钱给他「客户」，事后还你，怎么办？",
+    options: ["立即转账帮领导办事", "换渠道（电话/当面）核实领导本人", "把同事也叫上一起转", "把公司账户信息发过去"],
+    correctIdx: 1,
+    explanation: "领导转账核实。冒充领导诈骗常用「在开会不方便接电话」阻挠核实，必须换渠道确认。",
+    fraudType: "冒充领导熟人",
+    difficulty: 2,
+  },
+  {
+    id: "q08",
+    question: "收到「校园贷记录影响征信，需注销」的电话，对方能报出你的身份证号，是否可信？",
+    options: ["可信，立即配合注销", "不可信，征信只能本人到央行或官方渠道查询", "把银行卡给对方操作", "按指引网贷注销"],
+    correctIdx: 1,
+    explanation: "注销校园贷是骗。信息泄露不等于对方资质真实，「注销校园贷」本身就是伪需求。",
+    fraudType: "注销校园贷",
+    difficulty: 2,
+  },
+  {
+    id: "q09",
+    question: "短信附带的链接显示「银行积分兑换现金」，点了输入密码后钱没了，问题出在哪一步？",
+    options: ["银行系统故障", "点击了钓鱼链接，输入了密码", "手机中毒", "运营商问题"],
+    correctIdx: 1,
+    explanation: "不点陌生链。钓鱼链接会伪装成银行页面套取密码，凡涉及输入密码的链接一律从官方 APP 进入。",
+    fraudType: "钓鱼网站盗刷",
+    difficulty: 1,
+  },
+  {
+    id: "q10",
+    question: "有人高价租你的银行卡/电话卡，每月 2000 元，应该？",
+    options: ["租出去赚零花", "拒绝，买卖/出租两卡涉嫌帮信罪", "把亲戚的卡也介绍过去", "先租一张试试"],
+    correctIdx: 1,
+    explanation: "不租售两卡。出租银行卡给诈骗团伙走账，构成帮助信息网络犯罪活动罪，最高 3 年有期徒刑。",
+    fraudType: "买卖银行卡洗钱",
+    difficulty: 2,
+  },
+  {
+    id: "q11",
+    question: "陌生邮件附件是「面试通知.doc」，打开后要求「启用宏」，正确做法是？",
+    options: ["启用宏查看", "删除邮件，不启用宏", "把附件转发给同事", "回复提供身份证"],
+    correctIdx: 1,
+    explanation: "陌生附件的「启用宏」常携带宏病毒，可窃取密码、加密文件。直接删除最稳妥。",
+    fraudType: "钓鱼邮件",
+    difficulty: 2,
+  },
+  {
+    id: "q12",
+    question: "中奖短信要求先交 200 元「手续费」才能领奖，下列说法正确的是？",
+    options: ["先交钱拿大奖", "正规中奖不收费，是骗局", "把朋友也叫来分摊", "提供银行卡号接收"],
+    correctIdx: 1,
+    explanation: "正规中奖不收费。任何「先交钱才能领奖」的均为骗局，包括手续费、公证费、保证金。",
+    fraudType: "中奖诈骗",
+    difficulty: 1,
+  },
+  {
+    id: "q13",
+    question: "客服说你的快递丢了要理赔，让你下载 APP 开启「屏幕共享」指导操作，应该？",
+    options: ["下载并共享屏幕", "拒绝，挂断后通过官方渠道核实", "把短信验证码读给对方", "把银行卡号给对方"],
+    correctIdx: 1,
+    explanation: "理赔走官方。屏幕共享=把手机控制权交给对方，所有验证码、密码都会被看到。",
+    fraudType: "冒充快递理赔",
+    difficulty: 2,
+  },
+  {
+    id: "q14",
+    question: "微信收到「朋友」借钱消息，最快的核实方式是？",
+    options: ["直接转账", "语音/视频通话确认本人", "看头像一样就借", "把全部积蓄都借"],
+    correctIdx: 1,
+    explanation: "借钱必核身份。账号被盗用冒充熟人借钱非常常见，语音/视频核实是最快的拦截方式。",
+    fraudType: "冒充熟人借钱",
+    difficulty: 1,
+  },
+  {
+    id: "q15",
+    question: "贷款 APP 显示「额度已批，需先交 1000 元解冻费」才能提现，这是？",
+    options: ["交解冻费拿贷款", "骗局，正规贷款不放贷前收费", "再交 2000 加速", "把身份证发过去"],
+    correctIdx: 1,
+    explanation: "正规贷款不放贷前收费。「解冻费/工本费/保证金」都是套路，交了就再也提不出来。",
+    fraudType: "虚假网贷",
+    difficulty: 2,
+  },
+  {
+    id: "q16",
+    question: "收到「刷单返现」任务，第 1 单返了 10 元，第 2 单让你垫 5000 元，是否继续？",
+    options: ["继续垫 5000", "立即停止，前期返利是诱饵", "再拉朋友一起刷", "把信用卡额度刷满"],
+    correctIdx: 1,
+    explanation: "刷单本身违法，且 100% 是骗局。前期小额返利是为了套住你做大单，做大单必失本金。",
+    fraudType: "刷单返利",
+    difficulty: 2,
+  },
+  {
+    id: "q17",
+    question: "陌生人加 QQ 说「内部数据包赢彩票/赌球」，让你下载 APP 充值，下列判断正确的是？",
+    options: ["充值跟单", "骗局，赌博+虚假平台双套", "把家里房产抵押跟单", "拉同事一起充"],
+    correctIdx: 1,
+    explanation: "内部数据是假，平台是真骗。后台操控输赢，充值后无法提现，是典型跨境赌博+诈骗。",
+    fraudType: "跨境赌博诈骗",
+    difficulty: 3,
+  },
+  {
+    id: "q18",
+    question: "在二手平台买演唱会门票，对方要求加微信私下转账，正确做法是？",
+    options: ["加微信转账", "坚持平台担保交易", "把身份证发给对方", "先转 50% 定金"],
+    correctIdx: 1,
+    explanation: "私下交易无担保。一旦脱离平台，钱款无法追回，且门票可能是伪造或同一票卖多人。",
+    fraudType: "二手票务诈骗",
+    difficulty: 1,
+  },
+  {
+    id: "q19",
+    question: "陌生二维码扫出来是「红包」页面，要输入银行卡号+密码才能领取，应该？",
+    options: ["输入领取", "拒绝，正规红包不索取密码", "把验证码也发过去", "把卡号给同事代领"],
+    correctIdx: 1,
+    explanation: "红包不索取密码。任何要求输入银行卡密码的「红包」都是钓鱼，扫码即套信息。",
+    fraudType: "二维码钓鱼",
+    difficulty: 1,
+  },
+  {
+    id: "q20",
+    question: "自称「航班通知」短信说航班取消，要求改签并收取改签费，应该？",
+    options: ["按短信链接改签", "拨打航空公司官方客服核实", "把身份证号发过去", "把银行卡给对方退票"],
+    correctIdx: 1,
+    explanation: "航班改签走官方。骗子常利用真实航班信息行骗，「改签费/退票费」都是套取支付密码的诱饵。",
+    fraudType: "机票退改签诈骗",
+    difficulty: 2,
+  },
+  {
+    id: "q21",
+    question: "陌生人来电称你「涉嫌犯罪」，要求添加 QQ 接受「在线调查」，应该？",
+    options: ["加 QQ 配合调查", "挂断，公检法不会用 QQ 办案", "按对方要求视频", "提供银行流水"],
+    correctIdx: 1,
+    explanation: "公检法不电办，更不会用 QQ/微信办案。所有「在线调查」都是为了让受害人主动操作转账。",
+    fraudType: "冒充公检法",
+    difficulty: 1,
+  },
+  {
+    id: "q22",
+    question: "收到「医保卡异常停用」短信，附链接要求补全信息，下列说法正确的是？",
+    options: ["点链接补全", "骗局，医保局不通过短信链接采集信息", "把社保号发过去", "把密码告诉对方"],
+    correctIdx: 1,
+    explanation: "医保卡异常请到医保局官方渠道查询。短信链接多为钓鱼，目的在套取身份证、银行卡信息。",
+    fraudType: "冒充医保社保",
+    difficulty: 2,
+  },
+  {
+    id: "q23",
+    question: "电话里有人说「你孩子出车祸了，急需手术费 3 万」，第一时间应该？",
+    options: ["立即转账救人", "挂断后直接联系孩子本人/学校核实", "把全部家当都转", "按对方要求不挂电话"],
+    correctIdx: 1,
+    explanation: "亲属出事必核实。骗子利用家人焦虑情绪，要求保持通话不让你核实，挂断后联系本人是第一步。",
+    fraudType: "虚构意外诈骗",
+    difficulty: 2,
+  },
+  {
+    id: "q24",
+    question: "在求职平台上，HR 让你下载第三方 APP 完成「入职测评」并交押金，这是？",
+    options: ["下载并交押金", "骗局，正规招聘不收押金、不强制第三方 APP", "把身份证扫描件发过去", "把银行卡给对方"],
+    correctIdx: 1,
+    explanation: "招聘不收押金，入职不收费。第三方 APP 测评常是钓鱼或刷单引流，正规公司有自有招聘流程。",
+    fraudType: "虚假招聘诈骗",
+    difficulty: 2,
+  },
+  {
+    id: "q25",
+    question: "陌生号码发来彩信，附「看你老婆/老公的视频」链接，应该？",
+    options: ["立即点开看", "删除，链接多为木马或勒索", "把链接转发给朋友", "输入密码查看"],
+    correctIdx: 1,
+    explanation: "隐私窥探+木马链接是常见组合。点开后可能导致手机被控、通讯录被读取、被勒索。",
+    fraudType: "木马勒索",
+    difficulty: 3,
+  },
+];
+
+/** 按难度抽取题目（每 5 波弹 1 题，难度递增） */
+export function pickQuiz(wave: number, seed: string): QuizQuestion {
+  // 难度按波数决定：1-10 简单，11-20 中等，21+ 困难
+  const difficulty = (wave <= 10 ? 1 : wave <= 20 ? 2 : 3) as 1 | 2 | 3;
+  const pool = QUIZ_BANK.filter((q) => q.difficulty === difficulty);
+  // 简单 seed-based 选择
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  const idx = hash % pool.length;
+  return pool[idx];
+}
+
+// ====================================================================
+// v6 全面升级：战术装置系统（3 种，每局限 3 个）
+// ====================================================================
+
+export const TACTICAL_DEVICES: TacticalDeviceDef[] = [
+  {
+    kind: "barrier",
+    name: "路障",
+    emoji: "🚧",
+    desc: "在指定位置放置路障，路径上敌人减速 60%，持续 4 秒",
+    color: "#FFB020",
+    duration: 4,
+    cooldown: 12,
+    radius: 50,
+    effect: { kind: "slow", mul: 0.4 },
+  },
+  {
+    kind: "decoy",
+    name: "诱饵",
+    emoji: "🎯",
+    desc: "放置诱饵吸引附近敌人，嘲讽 5 秒，敌人改向诱饵移动",
+    color: "#1AD670",
+    duration: 5,
+    cooldown: 18,
+    radius: 120,
+    effect: { kind: "taunt" },
+  },
+  {
+    kind: "emp",
+    name: "EMP 脉冲",
+    emoji: "⚡",
+    desc: "释放电磁脉冲，眩晕范围内敌人 2 秒，无法移动/攻击",
+    color: "#00E5FF",
+    duration: 2,
+    cooldown: 22,
+    radius: 100,
+    effect: { kind: "stun", duration: 2 },
+  },
+];
+
+// ====================================================================
+// v6 全面升级：技能链系统（探员组合技，部署/大招/连击/击杀触发）
+// ====================================================================
+
+export const SKILL_LINKS: SkillLink[] = [
+  {
+    id: "link_chen_shen",
+    name: "潜行斩首",
+    desc: "陈默+沈锋同时部署时，陈默每击杀 5 名敌人触发一次额外暗杀",
+    emoji: "🗡️",
+    color: "#E5353B",
+    requiredAgents: ["chen", "shen"],
+    trigger: { kind: "onKill", agentId: "chen" },
+    effect: { kind: "aoe", radius: 80, dmgMul: 3.0 },
+    cooldown: 0,
+  },
+  {
+    id: "link_zhou_lin",
+    name: "信号围剿",
+    desc: "周衡+林书影同时部署时，林书影放大招触发周衡数据风暴 AOE",
+    emoji: "📡",
+    color: "#00E5FF",
+    requiredAgents: ["zhou", "lin"],
+    trigger: { kind: "onUlt", agentId: "lin" },
+    effect: { kind: "aoe", radius: 120, dmgMul: 2.5 },
+    cooldown: 8,
+  },
+  {
+    id: "link_wang_su",
+    name: "数据反哺",
+    desc: "王婆婆+苏岩同时部署时，连击达 20 触发全队回血 25%",
+    emoji: "💖",
+    color: "#52C41A",
+    requiredAgents: ["wang", "su"],
+    trigger: { kind: "onCombo", count: 20 },
+    effect: { kind: "healAll", ratio: 0.25 },
+    cooldown: 15,
+  },
+  {
+    id: "link_fayi_yuce",
+    name: "审计预判",
+    desc: "法务审计师+数据预测师同时部署时，连击达 15 触发全队攻击 +40%（4 秒）",
+    emoji: "⚖️",
+    color: "#3D8BFD",
+    requiredAgents: ["fayi", "yuce"],
+    trigger: { kind: "onCombo", count: 15 },
+    effect: { kind: "buff", attackPct: 0.4, duration: 4 },
+    cooldown: 12,
+  },
+  {
+    id: "link_kuajing_chen",
+    name: "跨境收网",
+    desc: "跨境联络官+陈默同时部署时，跨境联络官召唤时同时触发陈默暗影突袭",
+    emoji: "🌐",
+    color: "#FF8A3D",
+    requiredAgents: ["kuajing", "chen"],
+    trigger: { kind: "onUlt", agentId: "kuajing" },
+    effect: { kind: "aoe", radius: 100, dmgMul: 3.5 },
+    cooldown: 10,
+  },
+  {
+    id: "link_jianwei_all",
+    name: "AI 协同",
+    desc: "AI 鉴伪师+任意 2 名 tech 系探员部署时，每 30 秒回 30 能量",
+    emoji: "🤖",
+    color: "#A8E6CF",
+    requiredAgents: ["jianwei", "zhou", "lin"],
+    trigger: { kind: "onCombo", count: 10 },
+    effect: { kind: "energy", value: 30 },
+    cooldown: 30,
+  },
+];
+
+/** 检查当前部署探员组合是否激活任何技能链 */
+export function activeSkillLinks(deployedAgentIds: string[]): SkillLink[] {
+  return SKILL_LINKS.filter((link) =>
+    link.requiredAgents.every((id) => deployedAgentIds.includes(id))
+  );
+}
+
+// ====================================================================
+// v6 全面升级：元素反应系统（5 系叠加触发场地效果）
+// ====================================================================
+
+export const ELEMENT_REACTIONS: ElementReactionDef[] = [
+  {
+    kind: "steam",
+    name: "蒸汽隐匿",
+    emoji: "💨",
+    desc: "tech + emotion → 探员短暂无敌 2 秒",
+    color: "#A8E6CF",
+    requiredElements: ["tech", "emotion"],
+    duration: 2,
+    effect: { kind: "agentInvuln", duration: 2 },
+  },
+  {
+    kind: "overload",
+    name: "过载眩晕",
+    emoji: "⚡",
+    desc: "tech + threat → 范围 120 内敌人眩晕 1.5 秒",
+    color: "#00E5FF",
+    requiredElements: ["tech", "threat"],
+    duration: 1.5,
+    effect: { kind: "enemyStun", radius: 120, duration: 1.5 },
+  },
+  {
+    kind: "freeze",
+    name: "冰冻减速",
+    emoji: "❄️",
+    desc: "law + money → 路径敌人减速 60%（3 秒）",
+    color: "#B388FF",
+    requiredElements: ["law", "money"],
+    duration: 3,
+    effect: { kind: "enemySlow", mul: 0.4, duration: 3, radius: 9999 },
+  },
+  {
+    kind: "burn",
+    name: "灼烧连击",
+    emoji: "🔥",
+    desc: "threat + emotion → 范围 100 内敌人每秒受 15 点伤害（4 秒）",
+    color: "#FF7A1A",
+    requiredElements: ["threat", "emotion"],
+    duration: 4,
+    effect: { kind: "enemyBurn", dmgPerSec: 15, duration: 4, radius: 100 },
+  },
+  {
+    kind: "conductivity",
+    name: "传导伤害",
+    emoji: "🔌",
+    desc: "tech + money → 范围 120 内敌人受伤 +50%（3 秒）",
+    color: "#FFD666",
+    requiredElements: ["tech", "money"],
+    duration: 3,
+    effect: { kind: "enemyChain", dmgMul: 1.5, radius: 120 },
+  },
+  {
+    kind: "resonance",
+    name: "元素共振",
+    emoji: "🌀",
+    desc: "3+ 同元素探员 → 全队伤害 +30%（5 秒）",
+    color: "#FF7AB8",
+    requiredElements: ["law", "law"],
+    duration: 5,
+    effect: { kind: "damageBoost", mul: 1.3, duration: 5 },
+  },
+];
+
+/** 检测当前部署探员触发的元素反应（按元素分布） */
+export function detectElementReactions(agentElements: Element[]): ElementReactionDef[] {
+  const triggered: ElementReactionDef[] = [];
+  const counts: Record<Element, number> = { law: 0, tech: 0, emotion: 0, threat: 0, money: 0 };
+  for (const e of agentElements) counts[e] = (counts[e] || 0) + 1;
+
+  for (const reaction of ELEMENT_REACTIONS) {
+    if (reaction.kind === "resonance") {
+      // 任一元素 ≥ 3 即触发
+      if (Object.values(counts).some((c) => c >= 3)) {
+        triggered.push(reaction);
+      }
+    } else {
+      const [a, b] = reaction.requiredElements;
+      if (a === b) {
+        if (counts[a] >= 2) triggered.push(reaction);
+      } else {
+        if (counts[a] >= 1 && counts[b] >= 1) triggered.push(reaction);
+      }
+    }
+  }
+  return triggered;
+}
+
+// ====================================================================
+// v6 全面升级：天赋树（10 探员 × 3 分支 × 5 层）
+// 通过紧凑配置 + builder 生成，避免冗余
+// ====================================================================
+
+/** 紧凑天赋节点配置（用于 builder） */
+interface TalentSpec {
+  branch: TalentBranch;
+  tier: number;
+  name: string;
+  desc: string;
+  cost: number;
+  emoji: string;
+  effect: TalentEffect;
+}
+
+/** 单探员天赋树 spec */
+const TALENT_SPECS: Record<string, TalentSpec[]> = {
+  shen: [
+    // 攻系：资金斩断
+    { branch: "offense", tier: 1, name: "审计入门", desc: "攻击力 +10", cost: 50, emoji: "⚔️", effect: { kind: "attackFlat", value: 10 } },
+    { branch: "offense", tier: 2, name: "穿透弹", desc: "攻击力 +15%", cost: 120, emoji: "🎯", effect: { kind: "attackPct", value: 0.15 } },
+    { branch: "offense", tier: 3, name: "资金链断裂", desc: "攻击力 +25", cost: 220, emoji: "⛓️", effect: { kind: "attackFlat", value: 25 } },
+    { branch: "offense", tier: 4, name: "大招充能", desc: "大招充能倍率 +50%", cost: 380, emoji: "⚡", effect: { kind: "ultChargeMul", value: 1.5 } },
+    { branch: "offense", tier: 5, name: "终极斩断", desc: "大招威力 +60%", cost: 600, emoji: "💥", effect: { kind: "ultPowerMul", value: 1.6 } },
+    // 防系：刑侦老炮
+    { branch: "defense", tier: 1, name: "防弹背心", desc: "生命值 +30", cost: 50, emoji: "🛡️", effect: { kind: "hpFlat", value: 30 } },
+    { branch: "defense", tier: 2, name: "情报护甲", desc: "生命值 +15%", cost: 120, emoji: "🪖", effect: { kind: "hpPct", value: 0.15 } },
+    { branch: "defense", tier: 3, name: "韧性", desc: "生命值 +60", cost: 220, emoji: "💪", effect: { kind: "hpFlat", value: 60 } },
+    { branch: "defense", tier: 4, name: "战术冷却", desc: "战术装置冷却缩减 +20%", cost: 380, emoji: "⏱️", effect: { kind: "cooldownReduce", value: 0.2 } },
+    { branch: "defense", tier: 5, name: "刑侦之躯", desc: "生命值 +25%", cost: 600, emoji: "🦾", effect: { kind: "hpPct", value: 0.25 } },
+    // 辅系：法律专精
+    { branch: "support", tier: 1, name: "范围扩展", desc: "射程 +10%", cost: 50, emoji: "🔭", effect: { kind: "rangePct", value: 0.1 } },
+    { branch: "support", tier: 2, name: "射速训练", desc: "射速 +12%", cost: 120, emoji: "🔫", effect: { kind: "fireratePct", value: 0.12 } },
+    { branch: "support", tier: 3, name: "法律克制", desc: "法律元素伤害 +30%", cost: 220, emoji: "⚖️", effect: { kind: "elementBonus", element: "law", value: 0.3 } },
+    { branch: "support", tier: 4, name: "精准", desc: "暴击率 +15%", cost: 380, emoji: "🎯", effect: { kind: "critRate", value: 0.15 } },
+    { branch: "support", tier: 5, name: "致命一击", desc: "暴击伤害 +50%", cost: 600, emoji: "☄️", effect: { kind: "critDmg", value: 0.5 } },
+  ],
+  lin: [
+    { branch: "offense", tier: 1, name: "信号增强", desc: "攻击力 +8", cost: 50, emoji: "📡", effect: { kind: "attackFlat", value: 8 } },
+    { branch: "offense", tier: 2, name: "干扰加深", desc: "大招充能 +40%", cost: 120, emoji: "⚡", effect: { kind: "ultChargeMul", value: 1.4 } },
+    { branch: "offense", tier: 3, name: "高频信号", desc: "射速 +20%", cost: 220, emoji: "🎯", effect: { kind: "fireratePct", value: 0.2 } },
+    { branch: "offense", tier: 4, name: "技术专精", desc: "技术元素伤害 +40%", cost: 380, emoji: "💻", effect: { kind: "elementBonus", element: "tech", value: 0.4 } },
+    { branch: "offense", tier: 5, name: "全频阻断", desc: "大招威力 +70%", cost: 600, emoji: "💥", effect: { kind: "ultPowerMul", value: 1.7 } },
+    { branch: "defense", tier: 1, name: "话务护盾", desc: "生命值 +20", cost: 50, emoji: "🛡️", effect: { kind: "hpFlat", value: 20 } },
+    { branch: "defense", tier: 2, name: "远程布防", desc: "射程 +15%", cost: 120, emoji: "🔭", effect: { kind: "rangePct", value: 0.15 } },
+    { branch: "defense", tier: 3, name: "韧性训练", desc: "生命值 +40", cost: 220, emoji: "💪", effect: { kind: "hpFlat", value: 40 } },
+    { branch: "defense", tier: 4, name: "战术冷却", desc: "战术装置冷却缩减 +20%", cost: 380, emoji: "⏱️", effect: { kind: "cooldownReduce", value: 0.2 } },
+    { branch: "defense", tier: 5, name: "96110 之盾", desc: "生命值 +25%", cost: 600, emoji: "🦾", effect: { kind: "hpPct", value: 0.25 } },
+    { branch: "support", tier: 1, name: "射速训练", desc: "射速 +10%", cost: 50, emoji: "🔫", effect: { kind: "fireratePct", value: 0.1 } },
+    { branch: "support", tier: 2, name: "暴击训练", desc: "暴击率 +12%", cost: 120, emoji: "🎯", effect: { kind: "critRate", value: 0.12 } },
+    { branch: "support", tier: 3, name: "范围扩展", desc: "射程 +18%", cost: 220, emoji: "🔭", effect: { kind: "rangePct", value: 0.18 } },
+    { branch: "support", tier: 4, name: "暴击强化", desc: "暴击伤害 +40%", cost: 380, emoji: "☄️", effect: { kind: "critDmg", value: 0.4 } },
+    { branch: "support", tier: 5, name: "狙击大师", desc: "暴击率 +20%", cost: 600, emoji: "🎯", effect: { kind: "critRate", value: 0.2 } },
+  ],
+  // 其余 8 探员使用通用模板（按元素系定制 tier 3/4 的 elementBonus）
+  zhou: buildGenericSpecs("zhou", "tech"),
+  wang: buildGenericSpecs("wang", "emotion"),
+  su: buildGenericSpecs("su", "law"),
+  chen: buildGenericSpecs("chen", "threat"),
+  fayi: buildGenericSpecs("fayi", "law"),
+  yuce: buildGenericSpecs("yuce", "tech"),
+  kuajing: buildGenericSpecs("kuajing", "threat"),
+  jianwei: buildGenericSpecs("jianwei", "tech"),
+};
+
+/** 通用天赋模板：攻/防/辅三系五层，tier 3/4 按 element 加成 */
+function buildGenericSpecs(_agentId: string, element: Element): TalentSpec[] {
+  return [
+    { branch: "offense", tier: 1, name: "攻击 I", desc: "攻击力 +8", cost: 50, emoji: "⚔️", effect: { kind: "attackFlat", value: 8 } },
+    { branch: "offense", tier: 2, name: "攻击 II", desc: "攻击力 +12%", cost: 120, emoji: "🎯", effect: { kind: "attackPct", value: 0.12 } },
+    { branch: "offense", tier: 3, name: `${ELEMENTS[element].name}专精`, desc: `${ELEMENTS[element].name}元素伤害 +30%`, cost: 220, emoji: ELEMENTS[element].emoji, effect: { kind: "elementBonus", element, value: 0.3 } },
+    { branch: "offense", tier: 4, name: "大招充能", desc: "大招充能 +40%", cost: 380, emoji: "⚡", effect: { kind: "ultChargeMul", value: 1.4 } },
+    { branch: "offense", tier: 5, name: "终极之力", desc: "大招威力 +60%", cost: 600, emoji: "💥", effect: { kind: "ultPowerMul", value: 1.6 } },
+    { branch: "defense", tier: 1, name: "生命 I", desc: "生命值 +20", cost: 50, emoji: "🛡️", effect: { kind: "hpFlat", value: 20 } },
+    { branch: "defense", tier: 2, name: "生命 II", desc: "生命值 +12%", cost: 120, emoji: "🪖", effect: { kind: "hpPct", value: 0.12 } },
+    { branch: "defense", tier: 3, name: "生命 III", desc: "生命值 +50", cost: 220, emoji: "💪", effect: { kind: "hpFlat", value: 50 } },
+    { branch: "defense", tier: 4, name: "战术冷却", desc: "战术装置冷却缩减 +20%", cost: 380, emoji: "⏱️", effect: { kind: "cooldownReduce", value: 0.2 } },
+    { branch: "defense", tier: 5, name: "终极之躯", desc: "生命值 +22%", cost: 600, emoji: "🦾", effect: { kind: "hpPct", value: 0.22 } },
+    { branch: "support", tier: 1, name: "射程 I", desc: "射程 +10%", cost: 50, emoji: "🔭", effect: { kind: "rangePct", value: 0.1 } },
+    { branch: "support", tier: 2, name: "射速 I", desc: "射速 +10%", cost: 120, emoji: "🔫", effect: { kind: "fireratePct", value: 0.1 } },
+    { branch: "support", tier: 3, name: "暴击 I", desc: "暴击率 +12%", cost: 220, emoji: "🎯", effect: { kind: "critRate", value: 0.12 } },
+    { branch: "support", tier: 4, name: "暴击伤害", desc: "暴击伤害 +40%", cost: 380, emoji: "☄️", effect: { kind: "critDmg", value: 0.4 } },
+    { branch: "support", tier: 5, name: "全能", desc: "攻击 +15% / 生命 +15%", cost: 600, emoji: "✨", effect: { kind: "attackPct", value: 0.15 } },
+  ];
+}
+
+/** 由 spec 构建完整 TalentTree */
+function buildTalentTree(agentId: string, specs: TalentSpec[]): TalentTree {
+  const branches: Record<TalentBranch, TalentNode[]> = {
+    offense: [],
+    defense: [],
+    support: [],
+  };
+  for (const s of specs) {
+    branches[s.branch].push({
+      id: `${agentId}_${s.branch}_${s.tier}`,
+      branch: s.branch,
+      tier: s.tier,
+      name: s.name,
+      desc: s.desc,
+      cost: s.cost,
+      effect: s.effect,
+      emoji: s.emoji,
+    });
+  }
+  // 按层级排序
+  branches.offense.sort((a, b) => a.tier - b.tier);
+  branches.defense.sort((a, b) => a.tier - b.tier);
+  branches.support.sort((a, b) => a.tier - b.tier);
+  return { agentId, branches };
+}
+
+export const TALENT_TREES: TalentTree[] = Object.entries(TALENT_SPECS).map(([agentId, specs]) =>
+  buildTalentTree(agentId, specs)
+);
+
+/** 取探员天赋树 */
+export function getTalentTree(agentId: string): TalentTree | undefined {
+  return TALENT_TREES.find((t) => t.agentId === agentId);
+}
+
+// ====================================================================
+// v6 全面升级：遗物系统（12 件，common → legendary）
+// ====================================================================
+
+export const RELICS: RelicDef[] = [
+  { id: "relic_energy_cell", name: "能量电池", emoji: "🔋", desc: "开局能量 +30", rarity: "common", color: "#9FE3FF", effect: { kind: "startEnergy", value: 30 }, source: "boss" },
+  { id: "relic_score_chip", name: "得分芯片", emoji: "📊", desc: "得分倍率 +20%", rarity: "common", color: "#FFD666", effect: { kind: "scoreMul", value: 1.2 }, source: "quiz" },
+  { id: "relic_coin_magnet", name: "金币磁铁", emoji: "🧲", desc: "金币掉落倍率 +30%", rarity: "common", color: "#FFB020", effect: { kind: "coinMul", value: 1.3 }, source: "tower" },
+  { id: "relic_regen_module", name: "回血模块", emoji: "💚", desc: "探员每秒回血 1.5", rarity: "rare", color: "#52C41A", effect: { kind: "agentHpRegen", value: 1.5 }, source: "boss" },
+  { id: "relic_combo_extender", name: "连击稳定器", emoji: "🔗", desc: "连击衰减时间 +3 秒", rarity: "rare", color: "#1AD670", effect: { kind: "comboDecayExtend", value: 3 }, source: "quiz" },
+  { id: "relic_extra_upgrade", name: "战术扩展", emoji: "⬆️", desc: "本局可额外升级 1 次", rarity: "rare", color: "#3D8BFD", effect: { kind: "extraUpgrade", value: 1 }, source: "tower" },
+  { id: "relic_start_shield", name: "基地护盾", emoji: "🛡️", desc: "开局基地获得 30% 护盾", rarity: "rare", color: "#A8E6CF", effect: { kind: "startShield", value: 0.3 }, source: "boss" },
+  { id: "relic_energy_reactor", name: "能量反应堆", emoji: "⚡", desc: "能量回复倍率 +50%", rarity: "epic", color: "#00E5FF", effect: { kind: "energyRegenMul", value: 1.5 }, source: "tower" },
+  { id: "relic_pierce_all", name: "穿透弹幕", emoji: "➡️", desc: "所有投射物穿透所有敌人", rarity: "epic", color: "#FF7A1A", effect: { kind: "pierceAll" }, source: "boss" },
+  { id: "relic_first_free", name: "初次免疫", emoji: "✨", desc: "首次受伤害免疫", rarity: "epic", color: "#FF7AB8", effect: { kind: "firstHitFree" }, source: "quiz" },
+  { id: "relic_revive", name: "复活装置", emoji: "💗", desc: "基地失守时复活一次（30% 血）", rarity: "legendary", color: "#FF3B6B", effect: { kind: "reviveOnce" }, source: "boss" },
+  { id: "relic_lucky_charm", name: "幸运符", emoji: "🍀", desc: "每日挑战运气 +30%（修饰符减一档）", rarity: "legendary", color: "#9D6BFF", effect: { kind: "dailyLuck", value: 0.3 }, source: "tower" },
+];
+
+export function getRelic(id: string): RelicDef | undefined {
+  return RELICS.find((r) => r.id === id);
+}
+
+// ====================================================================
+// v6 全面升级：装备系统（16 件，weapon/badge × 4 稀有度）
+// ====================================================================
+
+export const EQUIPMENT: EquipmentDef[] = [
+  // 武器 - 通用
+  { id: "eq_wpn_standard", name: "标准手枪", emoji: "🔫", desc: "攻击力 +8", slot: "weapon", rarity: "common", color: "#9FE3FF", effect: { kind: "attackFlat", value: 8 }, craftCost: { coins: 200 } },
+  { id: "eq_wpn_rapid", name: "速射手枪", emoji: "🔫", desc: "射速 +20%", slot: "weapon", rarity: "rare", color: "#00E5FF", effect: { kind: "fireratePct", value: 0.2 }, craftCost: { coins: 400, intel: 5 } },
+  { id: "eq_wpn_longshot", name: "远程步枪", emoji: "🎯", desc: "射程 +40", slot: "weapon", rarity: "rare", color: "#3D8BFD", effect: { kind: "rangeFlat", value: 40 }, craftCost: { coins: 400, intel: 5 } },
+  { id: "eq_wpn_critical", name: "暴击瞄具", emoji: "🎯", desc: "暴击率 +20%", slot: "weapon", rarity: "epic", color: "#FFD666", effect: { kind: "critRate", value: 0.2 }, craftCost: { coins: 800, intel: 15 } },
+  { id: "eq_wpn_heavy", name: "重火力", emoji: "💥", desc: "攻击力 +25%", slot: "weapon", rarity: "epic", color: "#FF7A1A", effect: { kind: "attackPct", value: 0.25 }, craftCost: { coins: 800, intel: 15 } },
+  { id: "eq_wpn_splash", name: "溅射弹", emoji: "💣", desc: "溅射半径 +30", slot: "weapon", rarity: "epic", color: "#FF3B6B", effect: { kind: "splash", value: 30 }, craftCost: { coins: 800, intel: 15 } },
+  { id: "eq_wpn_pierce", name: "穿透弹", emoji: "➡️", desc: "投射物穿透 +2", slot: "weapon", rarity: "epic", color: "#B388FF", effect: { kind: "pierce", value: 2 }, craftCost: { coins: 800, intel: 15 } },
+  { id: "eq_wpn_legendary", name: "终极武器", emoji: "🌟", desc: "攻击力 +30% / 暴击伤害 +60%", slot: "weapon", rarity: "legendary", color: "#FFD666", effect: { kind: "attackPct", value: 0.3 }, craftCost: { coins: 1500, intel: 30, caseFiles: 2 } },
+  // 徽章 - 通用
+  { id: "eq_bad_hp", name: "生命徽章", emoji: "💚", desc: "生命值 +40", slot: "badge", rarity: "common", color: "#52C41A", effect: { kind: "hpFlat", value: 40 }, craftCost: { coins: 200 } },
+  { id: "eq_bad_crit_dmg", name: "暴伤徽章", emoji: "☄️", desc: "暴击伤害 +40%", slot: "badge", rarity: "rare", color: "#FF7A1A", effect: { kind: "critDmg", value: 0.4 }, craftCost: { coins: 400, intel: 5 } },
+  { id: "eq_bad_attack", name: "攻击徽章", emoji: "⚔️", desc: "攻击力 +12", slot: "badge", rarity: "rare", color: "#E5353B", effect: { kind: "attackFlat", value: 12 }, craftCost: { coins: 400, intel: 5 } },
+  { id: "eq_bad_lifesteal", name: "吸血徽章", emoji: "🩸", desc: "造成伤害 8% 回血给最近探员", slot: "badge", rarity: "epic", color: "#9B59B6", effect: { kind: "lifesteal", value: 0.08 }, craftCost: { coins: 800, intel: 15 } },
+  { id: "eq_bad_slow", name: "减速徽章", emoji: "❄️", desc: "命中减速 30%（2 秒）", slot: "badge", rarity: "epic", color: "#00E5FF", effect: { kind: "slowOnHit", value: 0.3, duration: 2 }, craftCost: { coins: 800, intel: 15 } },
+  { id: "eq_bad_firerate", name: "射速徽章", emoji: "🔫", desc: "射速 +15%", slot: "badge", rarity: "epic", color: "#A8E6CF", effect: { kind: "fireratePct", value: 0.15 }, craftCost: { coins: 800, intel: 15 } },
+  // 探员专属
+  { id: "eq_wpn_chen_exclusive", name: "陈默的匕首", emoji: "🗡️", desc: "陈默专属：攻击力 +35%", slot: "weapon", rarity: "legendary", color: "#E5353B", agentId: "chen", effect: { kind: "attackPct", value: 0.35 }, craftCost: { coins: 1500, intel: 30, caseFiles: 2 } },
+  { id: "eq_bad_su_exclusive", name: "苏岩的数据盘", emoji: "💾", desc: "苏岩专属：暴击率 +25% / 暴击伤害 +40%", slot: "badge", rarity: "legendary", color: "#FFD666", agentId: "su", effect: { kind: "critRate", value: 0.25 }, craftCost: { coins: 1500, intel: 30, caseFiles: 2 } },
+];
+
+export function getEquipment(id: string): EquipmentDef | undefined {
+  return EQUIPMENT.find((e) => e.id === id);
+}
+
+// ====================================================================
+// v6 全面升级：探员皮肤系统（每探员 1-2 套稀有皮肤）
+// ====================================================================
+
+export const AGENT_SKINS: AgentSkin[] = [
+  { id: "skin_shen_default", agentId: "shen", name: "刑侦本色", desc: "沈锋标准制服", unlockHint: "默认", rarity: "common" },
+  { id: "skin_shen_formal", agentId: "shen", name: "审计礼服", desc: "正式场合的西装", color: "#1B5FCC", rarity: "rare", unlockHint: "反诈积分 1000" },
+  { id: "skin_lin_default", agentId: "lin", name: "话务员", desc: "林书影标准制服", unlockHint: "默认", rarity: "common" },
+  { id: "skin_lin_night", agentId: "lin", name: "夜班特勤", desc: "夜间值班深色装", color: "#0A1929", rarity: "rare", unlockHint: "反诈积分 1000" },
+  { id: "skin_zhou_default", agentId: "zhou", name: "技术员", desc: "周衡标准工装", unlockHint: "默认", rarity: "common" },
+  { id: "skin_zhou_hacker", agentId: "zhou", name: "白帽黑客", desc: "黑色连帽衫装束", color: "#00E5FF", rarity: "epic", unlockHint: "通关 BOSS Rush" },
+  { id: "skin_wang_default", agentId: "wang", name: "社区志愿者", desc: "王婆婆标准装", unlockHint: "默认", rarity: "common" },
+  { id: "skin_chen_default", agentId: "chen", name: "卧底便衣", desc: "陈默标准便衣", unlockHint: "默认", rarity: "common" },
+  { id: "skin_chen_stealth", agentId: "chen", name: "潜行套装", desc: "夜行黑色战术服", color: "#0A1929", rarity: "epic", unlockHint: "爬塔 50 层" },
+  { id: "skin_su_default", agentId: "su", name: "数据分析师", desc: "苏岩标准制服", unlockHint: "默认", rarity: "common" },
+  { id: "skin_fayi_default", agentId: "fayi", name: "法务正装", desc: "法务审计师标准", unlockHint: "默认", rarity: "common" },
+  { id: "skin_yuce_default", agentId: "yuce", name: "AI 工程师", desc: "数据预测师标准", unlockHint: "默认", rarity: "common" },
+  { id: "skin_kuajing_default", agentId: "kuajing", name: "联络官", desc: "跨境联络官标准", unlockHint: "默认", rarity: "common" },
+  { id: "skin_jianwei_default", agentId: "jianwei", name: "鉴伪师", desc: "AI 鉴伪师标准", unlockHint: "默认", rarity: "common" },
+  { id: "skin_chen_legend", agentId: "chen", name: "暗影之王", desc: "传说级潜行装", color: "#FF3B6B", rarity: "legendary", unlockHint: "爬塔登顶 100 层" },
+  { id: "skin_shen_legend", agentId: "shen", name: "断金之神", desc: "传说级审计礼服", color: "#FFD666", rarity: "legendary", unlockHint: "击破 50 个 BOSS" },
+];
+
+// ====================================================================
+// v6 全面升级：图鉴系统（敌人 + 探员 + 案件 三类）
+// ====================================================================
+
+export const MANAGER_CODEX: CodexEntry[] = [
+  // 敌人图鉴（12 条）
+  { id: "codex_robot", category: "enemy", name: "话术机器人", emoji: "🤖", short: "话术脚本诈骗", detail: "使用预设话术脚本的自动拨号诈骗，规模化操作，常见于境外诈骗园区。", tip: "任何陌生电话中固定的'剧本式'话术，立即挂断。", unlockHint: "首次击杀话术机器人", refId: "robot", color: "#9FE3FF" },
+  { id: "codex_popup", category: "enemy", name: "假客服弹窗", emoji: "💬", short: "冒充客服诈骗", detail: "通过弹窗/主动来电冒充客服，引导点击钓鱼链接或共享屏幕。", tip: "客服不主动。任何'商品异常/理赔'主动来电，一律挂断核实。", unlockHint: "首次击杀假客服弹窗", refId: "popup", color: "#FFB020" },
+  { id: "codex_threat", category: "enemy", name: "恐吓语音", emoji: "📞", short: "冒充公检法诈骗", detail: "冒充公检法工作人员，以涉嫌犯罪为由恐吓受害人转账到'安全账户'。", tip: "公检法不电办。不存在'安全账户'。", unlockHint: "首次击杀恐吓语音", refId: "threat", color: "#E5353B" },
+  { id: "codex_sweet", category: "enemy", name: "甜言蜜语", emoji: "💕", short: "杀猪盘情感诈骗", detail: "通过网恋建立情感后引导投资。'养猪'数月后'杀猪'收割。", tip: "网恋不转账。任何未见面就让你投资的，都是骗局。", unlockHint: "首次击杀甜言蜜语", refId: "sweet", color: "#FF7AB8" },
+  { id: "codex_phish", category: "enemy", name: "钓鱼链接", emoji: "🎣", short: "钓鱼网站盗刷", detail: "通过伪装链接窃取银行卡账号密码，低血量加速是临死前的反扑。", tip: "不点陌生链。涉及密码的链接一律从官方 APP 进入。", unlockHint: "首次击杀钓鱼链接", refId: "phish", color: "#1AD670" },
+  { id: "codex_farmer", category: "enemy", name: "卡农", emoji: "💳", short: "买卖银行卡洗钱", detail: "买卖/租借银行卡为诈骗团伙走账，首次命中减半是银行初次风控。", tip: "不租售两卡。出租两卡涉嫌帮信罪，最高 3 年有期徒刑。", unlockHint: "首次击杀卡农", refId: "farmer", color: "#B388FF" },
+  { id: "codex_deepfake", category: "enemy", name: "AI 换脸", emoji: "🎭", short: "AI 换脸冒充熟人", detail: "使用 AI 换脸/合成语音冒充亲友视频通话，间歇隐身规避识别。", tip: "AI 换脸核实。换话题问私密信息是最快的核实方式。", unlockHint: "首次击杀 AI 换脸", refId: "deepfake", color: "#A8E6CF" },
+  { id: "codex_investApp", category: "enemy", name: "虚假理财 APP", emoji: "📱", short: "虚假投资平台诈骗", detail: "高收益虚假理财平台，前期可小额提现建立信任，大额投入后平台跑路。", tip: "理财认持牌。证监会/银保监会官网可查机构资质。", unlockHint: "首次击杀虚假理财 APP", refId: "investApp", color: "#FF6B9D" },
+  { id: "codex_fakeLeader", category: "enemy", name: "冒充领导", emoji: "👔", short: "冒充领导熟人转账", detail: "冒充领导/熟人加微信，以'在开会不便接电话'阻挠核实。", tip: "领导转账核实。换渠道（电话/当面）确认本人。", unlockHint: "首次击杀冒充领导", refId: "fakeLeader", color: "#4ECDC4" },
+  { id: "codex_etcFraud", category: "enemy", name: "ETC 诈骗", emoji: "🚗", short: "ETC 过期短信诈骗", detail: "ETC 过期/禁用为由的钓鱼短信，高速移动是诱导快速点击。", tip: "ETC 官方办。ETC 不会以短信链接形式索要银行卡信息。", unlockHint: "首次击杀 ETC 诈骗", refId: "etcFraud", color: "#FFA07A" },
+  { id: "codex_refundFraud", category: "enemy", name: "退费诈骗", emoji: "💸", short: "假冒客服退费诈骗", detail: "以商品质量问题/退款为由，引导下载屏幕共享 APP。分裂是连环套。", tip: "退费走官方。屏幕共享=对方能看到你所有验证码。", unlockHint: "首次击杀退费诈骗", refId: "refundFraud", color: "#FFB347" },
+  { id: "codex_loanCancel", category: "enemy", name: "注销校园贷", emoji: "📚", short: "假冒注销校园贷诈骗", detail: "冒充金融监管，以注销校园贷记录为由恐吓学生网贷转账。", tip: "注销校园贷是骗。征信只能本人到央行或官方渠道查询。", unlockHint: "首次击杀注销校园贷", refId: "loanCancel", color: "#9B59B6" },
+  // 探员图鉴（10 条）
+  { id: "codex_agent_shen", category: "agent", name: "资金链斩断师 · 沈锋", emoji: "🔫", short: "刑侦老炮", detail: "刑侦老炮，专攻杀猪盘资金链追踪与冻结。", tip: "断卡行动针对的就是卡农洗钱链条。", unlockHint: "默认解锁", refId: "shen", color: "#FF7A1A" },
+  { id: "codex_agent_lin", category: "agent", name: "话术识别员 · 林书影", emoji: "📡", short: "96110 话务员", detail: "反诈中心 96110 话务员，识破每一句陷阱话术。", tip: "96110 是反诈专线，可信赖，不会让你转账。", unlockHint: "默认解锁", refId: "lin", color: "#00E5FF" },
+  { id: "codex_agent_zhou", category: "agent", name: "网安追踪师 · 周衡", emoji: "💻", short: "网安工程师", detail: "网安工程师，黑进过 7 个电诈窝点服务器。", tip: "网安追踪是反向定位电诈园区的核心手段。", unlockHint: "默认解锁", refId: "zhou", color: "#B388FF" },
+  { id: "codex_agent_wang", category: "agent", name: "社区宣防员 · 王婆婆", emoji: "👵", short: "社区反诈志愿者", detail: "社区反诈志愿者，专拆甜言蜜语与保健品骗局。", tip: "社区宣讲是反诈'最后一公里'。", unlockHint: "默认解锁", refId: "wang", color: "#52C41A" },
+  { id: "codex_agent_su", category: "agent", name: "数据猎查师 · 苏岩", emoji: "📊", short: "数据建模师", detail: "用数据模型锁定诈骗团伙资金流向。", tip: "数据预警可在受害人转账前拦截。", unlockHint: "默认解锁", refId: "su", color: "#FFD666" },
+  { id: "codex_agent_chen", category: "agent", name: "卧底侦查员 · 陈默", emoji: "🥷", short: "卧底三年", detail: "卧底三年，潜伏在跨境电诈园区。", tip: "卧底取证是跨境联合执法的关键。", unlockHint: "默认解锁", refId: "chen", color: "#E5353B" },
+  { id: "codex_agent_fayi", category: "agent", name: "法务审计师", emoji: "⚖️", short: "法务+审计", detail: "注册会计师+法律顾问，专攻复杂资金链审计与冻结。", tip: "复杂资金链审计是追赃挽损的关键。", unlockHint: "反诈积分 500 解锁", refId: "fayi", color: "#3D8BFD" },
+  { id: "codex_agent_yuce", category: "agent", name: "数据预测师", emoji: "🔮", short: "AI 风控", detail: "AI 风控模型工程师，用机器学习预测诈骗团伙下一步行动。", tip: "AI 风控可在受害人转账前发出预警。", unlockHint: "反诈积分 800 解锁", refId: "yuce", color: "#00C9A7" },
+  { id: "codex_agent_kuajing", category: "agent", name: "跨境联络官", emoji: "🌐", short: "国际刑警联络官", detail: "国际刑警组织联络官，协调跨境联合执法行动。", tip: "跨境电诈需国际执法协作机制。", unlockHint: "反诈积分 1200 解锁", refId: "kuajing", color: "#FF8A3D" },
+  { id: "codex_agent_jianwei", category: "agent", name: "AI 鉴伪师", emoji: "🤖", short: "Deepfake 检测", detail: "Deepfake 检测专家，识破每一帧 AI 换脸与合成语音。", tip: "AI 换脸视频可被鉴伪技术识别，转账前务必电话核实。", unlockHint: "反诈积分 1500 解锁", refId: "jianwei", color: "#A8E6CF" },
+  // 案件图鉴（8 条，对应 8 个 BOSS）
+  { id: "codex_case_farmer", category: "case", name: "断卡行动 · 钱叔案", emoji: "💳", short: "洗钱卡农头目案", detail: "钱叔团伙通过 7 层壳公司租用 200+ 张银行卡，3 个月走账 1.2 亿。", tip: "出租银行卡给诈骗团伙走账，构成帮信罪。", unlockHint: "击破 BOSS 钱叔", refId: "boss_farmer", color: "#B388FF" },
+  { id: "codex_case_sweet", category: "case", name: "杀猪盘 · 婉清案", emoji: "💔", short: "情感诈骗首脑案", detail: "婉清团伙伪装优质女性形象，3 个月内骗取 17 名受害人共 480 万。", tip: "杀猪盘必破，下个窝点数据已入库。", unlockHint: "击破 BOSS 婉清", refId: "boss_sweet", color: "#FF7AB8" },
+  { id: "codex_case_popup", category: "case", name: "假客服 · 客服007案", emoji: "💬", short: "冒充客服首脑案", detail: "客服007团伙通过撞库获取订单信息，冒充客服双倍退款骗转。", tip: "假客服必挂。订单信息泄露不等于对方是真客服。", unlockHint: "击破 BOSS 客服007", refId: "boss_popup", color: "#FFB020" },
+  { id: "codex_case_threat", category: "case", name: "假警官 · 拘捕令案", emoji: "📞", short: "冒充公检法首脑案", detail: "假警官团伙伪造拘捕令，PS 公章，48 小时内骗转 80 万。", tip: "公检法不电办，拘捕令不会通过电话/微信发送。", unlockHint: "击破 BOSS 假警官", refId: "boss_threat", color: "#E5353B" },
+  { id: "codex_case_kingpin", category: "case", name: "跨境围剿 · 缅北枭雄案", emoji: "👑", short: "跨境电诈终极首脑案", detail: "缅北枭雄团伙园区 2000 人，3 年诈骗境内 12 亿，最终跨境联合执法清零。", tip: "跨境必究。国际刑警协调机制可破跨境电诈园区。", unlockHint: "击破 BOSS 缅北枭雄", refId: "boss_kingpin", color: "#FF3B6B" },
+  { id: "codex_case_deepfake", category: "case", name: "AI 换脸 · 镜像案", emoji: "🎭", short: "AI 换脸冒充熟人首脑案", detail: "镜像团伙使用开源换脸模型，3 个月内冒充亲友视频诈骗 22 起。", tip: "AI 鉴伪一直在升级，换脸视频总有破绽。", unlockHint: "击破 BOSS 镜像", refId: "boss_deepfake", color: "#A8E6CF" },
+  { id: "codex_case_invest", category: "case", name: "虚假平台 · 钱生钱案", emoji: "💰", short: "虚假投资理财首脑案", detail: "钱生钱虚假理财平台，高峰期 5 万投资人，跑路时未兑付 3.2 亿。", tip: "理财认持牌。群里晒单都是托。", unlockHint: "击破 BOSS 钱生钱", refId: "boss_invest", color: "#FF6B9D" },
+  { id: "codex_case_loan", category: "case", name: "校园贷 · 蜡笔老哥案", emoji: "📚", short: "注销校园贷诈骗首脑案", detail: "蜡笔老哥团伙专盯大学生，伪造金融监管身份，2 个月内骗转 60 万。", tip: "校园贷骗局必破，征信只能本人到央行查。", unlockHint: "击破 BOSS 蜡笔老哥", refId: "boss_loan", color: "#9B59B6" },
+];
+
+export function getCodexEntry(id: string): CodexEntry | undefined {
+  return MANAGER_CODEX.find((c) => c.id === id);
+}
+
+// ====================================================================
+// v6 全面升级：爬塔模式（100 层，按公式生成 + BOSS 层定制）
+// ====================================================================
+
+const TOWER_BOSS_FLOOR_IDS: Record<number, string> = {
+  10: "boss_farmer",
+  20: "boss_sweet",
+  30: "boss_popup",
+  40: "boss_threat",
+  50: "boss_deepfake",
+  60: "boss_invest",
+  70: "boss_loan",
+  80: "boss_kingpin",
+  90: "boss_farmer", // 二周目强化
+  100: "boss_kingpin", // 终极
+};
+
+const TOWER_FLOOR_NAMES: Record<number, string> = {
+  10: "断卡第一关",
+  20: "杀猪盘屠场",
+  30: "弹窗风暴",
+  40: "假警官审判",
+  50: "镜像迷宫",
+  60: "金流反噬",
+  70: "校园贷终焉",
+  80: "跨境围剿",
+  90: "二周目·断卡再起",
+  100: "终极·电诈末日",
+};
+
+/** 生成爬塔层数据（运行时按需调用） */
+export function getTowerFloor(floor: number): TowerFloorDef {
+  const isBoss = floor % 10 === 0;
+  const hasReward = floor % 5 === 0 && !isBoss;
+  const tier = Math.floor(floor / 10);
+  return {
+    floor,
+    name: TOWER_FLOOR_NAMES[floor] ?? `第 ${floor} 层`,
+    waves: isBoss ? 1 : Math.min(3, 1 + Math.floor((floor - 1) / 25)),
+    hpMul: 1 + floor * 0.08,
+    speedMul: 1 + floor * 0.02,
+    dmgMul: 1 + floor * 0.05,
+    rewardMul: 1 + floor * 0.1,
+    isBoss,
+    bossId: isBoss ? TOWER_BOSS_FLOOR_IDS[floor] : undefined,
+    hasReward,
+    reward: hasReward
+      ? {
+          coins: 50 + floor * 10,
+          intel: Math.floor(floor / 10),
+          relicId: floor % 25 === 0 ? ["relic_energy_reactor", "relic_revive", "relic_lucky_charm"][Math.floor(floor / 25) - 1] : undefined,
+        }
+      : undefined,
+  };
+}
+
+/** 爬塔总层数 */
+export const TOWER_MAX_FLOOR = 100;
+
+// ====================================================================
+// v6 全面升级：周常任务（6 项，每周一刷新）
+// ====================================================================
+
+export const WEEKLY_QUESTS: WeeklyQuest[] = [
+  { id: "wq_play_5", name: "周常演练", desc: "完成 5 局任意模式", target: 5, reward: { seasonScore: 100, coins: 200 }, progress: 0, claimed: false },
+  { id: "wq_kill_200", name: "剿匪达标", desc: "击杀 200 名敌人", target: 200, reward: { seasonScore: 150, coins: 300 }, progress: 0, claimed: false },
+  { id: "wq_boss_3", name: "首脑猎手", desc: "击破 3 个 BOSS", target: 3, reward: { seasonScore: 200, coins: 400, relicId: "relic_score_chip" }, progress: 0, claimed: false },
+  { id: "wq_tower_10", name: "登塔 10 层", desc: "爬塔推进 10 层", target: 10, reward: { seasonScore: 200, coins: 400 }, progress: 0, claimed: false },
+  { id: "wq_quiz_10", name: "学海无涯", desc: "答对 10 道战间题", target: 10, reward: { seasonScore: 150, coins: 300 }, progress: 0, claimed: false },
+  { id: "wq_combo_30", name: "连击大师", desc: "达成 30 连击", target: 30, reward: { seasonScore: 250, coins: 500, relicId: "relic_combo_extender" }, progress: 0, claimed: false },
+];
+
+// ====================================================================
+// v6 全面升级：极限词缀（10 个，挑战模式自选 1-3 个）
+// ====================================================================
+
+export const CHALLENGE_AFFIXES: ChallengeAffix[] = [
+  { id: "affix_one_hp", name: "一血通关", desc: "基地只有 1 点血", emoji: "🩸", color: "#E5353B", severity: 3, effect: { kind: "oneHp" } },
+  { id: "affix_no_ult", name: "禁大招", desc: "大招无法充能", emoji: "🚫", color: "#FF7A1A", severity: 2, effect: { kind: "noUlt" } },
+  { id: "affix_random_agents", name: "随机探员", desc: "从所有探员中随机 6 名出战", emoji: "🎲", color: "#9D6BFF", severity: 2, effect: { kind: "randomAgents", count: 6 } },
+  { id: "affix_no_upgrades", name: "禁升级", desc: "本局无法选择升级", emoji: "⬇️", color: "#FFB020", severity: 2, effect: { kind: "noUpgrades" } },
+  { id: "affix_double_enemies", name: "敌海压境", desc: "敌人数量翻倍", emoji: "🌊", color: "#00E5FF", severity: 2, effect: { kind: "doubleEnemies" } },
+  { id: "affix_fast_enemies", name: "极速敌人", desc: "敌人速度 +50%", emoji: "💨", color: "#1AD670", severity: 1, effect: { kind: "fastEnemies", mul: 1.5 } },
+  { id: "affix_no_devices", name: "禁战术装置", desc: "无法使用战术装置", emoji: "🚧", color: "#B388FF", severity: 1, effect: { kind: "noDevices" } },
+  { id: "affix_no_pause", name: "禁战术暂停", desc: "无法使用战术暂停", emoji: "⏸️", color: "#FF7AB8", severity: 1, effect: { kind: "noPause" } },
+  { id: "affix_berserk", name: "全员狂暴", desc: "敌人攻击力 +50%", emoji: "🔥", color: "#FF3B6B", severity: 3, effect: { kind: "berserk", mul: 1.5 } },
+  { id: "affix_fog", name: "战争迷雾", desc: "战场被迷雾覆盖，仅可见探员周围", emoji: "🌫️", color: "#9FE3FF", severity: 3, effect: { kind: "fog" } },
+];
+
+/** 极限词缀积分倍率（severity 1=0.3, 2=0.6, 3=1.0） */
+export function challengeScoreMul(affixes: ChallengeAffix[]): number {
+  return 1 + affixes.reduce((s, a) => s + a.severity * 0.3, 0);
+}
+
+// ====================================================================
+// v6 全面升级：赛季段位映射（按积分）
+// ====================================================================
+
+export const SEASON_RANKS: { rank: SeasonRank; minScore: number }[] = [
+  { rank: "反诈新兵", minScore: 0 },
+  { rank: "反诈士官", minScore: 300 },
+  { rank: "反诈少尉", minScore: 800 },
+  { rank: "反诈上尉", minScore: 1500 },
+  { rank: "反诈少校", minScore: 2500 },
+  { rank: "反诈中校", minScore: 4000 },
+  { rank: "反诈上校", minScore: 6000 },
+  { rank: "反诈准将", minScore: 8500 },
+  { rank: "反诈少将", minScore: 12000 },
+  { rank: "反诈元帅", minScore: 18000 },
+];
+
+export function seasonRankFromScore(score: number): SeasonRank {
+  let rank: SeasonRank = "反诈新兵";
+  for (const r of SEASON_RANKS) {
+    if (score >= r.minScore) rank = r.rank;
+  }
+  return rank;
 }

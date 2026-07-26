@@ -1,0 +1,196 @@
+[
+  {
+    "id": "F26-001", "typeId": "F26", "type": "AI换脸视频诈骗", "cardType": "video", "difficulty": 3,
+    "kind": "single",
+    "title": "微信视频通话 / \"老朋友\"急借钱",
+    "body": "多年未联系的老友突然视频通话，画面里确实是本人模样，称遇到急事需借3万元周转。注意：画面偶有卡顿，口型与声音略有偏差，光线不自然。",
+    "options": ["老友有难立即转账", "视频里是本人放心转", "挂断后电话联系本人核实", "先转一半稳住对方"],
+    "answer": 2, "cues": ["口型偏差", "画面卡顿", "AI换脸"],
+    "explain": "2025年多地出现AI换脸冒充亲友视频借款案。挂断后通过原号码电话核实是关键防线。",
+    "psychology": ["urgency", "trust", "intimacy"],
+    "knowledgePoints": ["KP-AI-DEEPFAKE"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "AI换脸冒充亲友借款案",
+      "date": "2025-03",
+      "source": "国家反诈中心通报",
+      "takeaway": "视频通话也可伪造，遇涉及转账务必二次电话核实。"
+    }
+  },
+  {
+    "id": "F26-002", "typeId": "F26", "type": "AI换脸视频诈骗", "cardType": "audio", "difficulty": 4,
+    "kind": "single",
+    "title": "语音消息 / \"妈妈\"急要钱",
+    "body": "收到\"女儿\"发来的语音消息，声音与女儿极其相似，称手机丢失借同学手机发消息，急需交培训费8000元。请判断这条语音的真伪。",
+    "options": ["是女儿本人，立即转账", "声音像就转账", "AI拟声可仿造，电话核实原号码", "先转一半试试"],
+    "answer": 2, "cues": ["借同学手机", "急要钱", "AI拟声"],
+    "explain": "2025年起AI拟声诈骗高发，3秒语音素材即可克隆。务必回拨原号码核实。",
+    "audioClip": {
+      "label": "女儿语音消息",
+      "duration": 8,
+      "isSynthetic": true,
+      "transcript": "妈，我手机丢了，借同学手机发的，培训费今天截止，快转8000到张老师账户。",
+      "synthTech": "AI 拟声（3秒素材克隆）"
+    },
+    "psychology": ["urgency", "intimacy", "fear"],
+    "knowledgePoints": ["KP-AI-VOICE"],
+    "season": ["schoolOpen", "all"],
+    "caseArchive": {
+      "title": "AI拟声冒充子女骗培训费案",
+      "date": "2025-09",
+      "source": "教育部联合反诈中心通报",
+      "takeaway": "开学季高发，AI可克隆子女声音，回拨原号码是铁律。"
+    }
+  },
+  {
+    "id": "F27-001", "typeId": "F27", "type": "数字人民币钓鱼", "cardType": "qrcode", "difficulty": 3,
+    "kind": "judge",
+    "title": "微信群 / \"数字人民币红包兑换码\"",
+    "body": "群里发\"数字人民币红包兑换码\"，扫码后跳转到非官方页面要求输入钱包密码和验证码\"领取\"。判断：扫码输密码即可领取。",
+    "options": ["正确：扫码领取", "错误：数字人民币红包只在官方APP内领取"],
+    "answer": 1, "cues": ["红包兑换码", "陌生链接", "钱包密码"],
+    "explain": "数字人民币红包只在官方APP内领取，不通过陌生链接。要求输密码验证码均为钓鱼。",
+    "psychology": ["greed", "curiosity"],
+    "knowledgePoints": ["KP-DCEP"],
+    "season": ["springFestival", "all"],
+    "caseArchive": {
+      "title": "数字人民币红包兑换码钓鱼案",
+      "date": "2025-10",
+      "source": "央行数字货币研究所 / 深圳公安",
+      "takeaway": "数字人民币只走官方APP，任何兑换码链接都是钓鱼。"
+    }
+  },
+  {
+    "id": "F28-001", "typeId": "F28", "type": "短视频平台杀猪盘", "cardType": "chat", "difficulty": 2,
+    "kind": "single",
+    "title": "小红书私信 / \"高收益理财导师\"",
+    "body": "私信里说\"姐姐我看你也在理财，我跟着这个老师稳赚，拉你进群\"。群里晒单动辄日入过万，要求下载某APP注册入金。",
+    "options": ["进群跟着老师投资", "下载APP试试小投入", "警惕短视频平台理财引流，拉黑", "把闺蜜也拉进来"],
+    "answer": 2, "cues": ["稳赚", "下载APP", "晒单引流"],
+    "explain": "2025年短视频平台成杀猪盘新引流渠道。任何非正规平台投资都是诈骗。",
+    "psychology": ["greed", "conformity", "trust"],
+    "knowledgePoints": ["KP-PIG-BUTCHERING"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "小红书理财导师杀猪盘案",
+      "date": "2026-01",
+      "source": "上海反诈中心通报",
+      "takeaway": "短视频平台理财引流=杀猪盘，不下载不转账。"
+    }
+  },
+  {
+    "id": "F29-001", "typeId": "F29", "type": "AI客服仿声诈骗", "cardType": "audio", "difficulty": 3,
+    "kind": "single",
+    "title": "来电 / 自称\"支付宝客服\"",
+    "body": "电话里\"客服\"声音专业，称你的花呗存在异常需核实身份，要求按提示操作。声音听起来像官方客服录音。请判断。",
+    "options": ["声音像官方就配合", "按提示核实身份", "挂断拨打官方95188核实", "提供身份证号配合"],
+    "answer": 2, "cues": ["AI仿声", "核实身份", "花呗异常"],
+    "explain": "2026年AI仿声冒充客服案件增多。官方客服不会索要密码验证码，挂断拨打官方号码核实。",
+    "audioClip": {
+      "label": "客服来电录音",
+      "duration": 12,
+      "isSynthetic": true,
+      "transcript": "您好，这里是支付宝客服，检测到您的花呗账户存在异常，为保障您的资金安全，请按提示进行身份核实。",
+      "synthTech": "AI 仿声 + 客服话术合成"
+    },
+    "psychology": ["authority", "fear", "urgency"],
+    "knowledgePoints": ["KP-AI-VOICE"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "AI仿声冒充客服诈骗案",
+      "date": "2026-02",
+      "source": "杭州反诈中心通报",
+      "takeaway": "AI可仿造客服声音，挂断回拨官方号码是唯一正确做法。"
+    }
+  },
+  {
+    "id": "F30-001", "typeId": "F30", "type": "春运退票诈骗", "cardType": "sms", "difficulty": 2,
+    "kind": "single",
+    "title": "+86 10XXX",
+    "body": "【铁路客服】您的G1234次列车因故停运，请点击 http://12306-refund.xyz 办理退票退款，需填写银行卡信息。",
+    "options": ["点击链接办理退票", "按短信提示填银行卡", "登录12306官方APP核实", "拨打短信中的客服电话"],
+    "answer": 2, "cues": ["12306-refund.xyz", "停运退款", "陌生链接"],
+    "explain": "春运退票诈骗高发。官方域名是12306.cn，任何其他域名都是钓鱼。",
+    "psychology": ["urgency", "fear"],
+    "knowledgePoints": ["KP-SPRING-TRAVEL"],
+    "season": ["springTravel", "springFestival"],
+    "caseArchive": {
+      "title": "春运火车票退改签诈骗案",
+      "date": "2026-01",
+      "source": "铁路公安联合反诈中心通报",
+      "takeaway": "退票只认12306官方渠道，陌生链接一律不点。"
+    }
+  },
+  {
+    "id": "F31-001", "typeId": "F31", "type": "双11虚假快递理赔", "cardType": "call", "difficulty": 2,
+    "kind": "single",
+    "title": "未知号码 / 自称\"双11快递理赔\"",
+    "body": "双11期间，自称快递员称您的包裹丢失双倍赔偿，要求下载会议APP共享屏幕操作退款。",
+    "options": ["共享屏幕接收退款", "下载会议APP配合", "挂断到购物APP核实物流", "提供支付密码接收赔款"],
+    "answer": 2, "cues": ["共享屏幕", "双11理赔", "下载会议APP"],
+    "explain": "双11期间虚假理赔高发。共享屏幕=交出密码验证码，挂断官方核实。",
+    "psychology": ["urgency", "greed"],
+    "knowledgePoints": ["KP-DOUBLE11"],
+    "season": ["double11"],
+    "caseArchive": {
+      "title": "双11虚假快递理赔诈骗案",
+      "date": "2025-11",
+      "source": "国家邮政局联合反诈中心通报",
+      "takeaway": "双11理赔不共享屏幕，购物APP内核实。"
+    }
+  },
+  {
+    "id": "F32-001", "typeId": "F32", "type": "暑期兼职刷单", "cardType": "sms", "difficulty": 1,
+    "kind": "single",
+    "title": "+86 13XXX",
+    "body": "【暑期兼职】学生专属，点赞关注日结300-800，时间自由，加微信xxx领任务，暑假赚生活费。",
+    "options": ["加微信领任务赚钱", "介绍同学一起做", "刷单即诈骗，删除短信", "先做几单试试"],
+    "answer": 2, "cues": ["学生专属", "日结300-800", "刷单"],
+    "explain": "暑期学生兼职刷单诈骗高发。任何点赞关注返佣都是刷单诈骗引流。",
+    "psychology": ["greed", "conformity"],
+    "knowledgePoints": ["KP-SUMMER-JOB"],
+    "season": ["summerJob"],
+    "caseArchive": {
+      "title": "暑期学生兼职刷单诈骗案",
+      "date": "2025-07",
+      "source": "教育部联合反诈中心通报",
+      "takeaway": "学生兼职刷单=诈骗，点赞关注返佣是诱饵。"
+    }
+  },
+  {
+    "id": "F33-001", "typeId": "F33", "type": "年终虚假理财", "cardType": "popup", "difficulty": 3,
+    "kind": "single",
+    "title": "理财广告 / \"年终高收益\"",
+    "body": "█▌年终限享█▌内部理财产品，年化18%，保本保息，仅剩最后10个名额，扫码下载APP抢购。",
+    "options": ["扫码抢购保本理财", "下载APP购买", "警惕保本高收益矛盾，关闭广告", "拉家人一起抢"],
+    "answer": 2, "cues": ["年化18%", "保本保息", "名额有限"],
+    "explain": "年终理财诈骗利用\"保本+高收益\"话术。任何保本保息承诺高收益的都是诈骗。",
+    "psychology": ["greed", "scarcity", "authority"],
+    "knowledgePoints": ["KP-YEAR-END"],
+    "season": ["yearEnd"],
+    "caseArchive": {
+      "title": "年终虚假理财产品诈骗案",
+      "date": "2025-12",
+      "source": "银保监会联合反诈中心通报",
+      "takeaway": "保本与高收益不可兼得，年终理财认准持牌机构。"
+    }
+  },
+  {
+    "id": "F34-001", "typeId": "F34", "type": "开学季冒充老师收费", "cardType": "chat", "difficulty": 2,
+    "kind": "single",
+    "title": "家长微信群 / \"班主任\"",
+    "body": "群里\"班主任\"发消息：\"各位家长，新学期资料费298元，请扫码缴纳，截止今天18点\"。注意：头像和昵称与班主任一致。",
+    "options": ["班主任要求赶紧交", "扫码缴纳资料费", "电话联系班主任本人核实", "先交了再说"],
+    "answer": 2, "cues": ["扫码缴费", "截止时间", "头像伪造"],
+    "explain": "开学季冒充老师收费高发。家长群缴费务必电话核实，不扫陌生二维码。",
+    "psychology": ["authority", "urgency", "conformity"],
+    "knowledgePoints": ["KP-SCHOOL-OPEN"],
+    "season": ["schoolOpen"],
+    "caseArchive": {
+      "title": "开学季冒充班主任收费诈骗案",
+      "date": "2025-09",
+      "source": "教育部联合反诈中心通报",
+      "takeaway": "家长群缴费电话核实，不扫陌生二维码。"
+    }
+  }
+]

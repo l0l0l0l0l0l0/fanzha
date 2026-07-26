@@ -48,9 +48,39 @@ export const ITEM_ORDER: ItemId[] = [
 
 /** 园区档位：每 2 波升档（妙瓦底 → 缅北 → 总部） */
 export const PARK_TIERS: ParkTierDef[] = [
-  { tier: 0, name: "妙瓦底", subtitle: "MYAWADDY", hpMul: 1.0, repairMul: 1.0, color: "#9FE3FF", structure: "den" },
-  { tier: 1, name: "缅北中区", subtitle: "KOKANG", hpMul: 1.5, repairMul: 1.8, color: "#FFB020", structure: "kokang" },
-  { tier: 2, name: "总部核心", subtitle: "HEADQUARTERS", hpMul: 2.2, repairMul: 2.6, color: "#B388FF", structure: "hq" },
+  {
+    tier: 0, name: "妙瓦底", subtitle: "MYAWADDY", hpMul: 1.0, repairMul: 1.0, color: "#9FE3FF", structure: "den",
+    briefing: {
+      scamType: "网络交友诱导投资（杀猪盘）+ 限制人身自由",
+      points: [
+        "境外高薪招聘 = 电诈陷阱，勿信勿往",
+        "网恋对象引导投资/赌博的，几乎都是诈骗",
+        "被诱骗至园区应立即联系使馆，拨打 12308",
+      ],
+    },
+  },
+  {
+    tier: 1, name: "缅北中区", subtitle: "KOKANG", hpMul: 1.5, repairMul: 1.8, color: "#FFB020", structure: "kokang",
+    briefing: {
+      scamType: "冒充客服 + 网络赌博 + 武装掩护电诈",
+      points: [
+        "客服主动来电称'注销会员/退款'的都是诈骗",
+        "网络赌博十赌十输，后台可操纵输赢",
+        "武装集团控制下的电诈窝点将被依法铲除",
+      ],
+    },
+  },
+  {
+    tier: 2, name: "总部核心", subtitle: "HEADQUARTERS", hpMul: 2.2, repairMul: 2.6, color: "#B388FF", structure: "hq",
+    briefing: {
+      scamType: "跨境洗钱 + 暗网数据交易 + 投资理财诈骗",
+      points: [
+        "高收益零风险的投资理财都是诈骗",
+        "个人数据被用于精准诈骗，注意保护隐私",
+        "跨境电诈首脑将数罪并罚、从重惩处",
+      ],
+    },
+  },
 ];
 
 /** 每 2 波升档时的 BOSS 身份（每档 2 个 BOSS，逐波强化） */
@@ -68,6 +98,26 @@ export const TIER_BOSSES: Record<ParkTierDef["structure"], BombBossDef[]> = {
       skillDesc: "每隔 8 秒释放 3 架干扰无人机，命中触发道具失效",
       enrageAt: 0.5,
       enrageMul: 1.6,
+      caseStudy: {
+        title: "妙瓦底电诈园区：境外高薪招聘陷阱",
+        body: "不法分子以'月入数万包吃住'为诱饵，将受害者骗至妙瓦底等境外电诈园区，没收护照、限制人身自由，强迫从事电信诈骗。受害者遭受殴打、电击、关水牢等虐待。",
+        hotline: "12308",
+        points: [
+          "境外高薪招聘信息几乎都是电诈陷阱",
+          "被诱骗至园区应立即联系中国驻当地使馆",
+          "拨打 12308 领事保护热线 24 小时求助",
+        ],
+      },
+      specialSkill: {
+        kind: "cageTrap",
+        name: "铁笼困人",
+        desc: "妙瓦底电诈园区标志性暴行：没收护照、铁笼关押、限制人身自由，模拟受害者无法逃脱的绝望。",
+        triggerAtHpPct: 0.5,
+        cooldown: 18,
+        duration: 3.0,
+        color: "#FF5A2A",
+        debuffs: ["cdLock"],
+      },
     },
     {
       bossName: "话术培训师",
@@ -81,6 +131,26 @@ export const TIER_BOSSES: Record<ParkTierDef["structure"], BombBossDef[]> = {
       skillDesc: "释放干扰弹幕触发屏幕扭曲，压制反诈炮兵射速",
       enrageAt: 0.5,
       enrageMul: 1.7,
+      caseStudy: {
+        title: "杀猪盘话术：网恋交友诱导投资",
+        body: "电诈园区话术师编写标准化'养猪'剧本，通过社交平台伪装成成功人士与受害者建立感情，再以'内幕消息/稳赚不赔'诱导投资虚假平台，最终卷款跑路。",
+        hotline: "96110",
+        points: [
+          "网恋对象引导投资/赌博的，几乎都是诈骗",
+          "投资平台无法提现时已被骗，应立即报警",
+          "96110 来电务必接听，可能正在被骗",
+        ],
+      },
+      specialSkill: {
+        kind: "cageTrap",
+        name: "铁笼困人·话术强化",
+        desc: "话术师以伪造情感困住受害者，叠加信号干扰压制反诈炮兵视野，模拟'被洗脑无法求救'。",
+        triggerAtHpPct: 0.55,
+        cooldown: 16,
+        duration: 3.2,
+        color: "#FF7A1A",
+        debuffs: ["cdLock", "visionJam"],
+      },
     },
   ],
   kokang: [
@@ -96,6 +166,26 @@ export const TIER_BOSSES: Record<ParkTierDef["structure"], BombBossDef[]> = {
       skillDesc: "6 秒一次重炮齐射 5 发，命中锁定道具 CD",
       enrageAt: 0.55,
       enrageMul: 1.8,
+      caseStudy: {
+        title: "缅北武装电诈集团：暴力掩护下的跨境犯罪",
+        body: "缅北地区武装集团以武力掩护大规模电诈窝点，配备武装看守防止人员逃脱。该集团涉及网络赌博、冒充客服、投资理财等多种诈骗，案值达数百亿元。",
+        hotline: "96110",
+        points: [
+          "武装集团控制下的电诈窝点将被依法铲除",
+          "网络赌博十赌十输，后台可操纵输赢",
+          "跨境联合执法持续打击境外电诈集团",
+        ],
+      },
+      specialSkill: {
+        kind: "shockJam",
+        name: "电击干扰",
+        desc: "缅北武装集团以电击酷刑胁迫人员从事电诈，模拟暴力胁迫下的武器压制与视野干扰。",
+        triggerAtHpPct: 0.5,
+        cooldown: 16,
+        duration: 3.0,
+        color: "#00E5FF",
+        debuffs: ["weaponJam", "visionJam"],
+      },
     },
     {
       bossName: "洗钱水房老板",
@@ -109,6 +199,26 @@ export const TIER_BOSSES: Record<ParkTierDef["structure"], BombBossDef[]> = {
       skillDesc: "5.5 秒一次 6 发导弹齐射，干扰炮兵武器系统",
       enrageAt: 0.55,
       enrageMul: 1.9,
+      caseStudy: {
+        title: "洗钱水房：被骗资金的'地下通道'",
+        body: "洗钱水房通过'跑分平台'、虚拟货币、购买游戏点卡等方式，将被骗资金层层转移洗白。提供银行卡/收款码帮助转账的'卡农'同样构成犯罪。",
+        hotline: "96110",
+        points: [
+          "出租出借银行卡/收款码是帮助信息网络犯罪",
+          "跑分平台兼职 = 协助洗钱，将被追究刑责",
+          "发现可疑资金往来应立即向银行举报",
+        ],
+      },
+      specialSkill: {
+        kind: "shockJam",
+        name: "电击干扰·资金外逃",
+        desc: "洗钱水房以电击掩护资金外逃，更强的武器压制叠加视觉干扰，模拟'被骗资金被层层转移'。",
+        triggerAtHpPct: 0.55,
+        cooldown: 14,
+        duration: 3.2,
+        color: "#B388FF",
+        debuffs: ["weaponJam", "visionJam"],
+      },
     },
   ],
   hq: [
@@ -124,6 +234,26 @@ export const TIER_BOSSES: Record<ParkTierDef["structure"], BombBossDef[]> = {
       skillDesc: "5 秒一次 7 发导弹覆盖，装甲修复+多重干扰",
       enrageAt: 0.6,
       enrageMul: 2.0,
+      caseStudy: {
+        title: "跨境电诈首脑：数罪并罚从重惩处",
+        body: "跨境电诈集团首脑组织领导诈骗、非法拘禁、故意伤害、洗钱等多类犯罪，涉案金额巨大、受害者众多。依法将被数罪并罚、从重惩处，最高可判无期徒刑。",
+        hotline: "110",
+        points: [
+          "组织领导电诈集团将数罪并罚、从重惩处",
+          "涉案金额特别巨大可判十年以上至无期",
+          "主动投案自首、检举立功可依法从轻处理",
+        ],
+      },
+      specialSkill: {
+        kind: "deepfake",
+        name: "AI 换脸·首脑伪装",
+        desc: "跨境电诈首脑使用 AI 换脸深度伪造技术伪装身份，模拟'真假难辨'的高科技迷惑，道具失效+视觉干扰。",
+        triggerAtHpPct: 0.5,
+        cooldown: 14,
+        duration: 3.5,
+        color: "#B388FF",
+        debuffs: ["itemDisable", "visionJam"],
+      },
     },
     {
       bossName: "暗网数据王",
@@ -137,6 +267,26 @@ export const TIER_BOSSES: Record<ParkTierDef["structure"], BombBossDef[]> = {
       skillDesc: "4.5 秒一次 8 发重炮，火力压制+全屏干扰",
       enrageAt: 0.6,
       enrageMul: 2.1,
+      caseStudy: {
+        title: "暗网数据黑市：你的信息正在被售卖",
+        body: "电诈集团通过黑客攻击、内鬼倒卖等方式窃取个人信息，在暗网批量出售。买家利用这些数据实施精准诈骗，如冒充公检法、冒充熟人借款等。",
+        hotline: "96110",
+        points: [
+          "个人数据被用于精准诈骗，注意保护隐私",
+          "快递单/身份证/银行卡信息切勿随意泄露",
+          "接到'熟人'借款电话务必二次核实身份",
+        ],
+      },
+      specialSkill: {
+        kind: "deepfake",
+        name: "AI 换脸·数据克隆",
+        desc: "暗网数据王利用窃取的个人信息批量克隆身份，更强的道具失效叠加视觉干扰，模拟'身份被盗用'的精准诈骗。",
+        triggerAtHpPct: 0.55,
+        cooldown: 12,
+        duration: 3.8,
+        color: "#9FE3FF",
+        debuffs: ["itemDisable", "visionJam"],
+      },
     },
   ],
 };
@@ -491,3 +641,20 @@ export function getMapForWave(wave: number): MapLayoutDef {
   const idx = Math.floor((wave - 1) / MAP_CYCLE) % MAP_LAYOUTS.length;
   return MAP_LAYOUTS[idx];
 }
+
+// ============ 模块知识点：拆除特定模块时飘字显示反诈知识 ============
+
+/** 各模块类型对应的反诈知识点（拆除时飘字提示） */
+export const MODULE_KNOWLEDGE: Record<string, { tip: string; color: string }> = {
+  cage:       { tip: "限制人身自由是犯罪行为", color: "#FF5A2A" },
+  cell:       { tip: "非法拘禁可处三年以下有期徒刑", color: "#FF5A2A" },
+  shock:      { tip: "暴力胁迫参与电诈从重处罚", color: "#00E5FF" },
+  guard:      { tip: "武装掩护电诈是加重情节", color: "#E5353B" },
+  dorm:       { tip: "诱骗他人出境参与电诈将追责", color: "#FFB020" },
+  floor:      { tip: "诈骗金额越大刑期越长", color: "#FFD666" },
+  antenna:    { tip: "伪基站/GOIP 设备是犯罪工具", color: "#00E5FF" },
+  fortress:   { tip: "组织者将数罪并罚", color: "#B388FF" },
+  wall:       { tip: "明知电诈仍提供帮助是共犯", color: "#9FE3FF" },
+  foundation: { tip: "电诈园区将被依法取缔", color: "#52C41A" },
+  server:     { tip: "提供技术支持构成帮助犯", color: "#00E5FF" },
+};

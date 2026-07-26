@@ -1,0 +1,98 @@
+[
+  {
+    "id": "B01-001", "typeId": "B01", "type": "杀猪盘情景模拟", "cardType": "branch", "difficulty": 3,
+    "kind": "branch", "isBranchEntry": true,
+    "title": "第一人称情景 / 交友软件遇到\"理想型\"",
+    "body": "你在交友软件遇到一位温柔体贴的\"理想型\"，聊了半个月，对方嘘寒问暖。今天对方突然说...",
+    "options": [],
+    "explain": "杀猪盘情景模拟：你的每个选择都决定结局。",
+    "cues": ["杀猪盘", "情感操控", "投资引流"],
+    "psychology": ["intimacy", "trust", "greed"],
+    "knowledgePoints": ["KP-PIG-BUTCHERING"],
+    "branchSteps": [
+      {
+        "id": "s1", "title": "甜蜜铺垫", "scene": "\"亲爱的，我发现一个投资漏洞，带你一起赚好不好？保密别告诉别人。\"",
+        "choices": [
+          { "text": "好的，跟你一起赚！", "nextStep": "s2", "safe": false, "psychology": ["greed", "intimacy"] },
+          { "text": "抱歉，我不参与投资。", "nextStep": null, "safe": true, "ending": "safe", "endingDesc": "你果断拒绝投资引流，对方很快消失。识破杀猪盘！" },
+          { "text": "先看看是什么平台？", "nextStep": "s2", "safe": false, "psychology": ["curiosity"] }
+        ]
+      },
+      {
+        "id": "s2", "title": "小利诱惑", "scene": "对方发来一个APP下载链接：\"先投500试试，秒到账650，我教你操作。\"群里晒单动辄日入过万。",
+        "choices": [
+          { "text": "投500试试水", "nextStep": "s3", "safe": false, "psychology": ["greed", "sunkCost"] },
+          { "text": "正规平台不会私下引流，告辞。", "nextStep": null, "safe": true, "ending": "safe", "endingDesc": "你识破私下引流=杀猪盘，及时止损。" },
+          { "text": "拉闺蜜一起投", "nextStep": "s3", "safe": false, "psychology": ["conformity"] }
+        ]
+      },
+      {
+        "id": "s3", "title": "深陷套路", "scene": "你投了500，果然秒到账650。对方说\"加大投入博高收益，3万返5万\"。你账户显示盈利28万，但提现需缴8%税+2万解冻金。",
+        "choices": [
+          { "text": "借钱缴解冻金提现", "nextStep": null, "safe": false, "ending": "scammed", "endingDesc": "你缴了解冻金后再也无法提现，对方消失。被杀猪盘骗走全部积蓄。" },
+          { "text": "意识到被骗，立即报警", "nextStep": null, "safe": true, "ending": "warning", "endingDesc": "你及时醒悟报警，挽回部分损失。记住：提现要交钱=100%诈骗。" }
+        ]
+      }
+    ],
+    "season": ["all"]
+  },
+  {
+    "id": "B02-001", "typeId": "B02", "type": "冒充公检法情景模拟", "cardType": "branch", "difficulty": 3,
+    "kind": "branch", "isBranchEntry": true,
+    "title": "第一人称情景 / 接到\"公安局\"电话",
+    "body": "午休时接到自称\"市局刑侦支队\"的电话，对方准确报出你的身份证号...",
+    "options": [],
+    "explain": "冒充公检法情景模拟：电话办案都是诈骗。",
+    "cues": ["公检法", "电话办案", "安全账户"],
+    "psychology": ["authority", "fear", "urgency"],
+    "knowledgePoints": ["KP-IMPERSONATION"],
+    "branchSteps": [
+      {
+        "id": "s1", "title": "恐吓开场", "scene": "\"你名下银行卡涉嫌洗钱200万，现对你立案侦查，请配合调查，否则将拘捕你。\"",
+        "choices": [
+          { "text": "积极配合调查", "nextStep": "s2", "safe": false, "psychology": ["fear", "authority"] },
+          { "text": "挂断，拨打96110核实", "nextStep": null, "safe": true, "ending": "safe", "endingDesc": "你果断挂断并拨打96110，确认是诈骗。公检法不会电话办案。" },
+          { "text": "我配合，但我不转账", "nextStep": "s2", "safe": false, "psychology": ["fear"] }
+        ]
+      },
+      {
+        "id": "s2", "title": "诱骗转账", "scene": "\"案件保密，不要告诉任何人。请将资金转入\"安全账户\"清查自证清白。下载\"检务通\"APP按指引操作。\"",
+        "choices": [
+          { "text": "转账到\"安全账户\"", "nextStep": null, "safe": false, "ending": "scammed", "endingDesc": "你转出全部积蓄到\"安全账户\"，对方消失。所谓安全账户是骗子的账户。" },
+          { "text": "开启屏幕共享配合", "nextStep": null, "safe": false, "ending": "scammed", "endingDesc": "屏幕共享后你的密码验证码全部泄露，账户被洗劫一空。" },
+          { "text": "到就近派出所核实", "nextStep": null, "safe": true, "ending": "safe", "endingDesc": "你到派出所核实，警方确认是诈骗并立案。真警察会让你当面配合。" }
+        ]
+      }
+    ],
+    "season": ["all"]
+  },
+  {
+    "id": "B03-001", "typeId": "B03", "type": "刷单返利情景模拟", "cardType": "branch", "difficulty": 2,
+    "kind": "branch", "isBranchEntry": true,
+    "title": "第一人称情景 / 群里看到\"轻松兼职\"",
+    "body": "你在兼职群看到\"点赞关注日结300-800，手机操作时间自由\"...",
+    "options": [],
+    "explain": "刷单返利情景模拟：小利是诱饵，垫付是陷阱。",
+    "cues": ["刷单", "垫付", "连单任务"],
+    "psychology": ["greed", "sunkCost"],
+    "knowledgePoints": ["KP-BRUSH-ORDER"],
+    "branchSteps": [
+      {
+        "id": "s1", "title": "小利诱饵", "scene": "你做了几单点赞关注，果然收到5元、10元返佣。客服说\"现在做连单任务，垫付500返650。\"",
+        "choices": [
+          { "text": "垫付500做连单", "nextStep": "s2", "safe": false, "psychology": ["greed", "sunkCost"] },
+          { "text": "刷单本身违法，退群", "nextStep": null, "safe": true, "ending": "safe", "endingDesc": "你识破刷单诈骗，及时退群。刷单本身违法，返佣是诱饵。" },
+          { "text": "拉同学一起做", "nextStep": "s2", "safe": false, "psychology": ["conformity"] }
+        ]
+      },
+      {
+        "id": "s2", "title": "卡单陷阱", "scene": "你垫付500后，客服说\"操作失误导致任务卡单，需再垫付3000解冻才能一并提现，否则本金无法退回。\"",
+        "choices": [
+          { "text": "继续垫付3000解冻", "nextStep": null, "safe": false, "ending": "scammed", "endingDesc": "你继续垫付后再也无法提现，被拉黑。\"卡单\"\"解冻\"是标准话术。" },
+          { "text": "立即停止，报警", "nextStep": null, "safe": true, "ending": "warning", "endingDesc": "你及时报警并保留证据。记住：任何继续转账都是扩大损失。" }
+        ]
+      }
+    ],
+    "season": ["summerJob", "all"]
+  }
+]

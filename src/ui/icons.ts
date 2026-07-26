@@ -10,7 +10,7 @@ export type IconName =
   | "bomb" | "lock" | "check" | "x" | "info" | "trophy" | "rotate" | "share"
   | "star" | "clock" | "award" | "book" | "users" | "crosshair" | "target"
   | "gift" | "calendar" | "coin" | "energy" | "fragment" | "download" | "story"
-  | "chevronRight" | "flag" | "flame" | "lightning";
+  | "chevronRight" | "flag" | "flame" | "lightning" | "gear";
 
 export function drawIcon(
   ctx: CanvasRenderingContext2D,
@@ -510,6 +510,27 @@ export function drawIcon(
       ctx.closePath();
       ctx.fill();
       break;
+    case "gear": {
+      // 外圈圆 + 8 齿 + 中心孔
+      const teeth = 8;
+      const outerR = r * 0.85;
+      const innerR = r * 0.62;
+      const holeR = r * 0.28;
+      ctx.beginPath();
+      for (let i = 0; i < teeth * 2; i++) {
+        const ang = (Math.PI * 2 * i) / (teeth * 2) - Math.PI / 2;
+        const rad = i % 2 === 0 ? outerR : innerR;
+        const px = cx + Math.cos(ang) * rad;
+        const py = cy + Math.sin(ang) * rad;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(cx, cy, holeR, 0, Math.PI * 2);
+      ctx.stroke();
+      break;
+    }
   }
   ctx.restore();
 }

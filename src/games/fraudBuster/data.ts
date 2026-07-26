@@ -1,4 +1,6 @@
 import type { FBQuestion, FBQuestionKind, ManTier, FBBoss, FBSpecialEvent } from "./types";
+// v2 升级：合并外置 JSON 题库（C1/C2 + A3 + A2 + B3）+ 季节性逻辑（A4）
+import { NEW_QUESTIONS, currentSeason } from "./dataV2";
 
 /**
  * 电信诈骗题库：以 codex 图鉴为准，共 25 类诈骗 + 判断题 + 多选题。
@@ -1946,7 +1948,348 @@ export const QUESTION_BANK: FBQuestion[] = [
     answer: 0, cues: ["12333官方号码", "gov.cn域名", "官方渠道核实"],
     explain: "人社局12333官方号码+gov.cn域名+提醒官方渠道核实 = 正常通知。陌生链接+个人账户才是诈骗。",
   },
+
+  // ===== 新卡片类型：QR码扫描（F21 二维码诈骗）=====
+  {
+    id: "F21-Q01", typeId: "F21", type: "二维码诈骗", cardType: "qrcode", difficulty: 2,
+    title: "街边扫码送礼 / 陌生二维码",
+    body: "商场门口有人举牌「扫码免费领鸡蛋」，二维码指向一个要求授权微信登录的页面，并索要手机号、验证码。",
+    options: ["扫码授权领鸡蛋", "只填手机号不填验证码", "拒绝扫码，陌生二维码不扫", "把二维码转发给朋友"],
+    answer: 2, cues: ["免费送礼", "授权登录", "索要验证码"],
+    explain: "陌生二维码可能钓鱼盗号、植入木马。免费礼品是诱饵，扫码授权即交出账号。",
+    psychology: ["greed", "curiosity"],
+  },
+  {
+    id: "F21-Q02", typeId: "F21", type: "二维码诈骗", cardType: "qrcode", difficulty: 3,
+    title: "共享单车二维码被覆盖",
+    body: "你扫描共享单车原二维码发现被贴了一个新二维码，跳转到「押金退款需先支付 1 元认证费」的页面。",
+    options: ["支付1元认证费退款", "按页面提示输入支付密码", "扫码后看到异常立即停手，联系官方客服", "把车骑走再说"],
+    answer: 2, cues: ["二维码被覆盖", "认证费", "支付密码"],
+    explain: "诈骗分子覆盖单车/充电宝/售货机二维码。任何先付费才能退款的页面均为诈骗。",
+    psychology: ["urgency", "trust"],
+  },
+  {
+    id: "F21-Q03", typeId: "F21", type: "二维码诈骗", cardType: "qrcode", difficulty: 2,
+    title: "快递包裹上的「刮刮卡」二维码",
+    body: "收到陌生包裹，内附「扫码领红包100元」刮刮卡。扫码后加入群聊被引导下载APP做任务返利。",
+    options: ["扫码领红包", "下载APP做任务返现", "扔掉陌生包裹，不扫不明二维码", "拉朋友一起扫码"],
+    answer: 2, cues: ["陌生包裹", "扫码领红包", "下载APP返利"],
+    explain: "「刮刮卡+扫码入群+做任务」是典型刷单引流。红包是诱饵，下载APP后即陷入刷单诈骗。",
+    psychology: ["greed", "curiosity", "conformity"],
+  },
+
+  // ===== 新卡片类型：语音消息（F11 AI换脸/拟声）=====
+  {
+    id: "F11-V01", typeId: "F11", type: "AI换脸/拟声", cardType: "voice", difficulty: 3,
+    title: "微信语音 / 儿子声音求助",
+    body: "「妈，我手机坏了借同学手机发的语音。我突发急病住院，急需2万手术押金，打到王医生账户，别打我电话打不通。」声音和儿子很像。",
+    options: ["立即转账救急", "打儿子原号码核实", "打同学电话核实", "拨打110或96110核实"],
+    answer: 1, cues: ["借同学手机", "急病住院", "别打电话"],
+    explain: "AI拟声可模仿亲人声音。任何「换号码、急用钱、别核实」的求助，必须用原号码回拨核实。",
+    psychology: ["fear", "urgency", "intimacy"],
+  },
+  {
+    id: "F11-V02", typeId: "F11", type: "AI换脸/拟声", cardType: "voice", difficulty: 4,
+    title: "语音消息 / 老板声音催款",
+    body: "「小张，我是王总，信号不好发语音。那笔50万尾款现在就打给对方账户，合同回头补，晚了出大事。」声音是老板的。",
+    options: ["立即转账避免耽误事", "按语音指示加QQ确认", "挂断后用公司通讯录打王总原号码核实", "打给财务同事口头核实"],
+    answer: 2, cues: ["信号不好", "立刻转账", "合同回头补"],
+    explain: "AI拟声可伪造领导声音催款。涉及转账必须多重核实，不能仅凭语音或微信指令。",
+    psychology: ["authority", "urgency", "fear"],
+  },
+
+  // ===== 新卡片类型：APP 安装/权限页（F29 虚假服务/远程操控）=====
+  {
+    id: "F29-A01", typeId: "F29", type: "虚假服务·远程操控", cardType: "app", difficulty: 3,
+    title: "远程协助APP 安装请求",
+    body: "「客服」让你下载「ServiceHelper」APP 并开启无障碍服务+屏幕共享，称用于「远程检测您的账户安全」。",
+    options: ["下载并开启无障碍服务", "仅开启屏幕共享", "拒绝，卸载陌生APP，关闭无障碍权限", "下载但不给任何权限"],
+    answer: 2, cues: ["无障碍服务", "屏幕共享", "远程检测"],
+    explain: "无障碍服务+屏幕共享 = 把手机控制权交给骗子。可读取验证码、转账、改密码。立即关闭。",
+    psychology: ["authority", "trust"],
+  },
+  {
+    id: "F29-A02", typeId: "F29", type: "虚假服务·远程操控", cardType: "app", difficulty: 4,
+    title: "贷款APP 索要多项权限",
+    body: "你下载「速贷宝」申请贷款，APP要求获取通讯录、相册、定位、短信权限，称「用于资质审核与风险控制」。",
+    options: ["全部授权通过审核", "只给通讯录权限", "拒绝授权，正规贷款不会索要这些", "给权限但立刻卸载"],
+    answer: 2, cues: ["通讯录", "短信权限", "资质审核"],
+    explain: "索要通讯录+短信权限 = 准备爆通讯录催收、读取验证码。正规持牌机构不会要求这些。",
+    psychology: ["urgency", "greed"],
+  },
+
+  // ===== 新题型：填空题（补全反诈口诀）=====
+  {
+    id: "J01-F01", typeId: "J01", type: "反诈口诀填空", cardType: "chat", difficulty: 1, kind: "fill",
+    title: "反诈口诀 · 国家反诈中心",
+    body: "请补全反诈口诀：「凡是刷单都是（  ），凡是公检法电话办案都是（  ）。」",
+    options: [],
+    fillAnswer: "诈骗,诈骗",
+    fillAccept: ["诈骗,诈骗", "骗局,骗局", "假的,假的"],
+    cues: ["刷单即诈骗", "公检法不电话办案"],
+    explain: "刷单本身违法且是诈骗；公检法不会电话办案。两句话都填「诈骗」或同义否定词。",
+    psychology: ["authority", "greed"],
+  },
+  {
+    id: "J01-F02", typeId: "J01", type: "反诈口诀填空", cardType: "sms", difficulty: 2, kind: "fill",
+    title: "96110 来电接听",
+    body: "全国反诈专用号码是 96110。如果你接到 96110 来电，应当立即（  ）。",
+    options: [],
+    fillAnswer: "接听",
+    fillAccept: ["接听", "接", "接电话", "马上接听", "立刻接听"],
+    cues: ["96110", "反诈专用号码"],
+    explain: "96110 是全国反诈专用号码，来电意味着你正遭遇诈骗，务必立即接听。",
+    psychology: ["authority"],
+  },
+  {
+    id: "J01-F03", typeId: "J01", type: "反诈口诀填空", cardType: "transfer", difficulty: 2, kind: "fill",
+    title: "三不一多原则",
+    body: "反诈「三不一多」：不轻信、不透露、不（  ），多核实。",
+    options: [],
+    fillAnswer: "转账",
+    fillAccept: ["转账", "汇款", "转钱"],
+    cues: ["三不一多", "不转账", "多核实"],
+    explain: "「三不一多」：不轻信、不透露、不转账、多核实。陌生要求转账一律拒绝。",
+    psychology: ["trust", "authority"],
+  },
+
+  // ===== 新题型：连线题（诈骗特征 ↔ 类型）=====
+  {
+    id: "M01-L01", typeId: "M01", type: "诈骗特征连线", cardType: "chat", difficulty: 3, kind: "link",
+    title: "请将诈骗特征与类型连线",
+    body: "把左侧诈骗话术与右侧正确的诈骗类型配对。",
+    options: [],
+    linkLeft: ["「安全账户」清查资金", "「稳赚不赔」带你投资", "「点赞关注」日结数百", "「注销校园贷」影响征信"],
+    linkRight: ["刷单返利", "冒充公检法", "杀猪盘", "注销校园贷/征信修复"],
+    linkPairing: [1, 2, 0, 3],
+    cues: ["安全账户=公检法", "稳赚不赔=杀猪盘", "点赞返佣=刷单", "注销贷款=征信修复"],
+    explain: "「安全账户」属冒充公检法；「稳赚不赔」属杀猪盘；「点赞返佣」属刷单；「注销校园贷影响征信」属注销校园贷诈骗。",
+    psychology: ["authority", "greed", "fear"],
+  },
+  {
+    id: "M01-L02", typeId: "M01", type: "诈骗特征连线", cardType: "popup", difficulty: 3, kind: "link",
+    title: "请将可疑信号与风险连线",
+    body: "把左侧可疑信号与右侧风险类型配对。",
+    options: [],
+    linkLeft: ["陌生域名 gov-check.xyz", "口型与声音不同步", "客服索要验证码", "无障碍服务+屏幕共享"],
+    linkRight: ["远程操控盗号", "AI换脸伪造", "钓鱼虚假网站", "盗取验证码"],
+    linkPairing: [2, 1, 3, 0],
+    cues: ["陌生域名=钓鱼", "口型不同步=AI换脸", "索要验证码=盗验证码", "无障碍+共享=远程操控"],
+    explain: "陌生域名=钓鱼网站；口型不同步=AI换脸；索要验证码=盗验证码；无障碍+屏幕共享=远程操控盗号。",
+    psychology: ["curiosity", "trust", "authority"],
+  },
+
+  // ===== 新题型：排序题（诈骗步骤还原）=====
+  {
+    id: "M01-S01", typeId: "M01", type: "诈骗步骤排序", cardType: "chat", difficulty: 4, kind: "sort",
+    title: "请按杀猪盘正确步骤排序",
+    body: "把以下杀猪盘的典型步骤按诈骗分子的正确操作顺序排列。",
+    options: [
+      "诱骗下载投资APP，小额提现成功建立信任",
+      "「白富美」主动加好友快速暧昧",
+      "大额无法提现，要求缴纳「解冻金」",
+      "引导大额投入博取高收益",
+    ],
+    sortCorrect: [1, 0, 3, 2],
+    cues: ["先建立信任", "再诱大额", "最后卡单要解冻金"],
+    explain: "杀猪盘标准流程：① 主动加好友暧昧 → ② 诱下载APP小额提现建立信任 → ③ 引导大额投入 → ④ 大额无法提现要求缴解冻金。",
+    psychology: ["intimacy", "greed", "sunkCost"],
+  },
+  {
+    id: "M01-S02", typeId: "M01", type: "诈骗步骤排序", cardType: "call", difficulty: 4, kind: "sort",
+    title: "请按冒充公检法正确步骤排序",
+    body: "把以下冒充公检法的典型步骤按诈骗分子的正确操作顺序排列。",
+    options: [
+      "要求转入「安全账户」自证清白",
+      "声称你涉嫌洗钱/拐卖案件",
+      "称案件保密不得告诉家人",
+      "出示伪造警官证/通缉令",
+    ],
+    sortCorrect: [1, 3, 2, 0],
+    cues: ["先抛罪名", "再出示证件", "再要求保密", "最后要转账"],
+    explain: "冒充公检法流程：① 声称涉嫌案件 → ② 出示伪造证件/通缉令 → ③ 要求保密不得告诉家人 → ④ 要求转入「安全账户」。",
+    psychology: ["authority", "fear", "urgency"],
+  },
+
+  // ===== F71 AI换脸视频通话诈骗（2024-2026 新型·Deepfake 实时换脸冒充亲属/领导）=====
+  {
+    id: "F71-001", typeId: "F71", type: "AI换脸视频通话诈骗", cardType: "video", difficulty: 4,
+    source: "案例参考：央视《焦点访谈·AI换脸诈骗调查》（2024-04）/ 公安部反诈宣传 2024 / 央广网《AI拟声制造「熟人骗局」》（2025-12）",
+    title: "视频通话 / 伪造儿子求救",
+    body: "深夜「儿子」视频来电，画面中他满脸血哭喊：「妈我被车撞了，急转3万手术费给王医生账户，手机快没电别打我电话。」",
+    options: ["立即转账救儿子", "加王医生微信核实病情", "挂断拨打儿子原号码或家属群核实，拨96110报警", "按视频指示转账后等回电"],
+    answer: 2, cues: ["AI换脸伪造", "急病急转账", "别打电话"], psychology: ["fear", "urgency", "intimacy"], knowledgePoints: ["KP-AI-DEEPFAKE"],
+    explain: "AI实时换脸可伪造亲属面容。凡「换号码、急用钱、别核实」必先挂断用原号码回拨，转账前拨96110或家人核实。",
+  },
+  {
+    id: "F71-002", typeId: "F71", type: "AI换脸视频通话诈骗", cardType: "video", difficulty: 4,
+    source: "案例参考：中国新闻网《换脸、变声、对口型 以假乱真的AI诈骗如何防范?》（2025-06 银川张经理被骗20万）/ 公安部反诈宣传 2024",
+    title: "视频通话 / 伪造领导紧急调款",
+    body: "「张总」视频来电面容无误：「我在开会，那笔80万合同保证金先打到这个账户，迟了丢单。」画面口型略不同步，催促立刻转账。",
+    options: ["视频确认是领导，立即转账", "按视频指示加QQ核实后转账", "挂断用公司通讯录原号码回拨张总本人核实，财务双因子确认", "转账截图发对方确认"],
+    answer: 2, cues: ["AI实时换脸", "口型不同步", "紧急转账"], psychology: ["authority", "urgency"], knowledgePoints: ["KP-AI-DEEPFAKE"],
+    explain: "AI实时换脸可在视频中伪造领导面容催款（银川张经理视频「老板」被骗20万）。涉及转账一律挂断回拨本人，财务双因子确认。",
+  },
+  {
+    id: "F71-003", typeId: "F71", type: "AI换脸视频通话诈骗", cardType: "video", difficulty: 3,
+    source: "案例参考：央视《焦点访谈·AI换脸诈骗调查》（2024-04）/ 凯里公安通报郭先生案（2025-06）/ 公安部反诈宣传 2024",
+    title: "视频通话 / 伪造朋友借钱",
+    body: "「老同学」视频借钱说家人生病急用5万，画面像本人但动作略僵硬、眨眼少，催「尽快转，微信不回就视频留言了」。",
+    options: ["老同学有难，立即转账", "先转一半探探虚实", "挂断用通讯录原号码回拨老同学核实", "加对方推荐的新微信转账"],
+    answer: 2, cues: ["AI换脸", "动作僵硬", "眨眼少"], psychology: ["intimacy", "urgency"], knowledgePoints: ["KP-AI-DEEPFAKE"],
+    explain: "AI换脸视频通话中可伪造熟人面容，但动作僵硬、眨眼少、口型不同步是破绽。挂断用原号码回拨核实，不转账。",
+  },
+
+  // ===== F72 虚拟币/区块链投资诈骗（2024-2026 新型·虚假币种+合约漏洞+空投钓鱼）=====
+  {
+    id: "F72-001", typeId: "F72", type: "虚拟币区块链投资诈骗", cardType: "transfer", difficulty: 3,
+    source: "案例参考：娄底公安《虚拟币杀猪盘案》（2024）/ 厦门公安《USDT合约套利诈骗》（2025）/ 公安部反诈宣传 2024",
+    title: "虚拟币 / 「新币发行」内部认购",
+    body: "「区块链项目方」私信：「新币BTC-X即将上交易所，内部认购价0.1U，上线翻10倍，限额抢购，转账USDT到合约地址即可。」",
+    options: ["抢购新币博10倍收益", "先小额认购试水", "拒绝：境内虚拟币交易无监管保障，所谓「新币认购」是诈骗", "拉朋友一起认购分摊风险"],
+    answer: 2, cues: ["新币认购", "翻10倍", "转账USDT到合约"], psychology: ["greed", "scarcity"], knowledgePoints: ["KP-CRYPTO-INVEST"],
+    explain: "境内虚拟币交易不受法律保护，所谓「内部认购、翻10倍」是典型诈骗话术。转账到陌生合约地址后无法追回。",
+  },
+  {
+    id: "F72-002", typeId: "F72", type: "虚拟币区块链投资诈骗", cardType: "popup", difficulty: 3,
+    source: "案例参考：厦门公安《USDT合约套利诈骗》（2025）/ 公安部刑侦局《虚拟币诈骗四大新套路》2024-11",
+    title: "虚拟币 / 「合约漏洞套利」",
+    body: "投资导师发来「某交易所合约存在套利漏洞」，让你下载「XX国际」APP充值USDT做合约套利，前几笔小额盈利秒到账。",
+    options: ["跟着导师充值套利赚差价", "先充值100U试试", "拒绝：所谓合约漏洞套利是诈骗平台伪造数据", "把积蓄充值博高收益"],
+    answer: 2, cues: ["合约漏洞", "USDT充值", "小额返利"], psychology: ["greed", "trust"], knowledgePoints: ["KP-CRYPTO-INVEST"],
+    explain: "「合约漏洞套利+小额返利」是杀猪盘变种。诈骗平台后台可控数据，先小赢养信任，大额投入后即封号跑路。",
+  },
+  {
+    id: "F72-003", typeId: "F72", type: "虚拟币区块链投资诈骗", cardType: "popup", difficulty: 3, kind: "judge",
+    source: "案例参考：公安部刑侦局《「空投授权」钓鱼盗币案》（2024-09）/ 慢雾安全公司《恶意授权盗币通报》（2025）",
+    title: "虚拟币 / 「空投授权」领币",
+    body: "群里说某项目方空投，让你连接钱包点「授权Claim」就能领代币。判断：授权领空投是区块链正常玩法，无风险。",
+    options: ["正确：空投是正常玩法", "错误：恶意授权会转走钱包全部资产"],
+    answer: 1, cues: ["空投授权", "连接钱包", "盗资产"], psychology: ["greed", "curiosity"], knowledgePoints: ["KP-CRYPTO-INVEST"],
+    explain: "「空投授权」是常见钓鱼手法：授权后骗子获得钱包控制权，可转走全部资产。绝不连接陌生网站、不点不明授权。",
+  },
+
+  // ===== F73 直播间诱导打赏诈骗（2024-2026 新型·PK惩罚+假主播恋爱）=====
+  {
+    id: "F73-001", typeId: "F73", type: "直播间诱导打赏诈骗", cardType: "chat", difficulty: 2,
+    source: "案例参考：央视《直播间「家人们」背后的陷阱》（2024-07）/ 抖音安全中心《PK惩罚诱导打赏整治公告》2025-03",
+    title: "直播间 / 「PK惩罚」情感绑架",
+    body: "主播在PK中哭诉：「家人们再不打赏我就输了，输了对家要剃光头，哥哥们救救我。」私信你「打赏9999立刻加微信一对一」。",
+    options: ["打赏9999救主播加微信", "先打赏100表示支持", "拒绝打赏，警惕情感绑架和私下加微信", "拉朋友一起打赏冲榜"],
+    answer: 2, cues: ["PK惩罚", "情感绑架", "打赏加微信"], psychology: ["intimacy", "conformity"], knowledgePoints: ["KP-LIVE-STREAMING"],
+    explain: "「PK惩罚+情感绑架+打赏加微信」是直播间诱导打赏话术。打赏不能换私下接触，平台已禁止诱导打赏，遇此举报。",
+  },
+  {
+    id: "F73-002", typeId: "F73", type: "直播间诱导打赏诈骗", cardType: "chat", difficulty: 2,
+    source: "案例参考：人民网《「假主播恋爱」打赏诈骗案》（2025-05）/ 上海公安《直播打赏诈骗涉案百万》（2024-11）",
+    title: "直播间 / 「假主播恋爱」打赏",
+    body: "「女主播」主动私信叫你哥哥，每天嘘寒问暖，称「打赏冲榜就能线下见面结婚」。打赏几万后对方拉黑消失。",
+    options: ["继续打赏冲榜博线下见面", "借钱打赏维持关系", "拒绝：「打赏换恋爱见面」是诈骗话术，举报拉黑", "先打赏5000试探"],
+    answer: 2, cues: ["打赏冲榜", "线下见面", "恋爱诱导"], psychology: ["intimacy", "sunkCost"], knowledgePoints: ["KP-LIVE-STREAMING"],
+    explain: "「打赏换恋爱见面」是直播间情感诈骗典型话术。主播与运营团伙分工，骗取打赏后拉黑消失。理性观看，不沉迷、不打赏换关系。",
+  },
+
+  // ===== F74 跨境电诈引流（2024-2026 新型·点赞返佣引流到境外诈骗窝点）=====
+  {
+    id: "F74-001", typeId: "F74", type: "跨境电诈引流", cardType: "popup", difficulty: 2,
+    source: "案例参考：公安部《跨境电诈联合打击行动通报》（2024-08 缅北专项）/ 新华社《点赞返佣引流链条调查》（2025-02）",
+    title: "短视频 / 「点赞带货」日入500",
+    body: "短视频评论区广告：「点赞关注带货，日入300-500，手机操作时间自由，加微信xxx领任务」。加了后被引到境外聊天软件做任务。",
+    options: ["加微信领任务轻松赚钱", "先做几单试真假", "拒绝：点赞返佣是跨境电诈引流话术，举报拉黑", "拉同学一起做"],
+    answer: 2, cues: ["点赞日入500", "加微信", "境外聊天软件"], psychology: ["greed", "conformity"], knowledgePoints: ["KP-CROSSBORDER-TRAFFIC"],
+    explain: "「点赞返佣」是跨境电诈引流前端话术，先小利建立信任后引流到境外APP做刷单/赌博/投资。本质是为境外诈骗窝点输送受害人。",
+  },
+  {
+    id: "F74-002", typeId: "F74", type: "跨境电诈引流", cardType: "sms", difficulty: 2,
+    source: "案例参考：公安部《跨境电诈联合打击行动通报》（2024-08）/ 国家反诈中心APP预警 2025-04",
+    title: "陌生短信 / 「轻松兼职」引流",
+    body: "【兼职】短视频点赞+带货，日入300-800，扫码进群领任务。进群后被引导下载境外APP「刷流水」「代收款」赚佣金。",
+    options: ["扫码进群领任务", "下载境外APP做任务", "删除短信：跨境电诈引流+两卡犯罪陷阱，举报12321", "先做小额任务试水"],
+    answer: 2, cues: ["点赞返佣", "境外APP", "代收款佣金"], psychology: ["greed"], knowledgePoints: ["KP-CROSSBORDER-TRAFFIC"],
+    explain: "点赞返佣→下载境外APP→「代收款赚佣金」=跨境电诈引流+两卡犯罪。代收款实为电诈赃款洗钱，涉嫌帮信罪，立即删除短信举报12321。",
+  },
+
+  // ===== F75 AI 客服语音诈骗（2024-2026 新型·AI合成语音冒充客服）=====
+  {
+    id: "F75-001", typeId: "F75", type: "AI客服语音诈骗", cardType: "call", difficulty: 3,
+    source: "案例参考：央视《AI合成语音冒充客服诈骗调查》（2024-10）/ 国家反诈中心《AI语音诈骗预警》2025-06",
+    title: "AI语音 / 「电商客服」退款",
+    body: "AI合成客服语音：「您购买的护肤品有质量问题，现三倍退款，请下载会议APP共享屏幕按指引操作退款。」声音与官方客服相似。",
+    options: ["下载会议APP共享屏幕退款", "按语音指引操作退款", "挂断：电商退款只走原平台，不下APP不共享屏幕，拨96110核实", "提供银行卡号配合退款"],
+    answer: 2, cues: ["AI合成语音", "三倍退款", "屏幕共享"], psychology: ["trust", "urgency"], knowledgePoints: ["KP-AI-VOICE"],
+    explain: "AI合成语音可逼真模仿官方客服。退款只走原电商平台，凡要求下会议APP、共享屏幕、报验证码的都是诈骗，挂断拨96110。",
+  },
+  {
+    id: "F75-002", typeId: "F75", type: "AI客服语音诈骗", cardType: "call", difficulty: 3,
+    source: "案例参考：公安部刑侦局《AI语音冒充银行客服盗刷案》（2024-12）/ 最高检典型案例 2025",
+    title: "AI语音 / 「银行客服」验证码",
+    body: "AI合成女声来电：「您尾号8888信用卡异常，需报短信验证码核验身份，否则冻结账户。」声音流畅自然无口音。",
+    options: ["报验证码核验身份", "按语音提示操作避免冻结", "挂断：银行不会索要验证码，主动拨打95588核实", "提供卡号+验证码配合"],
+    answer: 2, cues: ["AI合成语音", "索要验证码", "冻结威胁"], psychology: ["authority", "fear"], knowledgePoints: ["KP-AI-VOICE"],
+    explain: "银行/支付机构绝不会通过电话或短信索要验证码。验证码是资金最后防线，AI合成语音再逼真也不可透露，主动拨官方客服核实。",
+  },
+  {
+    id: "F75-003", typeId: "F75", type: "AI客服语音诈骗", cardType: "call", difficulty: 3, kind: "judge",
+    source: "案例参考：国家反诈中心《AI语音诈骗预警》（2025-06）/ 上海公安《AI语音续保诈骗案》（2025-09）",
+    title: "AI语音 / 「保险续费」核实",
+    body: "AI合成客服语音来电「您保险即将扣费续保」，要求按提示报验证码取消。判断：报验证码即可取消续保。",
+    options: ["正确：报验证码取消", "错误：验证码是盗刷最后防线，绝不报给陌生人"],
+    answer: 1, cues: ["AI合成语音", "扣费续保", "验证码"], psychology: ["urgency", "fear"], knowledgePoints: ["KP-AI-VOICE"],
+    explain: "AI合成语音冒充保险/客服以「扣费续保」骗验证码是2025年高发新型诈骗。续保/退保只走官方APP或客服，验证码绝不报给陌生人。",
+  },
+
+  // ===== F76 短视频平台中奖诈骗（2024-2026 新型·抖音/快手虚假中奖链接）=====
+  {
+    id: "F76-001", typeId: "F76", type: "短视频平台中奖诈骗", cardType: "popup", difficulty: 2,
+    source: "案例参考：抖音安全中心《虚假中奖诈骗专项整治公告》（2024-06）/ 快手安全中心《中奖私信钓鱼预警》2025-08",
+    title: "抖音私信 / 「恭喜中奖」",
+    body: "抖音私信：「恭喜您被抽中十周年抽奖活动，奖金10万元，点击链接填写银行卡和验证码领取，逾期作废。」",
+    options: ["点链接填写信息领10万", "先填银行卡不填验证码", "不点链接：平台中奖不会索要验证码，举报该私信", "转发给朋友一起领"],
+    answer: 2, cues: ["中奖10万", "陌生链接", "索要验证码"], psychology: ["greed", "urgency"], knowledgePoints: ["KP-SHORTVIDEO-PRIZE"],
+    explain: "抖音/快手平台中奖不会通过私信索要银行卡和验证码。陌生链接是钓鱼页面，套取信息后即盗刷，举报拉黑。",
+  },
+  {
+    id: "F76-002", typeId: "F76", type: "短视频平台中奖诈骗", cardType: "popup", difficulty: 2, kind: "judge",
+    source: "案例参考：湖州公安《短视频中奖钓鱼案》（2025-11）/ 中新网《「粉丝福利」红包诈骗调查》（2024-09）",
+    title: "快手弹窗 / 「粉丝福利」领奖",
+    body: "快手弹窗「您是幸运粉丝，点链接领888元红包」。判断：点链接填信息就能领红包。",
+    options: ["正确：填信息领红包", "错误：陌生链接钓鱼盗卡号密码验证码"],
+    answer: 1, cues: ["粉丝福利", "陌生链接", "钓鱼盗信息"], psychology: ["greed", "curiosity"], knowledgePoints: ["KP-SHORTVIDEO-PRIZE"],
+    explain: "「粉丝福利/幸运红包」是钓鱼链接诱饵，套取银行卡号、密码、验证码后即盗刷。平台红包只走APP内领取，绝不通过陌生链接。",
+  },
+
+  // ===== F77 数字人民币诈骗（2024-2026 新型·冒充数字人民币试点兑换）=====
+  {
+    id: "F77-001", typeId: "F77", type: "数字人民币诈骗", cardType: "transfer", difficulty: 3,
+    source: "案例参考：央行数字货币研究所《数字人民币诈骗风险提示》（2024-05）/ 北京公安《冒充数字人民币试点兑换案》（2025-07）",
+    title: "数字人民币 / 「试点兑换」",
+    body: "「数字人民币试点办」短信：「您的数字钱包待激活，兑换1:1.2额度有限，扫码转账2000元激活即可领2400元数字人民币。」",
+    options: ["扫码转账2000激活领2400", "先转500试激活", "删除短信：数字人民币由央行发行无「兑换加价」，官方无此活动", "转发家人一起兑换"],
+    answer: 2, cues: ["试点兑换", "1:1.2加价", "扫码激活"], psychology: ["greed", "authority"], knowledgePoints: ["KP-DCEP"],
+    explain: "数字人民币由央行发行，与人民币1:1等值，不存在「兑换加价」「转账激活」。官方活动只通过数字人民币APP，陌生短信链接均为诈骗。",
+  },
+  {
+    id: "F77-002", typeId: "F77", type: "数字人民币诈骗", cardType: "transfer", difficulty: 3,
+    source: "案例参考：国家反诈中心《冒充数字人民币客服诈骗预警》（2025-03）/ 央行数字货币研究所 2024-05",
+    title: "数字人民币 / 「升级钱包」",
+    body: "「客服」来电称你的数字人民币钱包需升级到四类账户，要求提供银行卡号、身份证号、短信验证码「核验身份」后才能升级。",
+    options: ["提供信息配合升级", "只提供验证码完成升级", "拒绝：数字人民币升级只在官方APP内操作，不索要验证码", "加客服微信按指引操作"],
+    answer: 2, cues: ["钱包升级", "索要验证码", "冒充客服"], psychology: ["authority", "urgency"], knowledgePoints: ["KP-DCEP"],
+    explain: "数字人民币钱包升级只在官方APP内操作，客服不会电话索要银行卡号、身份证号、验证码。验证码是资金最后防线，绝不透露。",
+  },
+  {
+    id: "F77-003", typeId: "F77", type: "数字人民币诈骗", cardType: "transfer", difficulty: 3, kind: "judge",
+    source: "案例参考：央行数字货币研究所《数字人民币红包只走官方APP》（2024-05）/ 深圳公安《红包兑换码钓鱼案》（2025-10）",
+    title: "数字人民币 / 「红包兑换码」",
+    body: "群里发「数字人民币红包兑换码」，扫码后跳转到非官方页面要求输入钱包密码和验证码「领取」。判断：扫码输密码即可领取。",
+    options: ["正确：扫码领取", "错误：数字人民币红包只在官方APP内领取，不通过陌生链接"],
+    answer: 1, cues: ["红包兑换码", "陌生链接", "钱包密码"], psychology: ["greed", "curiosity"], knowledgePoints: ["KP-DCEP"],
+    explain: "数字人民币红包/红包兑换码只在数字人民币官方APP内领取，不通过陌生链接或扫码。要求输钱包密码和验证码的「领取页」均为钓鱼，立即举报。",
+  },
 ];
+
+// ===== v2 升级：合并外置 JSON 题库（C1/C2 + A3 + A2 + B3） =====
+QUESTION_BANK.push(...NEW_QUESTIONS);
 
 /** 猛男等级：随积分晋升，错答也会因积分下降而削弱 */
 export const MAN_TIERS: ManTier[] = [
@@ -2030,16 +2373,16 @@ export function waveConfig(wave: number): WaveConfig {
     maxDifficulty = Math.min(3, 2 + Math.floor((wave - 6) / 5));
     disturbRate = 0.1 + (wave - 6) * 0.015;
   } else if (wave <= 30) {
-    // 高压期：全题型，风险选项增多
+    // 高压期：加入填空题，风险选项增多（A2 AI 语音题由 pickQuestion 按 cardType 偏好插入）
     duration = 8;
-    kinds = ["single", "judge", "multi"];
+    kinds = ["single", "judge", "multi", "fill"];
     riskBoost = true;
     maxDifficulty = Math.min(4, 3 + Math.floor((wave - 16) / 8));
     disturbRate = 0.25 + (wave - 16) * 0.01;
   } else {
-    // 极限期：最大压力
+    // 极限期：全题型（含连线/排序/分支情景 B3），最大压力
     duration = 6;
-    kinds = ["single", "judge", "multi"];
+    kinds = ["single", "judge", "multi", "fill", "link", "sort", "branch"];
     riskBoost = true;
     maxDifficulty = 4;
     disturbRate = Math.min(0.5, 0.4 + (wave - 31) * 0.005);
@@ -2065,7 +2408,21 @@ export function pickQuestion(wave: number, usedIds: Set<string>): FBQuestion {
     const riskPool = basePool.filter((q) => (q.risk ?? []).length > 0);
     if (riskPool.length > 0 && Math.random() < 0.6) pool = riskPool;
   }
-  // 逐级放宽：题型匹配 → 题型匹配无难度限制 → 全库
+  // ===== v2 升级：季节性加权（A4） =====
+  const curSeason = currentSeason();
+  const seasonalPool = pool.filter((q) => (q.season ?? ["all"]).includes(curSeason));
+  if (seasonalPool.length > 0 && Math.random() < 0.5) pool = seasonalPool;
+  // ===== v2 升级：每 7 波偏好 AI 语音题（A2，cardType=audio） =====
+  if (wave % 7 === 0) {
+    const audioPool = pool.filter((q) => q.cardType === "audio");
+    if (audioPool.length > 0) pool = audioPool;
+  }
+  // ===== v2 升级：分支情景题（B3，kind=branch）每 10 波偏好一次 =====
+  if (wave % 10 === 0) {
+    const branchPool = pool.filter((q) => q.kind === "branch");
+    if (branchPool.length > 0) pool = branchPool;
+  }
+  // 逐级放宽：题型匹配 → 题型匹配无难度限制 → 全库（始终过滤 kindSet，避免新题型误入）
   const list = pool.length > 0
     ? pool
     : QUESTION_BANK.filter(
@@ -2079,7 +2436,7 @@ export function pickQuestion(wave: number, usedIds: Set<string>): FBQuestion {
     : QUESTION_BANK.filter((q) => kindSet.has(q.kind ?? "single") && q.chainStep !== 2 && !q.isNormal);
   const fallback = full.length > 0
     ? full
-    : QUESTION_BANK.filter((q) => q.chainStep !== 2 && !q.isNormal);
+    : QUESTION_BANK.filter((q) => kindSet.has(q.kind ?? "single") && q.chainStep !== 2 && !q.isNormal);
   return fallback[Math.floor(Math.random() * fallback.length)];
 }
 
@@ -2117,6 +2474,22 @@ export const BOSSES: FBBoss[] = [
     theme: "red",
     skills: ["shuffleOptions", "hideTimer", "summonMinion", "lockItem"],
   },
+  {
+    id: "B05",
+    name: "虚拟币洗钱王",
+    hp: 3,
+    taunts: ["链上转账秒到账，你追得上？", "USDT 一过，钱就没影了~", "冷钱包热钱包，都是我的钱包！", "区块链匿名，你抓不到我。"],
+    theme: "purple",
+    skills: ["timeSteal", "lockItem", "summonMinion", "answerBlur"],
+  },
+  {
+    id: "B06",
+    name: "Deepfake 帝",
+    hp: 3,
+    taunts: ["我的脸，连你妈都认不出来~", "深度伪造，真假难辨！", "视频里那个人，是我造的。", "声音也能合成，信不信？"],
+    theme: "gold",
+    skills: ["answerBlur", "shuffleOptions", "timeSteal", "hideTimer"],
+  },
 ];
 
 /** 是否为 Boss 波次（每 20 波一次） */
@@ -2141,7 +2514,7 @@ export function isSpecialWave(wave: number): boolean {
 }
 
 /** 特殊事件类型列表 */
-export const SPECIAL_EVENTS: FBSpecialEvent[] = ["double", "timeCompress", "shuffle", "mixedTrueFalse"];
+export const SPECIAL_EVENTS: FBSpecialEvent[] = ["double", "timeCompress", "shuffle", "mixedTrueFalse", "rapidFire", "itemLock"];
 
 /** 随机选取特殊事件 */
 export function pickSpecialEvent(wave: number): FBSpecialEvent {
@@ -2149,7 +2522,7 @@ export function pickSpecialEvent(wave: number): FBSpecialEvent {
   const pool: FBSpecialEvent[] = wave <= 20
     ? ["shuffle", "mixedTrueFalse"]
     : wave <= 40
-    ? ["shuffle", "mixedTrueFalse", "timeCompress"]
+    ? ["shuffle", "mixedTrueFalse", "timeCompress", "rapidFire"]
     : SPECIAL_EVENTS;
   return pool[Math.floor(Math.random() * pool.length)];
 }
@@ -2161,6 +2534,8 @@ export function specialEventName(ev: FBSpecialEvent): string {
     case "timeCompress": return "时间压缩";
     case "shuffle": return "选项乱序";
     case "mixedTrueFalse": return "真假混杂";
+    case "rapidFire": return "急速连答";
+    case "itemLock": return "道具禁用";
   }
 }
 
@@ -2171,6 +2546,8 @@ export function specialEventDesc(ev: FBSpecialEvent): string {
     case "timeCompress": return "倒计时减半，极速判断！";
     case "shuffle": return "选项位置被打乱，小心选择！";
     case "mixedTrueFalse": return "混入正常情境，需辨别真伪！";
+    case "rapidFire": return "3题连发，每题时长缩短，速答！";
+    case "itemLock": return "本波次禁用所有道具，纯靠判断！";
   }
 }
 

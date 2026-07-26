@@ -11,7 +11,7 @@ import { InputManager } from "@/engine/Input";
 import { vibrateShort } from "@/platform/web";
 import { clamp, drawText } from "@/engine/Renderer";
 import { Theme } from "@/ui/Theme";
-import type { GameEvent, GameResultPayload } from "@/types";
+import type { GameEvent, GameResultPayload, BossCodexPayload, WaveBriefingPayload } from "@/types";
 import {
   ITEMS, ITEM_ORDER, getTierForWave, getBossForWave, moduleHpBaseForWave, repairForWave,
   CD_REFRESH_PCT, OVERDRIVE_MAX, OVERDRIVE_DECAY, OVERDRIVE_DURATION,
@@ -29,11 +29,14 @@ import {
   multishotCount, PATTERN_DEBUFF, DEBUFF_NAMES, DEBUFF_EMOJIS, WEAPON_JAM_FIRE_MUL,
   // v3 废墟重建系统
   REBUILD_THRESHOLD, REBUILD_RATE_MUL, REBUILD_MAX_PARALLEL,
+  // 模块知识点
+  MODULE_KNOWLEDGE,
 } from "./data";
 import type {
   ItemId, ParkTierDef, ParkHud, ItemState, BombBossDef, WeatherDef,
   WeaponKind, WeaponState, TreeDef, MapLayoutDef,
   CounterDebuff, CounterShell,
+  SpecialSkillKind, ModuleType,
 } from "./types";
 import type { GameCanvas } from "@/platform/web";
 
@@ -229,6 +232,14 @@ export class BombIslandEngine extends GameEngine {
   /** 当前失效的道具 id（itemDisable 期间） */
   private disabledItem: ItemId | null = null;
 
+  // ============ v4 Boss 专属反击技能 ============
+  /** 当前生效的专属技能（null = 无技能生效） */
+  private specialSkillActive: { kind: SpecialSkillKind; name: string; color: string; until: number; total: number } | null = null;
+  /** 上次触发专属技能的时间（用于 cooldown 判定） */
+  private specialSkillLastT = -999;
+  /** 本波是否已首次触发专属技能（避免 HP 反复穿越阈值导致重复触发） */
+  private specialSkillTriggered = false;
+
   // ============ hit-stop 慢镜头 ============
   /** hit-stop 剩余秒数（>0 时仅推进 particles 与本身衰减，其他逻辑跳过） */
   private hitStopRemain = 0;
@@ -250,6 +261,10 @@ export class BombIslandEngine extends GameEngine {
   private maxCombo = 0;
   /** 已击破波数 */
   private clearedWaves = 0;
+  /** 本局已拆除模块总数（用于结算页统计） */
+  private moduleKillCount = 0;
+  /** 本局已拆除模块按类型计数（用于结算页展示拆解战报） */
+  private moduleKillStats: Partial<Record<ModuleType, number>> = {};
 
   // ============ 武器系统 ============
   /** 当前选中的武器 */
@@ -314,6 +329,9 @@ export class BombIslandEngine extends GameEngine {
     this.fireTimer = 0.5;
     this.counterTimer = this.bossDef.counterInterval; // 第一波给点缓冲
     this.counterWarnLeft = 0;
+    // v4：重置专属技能状态（每波重新触发）
+    this.specialSkillActive = null;
+    this.specialSkillTriggered = false;
     this.shells.length = 0;
     this.counterShells.length = 0;
     this.counterWarns.length = 0;
@@ -354,6 +372,14 @@ export class BombIslandEngine extends GameEngine {
     if (!initial) {
       postFX.flash(this.tier.color, 0.3, 3);
     }
+    // 波次开场简报：emit 给场景层渲染顶部横幅
+    const briefing: WaveBriefingPayload = {
+      tierName: this.tier.name,
+      wave,
+      scamType: this.tier.briefing.scamType,
+      points: this.tier.briefing.points,
+    };
+    this.emit({ type: "waveBriefing", payload: briefing });
   }
 
   /** 根据当前地图布局初始化树木 */
@@ -478,6 +504,9 @@ export class BombIslandEngine extends GameEngine {
     m.demolishAnim = 0;
     m.hp = 0;
     m.hitFlash = 0;
+    // v4：累计模块拆除统计（用于结算页战报）
+    this.moduleKillCount += 1;
+    this.moduleKillStats[m.type] = (this.moduleKillStats[m.type] ?? 0) + 1;
     // v3：赋拆除序号 + 重置重建字段
     m.demolishOrder = this.demolishOrderCounter++;
     m.repairProgress = 0;
@@ -523,6 +552,14 @@ export class BombIslandEngine extends GameEngine {
       x: cx, y: cy + 8, text: `+${reward}${this.moduleCombo > 1 ? `  ×${this.moduleCombo} 连拆` : ""}`,
       color: "#FFD666", life: 1.1, maxLife: 1.1, size: 13,
     });
+    // 反诈知识点飘字：按模块类型显示对应普法提示（v4：停留更久、更显眼）
+    const knowledge = MODULE_KNOWLEDGE[m.type];
+    if (knowledge) {
+      this.floats.push({
+        x: cx, y: cy + 24, text: `📖 ${knowledge.tip}`, color: knowledge.color,
+        life: 2.6, maxLife: 2.6, size: 13,
+      });
+    }
 
     // 音效 + 震动
     playSfx("explode");
@@ -1105,6 +1142,91 @@ export class BombIslandEngine extends GameEngine {
       }
       arr.length = w;
     }
+    // v4：更新 Boss 专属技能（HP 阈值触发 + cooldown 循环）
+    this.updateSpecialSkill(dt);
+  }
+
+  // ============ v4 Boss 专属反击技能 ============
+
+  /**
+   * 更新专属技能状态：
+   * - 若技能生效中且已过期 → 清除状态
+   * - 若未生效 → 检查 HP 阈值（首次触发）或 cooldown（循环触发）
+   */
+  private updateSpecialSkill(dt: number): void {
+    // 清除已过期的技能状态
+    if (this.specialSkillActive && this.t >= this.specialSkillActive.until) {
+      this.specialSkillActive = null;
+    }
+    if (this.phase !== "fight") return;
+    if (this.specialSkillActive) return; // 生效中不再触发
+    const skill = this.bossDef.specialSkill;
+    if (!skill) return;
+    const hpPct = this.maxHp > 0 ? this.hp / this.maxHp : 1;
+    // 首次触发：HP 降到阈值以下且本波未触发过
+    if (!this.specialSkillTriggered && hpPct <= skill.triggerAtHpPct) {
+      this.triggerSpecialSkill();
+      this.specialSkillTriggered = true;
+      return;
+    }
+    // 循环触发：已首次触发后，距上次触发超过 cooldown
+    if (this.specialSkillTriggered && this.t - this.specialSkillLastT >= skill.cooldown) {
+      // 仅在 HP 仍低于阈值时循环触发（避免满血触发）
+      if (hpPct <= skill.triggerAtHpPct + 0.15) {
+        this.triggerSpecialSkill();
+      }
+    }
+  }
+
+  /**
+   * 触发 Boss 专属技能：
+   * - 设置 specialSkillActive 状态（含 until/total 用于 HUD 进度条）
+   * - 按 debuffs 列表叠加对应 debuff 到现有系统
+   * - 触发视觉/音效反馈（postFX 闪光 + 粒子 + toast 提示）
+   */
+  private triggerSpecialSkill(): void {
+    const skill = this.bossDef.specialSkill;
+    const dur = skill.duration;
+    this.specialSkillActive = {
+      kind: skill.kind,
+      name: skill.name,
+      color: skill.color,
+      until: this.t + dur,
+      total: dur,
+    };
+    this.specialSkillLastT = this.t;
+    // 叠加 debuff 到现有系统（取 max 避免覆盖更长的 debuff）
+    for (const d of skill.debuffs) {
+      if (d === "cdLock") {
+        this.cdLockUntil = Math.max(this.cdLockUntil, this.t + dur);
+      } else if (d === "weaponJam") {
+        this.weaponJamUntil = Math.max(this.weaponJamUntil, this.t + dur);
+      } else if (d === "itemDisable") {
+        this.itemDisableUntil = Math.max(this.itemDisableUntil, this.t + dur);
+        // 随机选一个道具失效（优先选 CD 最短的，影响最直接）
+        let worst: ItemId | null = null;
+        let worstCd = Infinity;
+        for (const id of ITEM_ORDER) {
+          if (this.cdLeft[id] < worstCd) { worstCd = this.cdLeft[id]; worst = id; }
+        }
+        this.disabledItem = worst;
+      } else if (d === "visionJam") {
+        this.visionJamUntil = Math.max(this.visionJamUntil, this.t + dur);
+      }
+    }
+    // 视觉/音效反馈
+    postFX.flash(skill.color, 0.4, 3);
+    postFX.shake(8, 12);
+    this.particles.spawnBurst(CANNON_X, CANNON_Y, skill.color, {
+      ring: true, sparks: 24, dots: 32, speed: 320, life: 1.2, size: 5, color2: "#FFD666", shockwave: true,
+    });
+    this.toast = {
+      text: `⚠ ${this.bossDef.bossName} 释放【${skill.name}】！${skill.desc.slice(0, 30)}…`,
+      tone: "bad",
+      until: this.t + 3.5,
+    };
+    playSfx("boss");
+    vibrateShort();
   }
 
   private launchCounterShell(debuff: CounterDebuff, duration: number): void {
@@ -1479,6 +1601,57 @@ export class BombIslandEngine extends GameEngine {
       this.particles.spawnText(CANNON_X, CANNON_Y - 70, "弹药已补满", "#FFD666", { size: 12, life: 1.6 });
     }
     playSfx("good");
+    // Boss 击破科普：emit 给场景层渲染反诈案例卡片
+    const cs = this.bossDef.caseStudy;
+    const codex: BossCodexPayload = {
+      bossName: this.bossDef.bossName,
+      tierName: this.tier.name,
+      title: cs.title,
+      body: cs.body,
+      hotline: cs.hotline,
+      points: cs.points,
+    };
+    this.emit({ type: "bossCodex", payload: codex });
+  }
+
+  /**
+   * 撤退结算：玩家主动结束本局，按当前进度触发 result。
+   * - win：清过至少一波算胜利（反诈成功）
+   * - destroyRate：清过波数时为 1（解锁成就），否则为当前园区破坏比例
+   * - tipId：按当前园区档位选对应反诈锦囊
+   */
+  retreat(): void {
+    if (this.phase === "lost") return; // 已结算
+    this.phase = "lost";
+    stopBGM();
+    const currentDestroyRate = this.maxHp > 0 ? 1 - this.hp / this.maxHp : 0;
+    const destroyRate = this.clearedWaves > 0 ? 1 : currentDestroyRate;
+    // 按当前园区档位选 tipId
+    const tipId = this.tier.structure === "den"
+      ? "tip-006"  // 境外高薪招聘陷阱
+      : this.tier.structure === "kokang"
+        ? "tip-012" // 客服退款走官方
+        : "tip-013"; // 内部消息是骗局
+    const result: GameResultPayload = {
+      gameId: "bomb-island",
+      win: this.clearedWaves > 0,
+      score: this.score,
+      wave: this.wave,
+      bustedCount: this.clearedWaves,
+      destroyRate,
+      tipId,
+      maxCombo: this.maxCombo,
+      stats: {
+        clearedWaves: this.clearedWaves,
+        totalDamage: this.totalDamage,
+        maxDps: this.maxDps,
+        weaponLevel: this.weaponLevel,
+        // v4：模块拆除战报
+        moduleKillCount: this.moduleKillCount,
+        moduleKillStats: this.moduleKillStats,
+      },
+    };
+    this.emit({ type: "result", payload: result });
   }
 
   private updateFloats(dt: number): void {
@@ -1579,6 +1752,15 @@ export class BombIslandEngine extends GameEngine {
       itemDisableRemain: this.itemDisableUntil > this.t ? (this.itemDisableUntil - this.t) : 0,
       visionJamRemain: this.visionJamUntil > this.t ? (this.visionJamUntil - this.t) : 0,
       disabledItemId: this.itemDisableUntil > this.t ? this.disabledItem : null,
+      // v4 Boss 专属技能状态
+      specialSkillKind: this.specialSkillActive?.kind ?? null,
+      specialSkillName: this.specialSkillActive?.name ?? "",
+      specialSkillColor: this.specialSkillActive?.color ?? "",
+      specialSkillRemain: this.specialSkillActive ? Math.max(0, this.specialSkillActive.until - this.t) : 0,
+      specialSkillTotal: this.specialSkillActive?.total ?? 0,
+      // v4 模块拆除统计
+      moduleKillCount: this.moduleKillCount,
+      moduleKillStats: this.moduleKillStats,
     };
     this.emit({ type: "hud", payload: hud as unknown as Record<string, string | number> });
     if (this.toast && this.t < this.toast.until) {
@@ -1715,7 +1897,8 @@ export class BombIslandEngine extends GameEngine {
     for (const w of this.counterWarns) {
       const remain = w.landT - this.t;
       if (remain <= 0) continue;
-      const ratio = 1 - remain / 0.7;
+      // clamp 防 floating-point 误差：this.t + 0.7 - this.t 可能略大于 0.7，导致 ratio 为极小负数
+      const ratio = clamp(1 - remain / 0.7, 0, 1);
       const r = w.r * ratio;
       ctx.save();
       ctx.strokeStyle = w.color;

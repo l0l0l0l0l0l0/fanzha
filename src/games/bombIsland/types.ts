@@ -52,6 +52,11 @@ export interface ParkTierDef {
   repairMul: number;
   color: string;
   structure: "den" | "kokang" | "hq";
+  /** 波次开场简报：该园区对应的诈骗类型与识别要点 */
+  briefing: {
+    scamType: string;
+    points: string[];
+  };
 }
 
 /** BOSS 反击干扰类型：不伤害炮兵，改为 debuff 玩家 */
@@ -60,6 +65,36 @@ export type CounterDebuff =
   | "weaponJam"     // 武器射速暂时降低
   | "itemDisable"   // 随机道具暂时失效
   | "visionJam";    // 屏幕干扰（视觉污染）
+
+// ============ Boss 专属反击技能（v4 升级：每档园区独有） ============
+
+/**
+ * Boss 专属技能类型：每档园区对应一种独特反击，强化反诈叙事
+ * - cageTrap  妙瓦底·铁笼困人：模拟限制人身自由，触发 cdLock + 屏幕铁栏视觉
+ * - shockJam  缅北·电击干扰：模拟暴力胁迫，触发 weaponJam + visionJam + 电流纹视觉
+ * - deepfake  总部·AI换脸：模拟深度伪造，触发 itemDisable + visionJam + 色相偏移视觉
+ */
+export type SpecialSkillKind = "cageTrap" | "shockJam" | "deepfake";
+
+/** Boss 专属技能定义 */
+export interface BossSpecialSkill {
+  /** 技能类型 */
+  kind: SpecialSkillKind;
+  /** 技能名称 */
+  name: string;
+  /** 技能描述（含反诈叙事） */
+  desc: string;
+  /** 触发 HP 阈值（0.5 = 园区总 HP 降到 50% 时首次触发） */
+  triggerAtHpPct: number;
+  /** 冷却时间（秒，首次触发后再次触发的间隔） */
+  cooldown: number;
+  /** 持续时间（秒） */
+  duration: number;
+  /** 视觉主色 */
+  color: string;
+  /** 触发的 debuff 列表（叠加到现有 debuff 系统） */
+  debuffs: CounterDebuff[];
+}
 
 /** BOSS 反击弹（飞向玩家区域，触发 debuff） */
 export interface CounterShell {
@@ -95,6 +130,15 @@ export interface BombBossDef {
   enrageAt: number;
   /** 狂暴后反击频率倍率 */
   enrageMul: number;
+  /** Boss 击破科普：真实反诈案例卡片，清波时展示 */
+  caseStudy: {
+    title: string;
+    body: string;
+    hotline: string;
+    points: string[];
+  };
+  /** v4 升级：Boss 专属反击技能（每档园区独有，强化反诈叙事） */
+  specialSkill: BossSpecialSkill;
 }
 
 export interface ItemState {
@@ -133,6 +177,11 @@ export interface WeatherDef {
 
 /** 武器类型：标准弹 / 集束弹 / 电磁弹 / 燃烧弹 */
 export type WeaponKind = "standard" | "cluster" | "emp" | "incendiary";
+
+/** 模块类型：决定特殊渲染与拆除时飘字的知识点 */
+export type ModuleType =
+  | "antenna" | "floor" | "server" | "dorm" | "fortress" | "wall"
+  | "foundation" | "shock" | "cage" | "cell" | "guard";
 
 /** 武器定义 */
 export interface WeaponDef {
@@ -267,4 +316,19 @@ export interface ParkHud {
   visionJamRemain?: number;
   /** 当前失效的道具 id（itemDisable 期间） */
   disabledItemId?: ItemId | null;
+  // ---- v4 升级：Boss 专属反击技能 ----
+  /** 当前生效的专属技能类型（null = 无技能生效） */
+  specialSkillKind?: SpecialSkillKind | null;
+  /** 当前生效的专属技能名称 */
+  specialSkillName?: string;
+  /** 当前生效的专属技能视觉主色 */
+  specialSkillColor?: string;
+  /** 专属技能剩余秒数（>0 表示生效中） */
+  specialSkillRemain?: number;
+  /** 专属技能总持续时间（用于进度条） */
+  specialSkillTotal?: number;
+  /** 本局已拆除的模块数（按类型计数） */
+  moduleKillCount?: number;
+  /** 本局已拆除的模块类型统计（key=ModuleType, value=count） */
+  moduleKillStats?: Partial<Record<ModuleType, number>>;
 }

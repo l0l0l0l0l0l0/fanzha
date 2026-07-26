@@ -111,7 +111,37 @@ export type GameEvent =
   | { type: "hud"; payload: Record<string, string | number> }
   | { type: "toast"; text: string; tone: "good" | "bad" | "info" }
   | { type: "result"; payload: GameResultPayload }
-  | { type: "log"; text: string };
+  | { type: "log"; text: string }
+  | { type: "bossCodex"; payload: BossCodexPayload }
+  | { type: "waveBriefing"; payload: WaveBriefingPayload };
+
+/** Boss 击破科普卡片：清波时由引擎 emit，场景层渲染覆盖卡片 */
+export interface BossCodexPayload {
+  /** Boss 名称 */
+  bossName: string;
+  /** 园区档位名（妙瓦底/缅北/总部） */
+  tierName: string;
+  /** 案例标题 */
+  title: string;
+  /** 案例正文 */
+  body: string;
+  /** 求助热线（如 12308/96110） */
+  hotline: string;
+  /** 识别要点列表 */
+  points: string[];
+}
+
+/** 波次开场简报：每波开始时由引擎 emit，场景层渲染顶部横幅 */
+export interface WaveBriefingPayload {
+  /** 园区档位名 */
+  tierName: string;
+  /** 当前波次 */
+  wave: number;
+  /** 该园区对应的诈骗类型 */
+  scamType: string;
+  /** 识别要点（3 条） */
+  points: string[];
+}
 
 export interface GameResultPayload {
   gameId: GameId;

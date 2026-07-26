@@ -15,7 +15,7 @@ import { TIPS } from "@/data/tips";
 import { platformStore } from "@/store/platformStore";
 import { shareAppMessage, vibrateShort } from "@/platform/web";
 import { canvasToBlob, shareImageWithFallback } from "@/platform/web";
-import { renderBattleReportCanvas } from "@/utils/battleReport";
+import { renderBattleReportCanvas, type V7ManagerReportData } from "@/utils/battleReport";
 import { playSfx } from "@/engine/Audio";
 import { ParticleSystem } from "@/engine/Particle";
 import { postFX } from "@/engine/PostFX";
@@ -30,6 +30,12 @@ export interface ResultOverlayCallbacks {
   nextLabel?: string;
   /** 游戏专属额外统计渲染回调：返回绘制内容的高度（px），用于加高面板 */
   renderExtraStats?: (ctx: CanvasRenderingContext2D, x: number, y: number, w: number) => number;
+  /** v2：错题复盘入口回调（A5，提供时渲染"错题复盘"按钮） */
+  onReview?: () => void;
+  /** v2：错题复盘按钮文案 */
+  reviewLabel?: string;
+  /** v7：反诈职业经理人专属战报数据（仅 manager 模块传入，战报图追加 v7 区块） */
+  v7ManagerData?: V7ManagerReportData;
 }
 
 export class ResultOverlay {
@@ -147,6 +153,7 @@ export class ResultOverlay {
         if (pressed === "retry" && this.cb.onRetry) this.cb.onRetry();
         else if (pressed === "next" && this.cb.onNext) this.cb.onNext();
         else if (pressed === "back" && this.cb.onBack) this.cb.onBack();
+        else if (pressed === "review" && this.cb.onReview) this.cb.onReview();
         else if (pressed === "share") {
           this.handleShare();
         }
@@ -166,6 +173,7 @@ export class ResultOverlay {
       const canvas = renderBattleReportCanvas({
         result: this.result,
         unlockedAchievements: this.unlockedAchievements,
+        v7ManagerData: this.cb.v7ManagerData,
       });
       const blob = await canvasToBlob(canvas, "image/png");
       if (!blob) {
@@ -173,7 +181,7 @@ export class ResultOverlay {
       }
       const game = getGame(this.result.gameId);
       const filename = `anti-fraud-${this.result.gameId}-${Date.now()}.png`;
-      const text = `我在《${game.title}》中${this.result.win ? "识破" : "挑战"}了 ${this.result.bustedCount ?? this.result.wave ?? 0} 次诈骗，得分 ${this.result.score}。全民反诈，天下无诈！`;
+      const text = this.buildShareText();
       const result = await shareImageWithFallback({
         title: "反诈战报 · ANTI-FRAUD ARCADE",
         text,
@@ -187,14 +195,41 @@ export class ResultOverlay {
     } catch (e) {
       console.warn("[share] 战报生成失败", e);
       // 回退到纯文本分享
-      const game = getGame(this.result.gameId);
-      shareAppMessage({
-        title: `我在《${game.title}》中${this.result.win ? "识破" : "挑战"}了 ${this.result.bustedCount ?? this.result.wave ?? 0} 次诈骗，得分 ${this.result.score}。全民反诈，天下无诈！`,
-      });
+      shareAppMessage({ title: this.buildShareText() });
       this.shareMessage = "已复制文本";
     }
     this.shareState = "done";
     this.shareStateUntil = this.pulse + 2.5; // 显示 2.5s
+  }
+
+  /**
+   * v7：构建分享文案（含 v7 专属信息：模式 / 真实案例 / 新口诀 / 排行榜段位）
+   * 文案降级：若无 v7 数据，回退到 v2 通用文案
+   */
+  private buildShareText(): string {
+    const game = getGame(this.result.gameId);
+    const v7 = this.cb.v7ManagerData;
+    const count = this.result.bustedCount ?? this.result.wave ?? 0;
+    const base = `我在《${game.title}》中${this.result.win ? "识破" : "挑战"}了 ${count} 次诈骗，得分 ${this.result.score}`;
+    if (!v7) {
+      return `${base}。全民反诈，天下无诈！`;
+    }
+    const parts: string[] = [base];
+    parts.push(`【${v7.modeLabel}】`);
+    if (v7.towerFloor > 0) {
+      parts.push(`爬塔 ${v7.towerFloor} 层`);
+    }
+    if (v7.realCase) {
+      parts.push(`还原真实案例《${v7.realCase.title}》`);
+    }
+    if (v7.newlyCollectedTerms.length > 0) {
+      parts.push(`新收集口诀 ${v7.newlyCollectedTerms.length} 句`);
+    }
+    if (v7.seasonRank) {
+      parts.push(`当前段位 ${v7.seasonRank}`);
+    }
+    parts.push("全民反诈，天下无诈！");
+    return parts.join("·");
   }
 
   private getButtonRects(screenW: number, screenH: number): Record<string, Rect> {
@@ -205,7 +240,10 @@ export class ResultOverlay {
     const pad = 16;
     const btnW = (w - pad * 3) / 2;
     const btnH = 38;
-    const btnY = py + h - btnH - 16;
+    const hasReview = !!this.cb.onReview;
+    // 有 review 按钮时底部多一行：[review] 占满一行，[back][share] 在下一行
+    const reviewRowH = hasReview ? btnH + 8 : 0;
+    const btnY = py + h - btnH - 16 - reviewRowH;
     const hasNext = !!this.cb.onNext;
 
     const rects: Record<string, Rect> = {};
@@ -215,18 +253,27 @@ export class ResultOverlay {
     } else {
       rects.retry = { x: px + pad, y: btnY, w: btnW, h: btnH };
     }
+    const bottomY = btnY + btnH + 8;
     const backX = hasNext ? px + pad : px + pad * 2 + btnW;
-    rects.back = { x: backX, y: btnY + btnH + 8, w: btnW, h: btnH };
-    rects.share = { x: px + pad * 2 + btnW, y: btnY + btnH + 8, w: btnW, h: btnH };
+    rects.back = { x: backX, y: bottomY, w: btnW, h: btnH };
+    rects.share = { x: px + pad * 2 + btnW, y: bottomY, w: btnW, h: btnH };
+    // v2：错题复盘按钮（独占一行，全宽）
+    if (hasReview) {
+      rects.review = { x: px + pad, y: bottomY + btnH + 8, w: w - pad * 2, h: btnH };
+    }
     return rects;
   }
 
-  /** 面板高度：有新解锁成就时加高 60 像素以容纳成就行；有额外统计时按实测高度加高（首帧用默认 180） */
+  /** 面板高度：有新解锁成就时加高 60 像素以容纳成就行；有额外统计时按实测高度加高（首帧用默认 180）；有 review 按钮时再加一行 */
   private get panelH(): number {
     let h = this.unlockedAchievements.length > 0 ? 480 : 420;
     if (this.cb.renderExtraStats) {
       // 首帧 extraStatsH=0，使用默认估值 180；后续帧使用实测高度
       h += this.extraStatsH > 0 ? this.extraStatsH + 16 : 180;
+    }
+    if (this.cb.onReview) {
+      // review 按钮独占一行（btnH + 上下间距）
+      h += 38 + 16;
     }
     return h;
   }
@@ -460,6 +507,17 @@ export class ResultOverlay {
       ctx.textBaseline = "middle";
       ctx.fillText(this.shareMessage, rects.share.x + btnW / 2 - 4, rects.share.y + btnH / 2 + 1);
       ctx.restore();
+    }
+
+    // v2：错题复盘按钮（独占一行，全宽，教育属性强调色）
+    if (this.cb.onReview && rects.review) {
+      const reviewW = rects.review.w;
+      const reviewH = rects.review.h;
+      drawButton(ctx, rects.review.x, rects.review.y, reviewW, reviewH, this.cb.reviewLabel || "📝 错题复盘 · 补漏挑战", {
+        variant: "primary",
+        accent: Theme.colors.warn.DEFAULT,
+        pressed: this.pressedButton === "review",
+      });
     }
 
     // 粒子层（彩屑叠在面板之上）
