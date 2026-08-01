@@ -20,6 +20,7 @@ import type { GameResultPayload } from "@/types";
 import type { Achievement } from "@/data/achievements";
 import type { RealCaseDef, ManagerMode } from "@/games/manager/types";
 import { MAZE_TERMS } from "@/games/manager/maze";
+import type { FBGameMode, FBVictimProfile, FBCaseArchive } from "@/games/fraudBuster/types";
 
 const W = 1080;
 const H = 1620;
@@ -49,12 +50,56 @@ export interface V7ManagerReportData {
   leaderboardWeeklyRank: number;
 }
 
+/**
+ * v3：是男人就反诈专属战报数据
+ * 仅 fraudBuster 模块传入；其他游戏保持 undefined，战报图回退到 v2 通用布局
+ */
+export interface FBReportData {
+  /** 本局游戏模式 */
+  mode: FBGameMode;
+  /** 模式中文名（如"剧情战役"/"极速闯关"） */
+  modeLabel: string;
+  /** 模式图标 emoji */
+  modeIcon: string;
+  /** 是否完美一局（零失误） */
+  perfectRun: boolean;
+  /** 受害者档案（按心理弱点匹配，可选） */
+  victimProfile?: FBVictimProfile;
+  /** 本局遭遇的真实案例档案（最多展示 3 条） */
+  caseArchives?: FBCaseArchive[];
+  /** 知识点整体掌握度 0..1 */
+  knowledgeMastery: number;
+  /** 模式专属统计 */
+  modeStats: {
+    /** 剧情：通关关卡数 */
+    storyStagesCleared?: number;
+    /** 剧情：当前关卡索引（0-based） */
+    storyStageIdx?: number;
+    /** 极速：用时（秒） */
+    speedrunDuration?: number;
+    /** 极速：正确数 */
+    speedrunCorrect?: number;
+    /** 极速：总题数 */
+    speedrunTotal?: number;
+    /** 硬核：答对题数（最高连对） */
+    hardcoreCorrect?: number;
+    /** 每日：日期 key（如 2026-07-27） */
+    dailyKey?: string;
+    /** 每日：正确数 */
+    dailyCorrect?: number;
+    /** 错题噩梦：清除题数 */
+    reviewNightmareCleared?: number;
+  };
+}
+
 export interface BattleReportData {
   result: GameResultPayload;
   /** 本局新解锁成就（由 ResultOverlay 传入） */
   unlockedAchievements: Achievement[];
   /** v7：反诈职业经理人专属数据（可选，仅 manager 模块传入） */
   v7ManagerData?: V7ManagerReportData;
+  /** v3：是男人就反诈专属数据（可选，仅 fraudBuster 模块传入） */
+  fbReportData?: FBReportData;
 }
 
 /**
@@ -64,7 +109,10 @@ export function renderBattleReportCanvas(data: BattleReportData): HTMLCanvasElem
   // v7：动态扩展画布高度（仅当 manager 模块传入 v7 数据时）
   const v7 = data.v7ManagerData;
   const v7ExtraH = v7 ? computeV7SectionsHeight(v7) : 0;
-  const totalH = H + v7ExtraH;
+  // v3：是男人就反诈专属区块高度
+  const fb = data.fbReportData;
+  const fbExtraH = fb ? computeFBSectionsHeight(fb) : 0;
+  const totalH = H + v7ExtraH + fbExtraH;
 
   const canvas = document.createElement("canvas");
   canvas.width = W;
@@ -274,12 +322,17 @@ export function renderBattleReportCanvas(data: BattleReportData): HTMLCanvasElem
   }
 
   // ===== v7：反诈职业经理人专属区块（如有） =====
+  let extraY = achY;
   if (v7) {
-    drawV7ManagerSections(ctx, achY, W, v7);
+    extraY = drawV7ManagerSections(ctx, extraY, W, v7);
+  }
+  // ===== v3：是男人就反诈专属区块（如有） =====
+  if (fb) {
+    extraY = drawFBReportSections(ctx, extraY, W, fb);
   }
 
   // ===== 底部反诈热线 + 段位进度 =====
-  const footY = 1340 + v7ExtraH;
+  const footY = 1340 + v7ExtraH + fbExtraH;
   // 段位进度条
   ctx.save();
   ctx.font = `400 22px ${Theme.fonts.mono}`;
@@ -700,6 +753,381 @@ function formatAmount(amount: number): string {
   if (amount >= 100000000) return `${(amount / 100000000).toFixed(2)} 亿元`;
   if (amount >= 10000) return `${(amount / 10000).toFixed(1)} 万元`;
   return `${amount} 元`;
+}
+
+// ============================================================
+// v3：是男人就反诈专属战报区块
+// ============================================================
+
+/**
+ * 计算 v3 专属区块总高度（用于动态扩展画布）
+ * - 区块标题：60px
+ * - 模式徽章 + 完美一局徽章：100px
+ * - 模式专属统计行：120px
+ * - 受害者档案面板：220px（仅 victimProfile 存在时）
+ * - 真实案例档案面板：200px（仅 caseArchives 非空时，最多展示 3 条）
+ * - 知识掌握度面板：120px
+ */
+function computeFBSectionsHeight(fb: FBReportData): number {
+  let h = 60 + 100 + 120 + 120; // 标题 + 模式行 + 模式统计 + 知识掌握度
+  if (fb.victimProfile) h += 220;
+  if (fb.caseArchives && fb.caseArchives.length > 0) {
+    const count = Math.min(fb.caseArchives.length, 3);
+    h += 60 + count * 100; // 标题 + 每条 100px
+  }
+  return h;
+}
+
+/**
+ * 渲染 v3 专属区块（在成就区块与底部热线之间）
+ * 返回结束 y 坐标
+ */
+function drawFBReportSections(
+  ctx: CanvasRenderingContext2D,
+  startY: number,
+  W: number,
+  fb: FBReportData,
+): number {
+  const fbAccent = "#00E5FF"; // 是男人就反诈主题色（与模块霓虹蓝一致）
+  let y = startY;
+
+  // ===== 区块标题 =====
+  ctx.save();
+  ctx.font = `400 22px ${Theme.fonts.mono}`;
+  ctx.fillStyle = withAlpha(fbAccent, 0.85);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillText("// FRAUD BUSTER v3 · 是男人就反诈战报", 60, y);
+  ctx.restore();
+  // 分隔线
+  ctx.save();
+  const lg = ctx.createLinearGradient(60, y + 32, W - 60, y + 32);
+  lg.addColorStop(0, "transparent");
+  lg.addColorStop(0.5, withAlpha(fbAccent, 0.6));
+  lg.addColorStop(1, "transparent");
+  ctx.fillStyle = lg;
+  ctx.fillRect(60, y + 32, W - 120, 2);
+  ctx.restore();
+  y += 60;
+
+  // ===== 模式徽章 + 完美一局徽章 =====
+  const modeH = 80;
+  ctx.save();
+  ctx.fillStyle = withAlpha(fbAccent, 0.06);
+  roundRectPath(ctx, 60, y, W - 120, modeH, 16);
+  ctx.fill();
+  ctx.fillStyle = fbAccent;
+  ctx.fillRect(60, y, 6, modeH);
+
+  // 模式徽章
+  ctx.font = `400 20px ${Theme.fonts.mono}`;
+  ctx.fillStyle = withAlpha(fbAccent, 0.85);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillText("本局模式", 90, y + 18);
+  ctx.font = `700 36px ${Theme.fonts.display}`;
+  ctx.fillStyle = fbAccent;
+  ctx.shadowColor = withAlpha(fbAccent, 0.5);
+  ctx.shadowBlur = 12;
+  ctx.fillText(`${fb.modeIcon}  ${fb.modeLabel}`, 90, y + 42);
+  ctx.shadowBlur = 0;
+
+  // 完美一局徽章（右侧）
+  if (fb.perfectRun) {
+    const perfectAccent = "#FFD666";
+    ctx.font = `400 20px ${Theme.fonts.mono}`;
+    ctx.fillStyle = withAlpha(perfectAccent, 0.85);
+    ctx.textAlign = "right";
+    ctx.textBaseline = "top";
+    ctx.fillText("本局评级", W - 90, y + 18);
+    ctx.font = `700 36px ${Theme.fonts.display}`;
+    ctx.fillStyle = perfectAccent;
+    ctx.shadowColor = withAlpha(perfectAccent, 0.6);
+    ctx.shadowBlur = 14;
+    ctx.fillText("★ 完美一局", W - 90, y + 42);
+    ctx.shadowBlur = 0;
+  }
+  ctx.restore();
+  y += modeH + 20;
+
+  // ===== 模式专属统计行 =====
+  y += drawFBModeStatsRow(ctx, y, W, fb, fbAccent);
+  y += 20;
+
+  // ===== 受害者档案（如有） =====
+  if (fb.victimProfile) {
+    y += drawFBVictimProfilePanel(ctx, y, W, fb.victimProfile);
+    y += 20;
+  }
+
+  // ===== 真实案例档案（如有） =====
+  if (fb.caseArchives && fb.caseArchives.length > 0) {
+    y += drawFBCaseArchivesPanel(ctx, y, W, fb.caseArchives);
+    y += 20;
+  }
+
+  // ===== 知识点掌握度面板 =====
+  y += drawFBKnowledgeMasteryPanel(ctx, y, W, fb.knowledgeMastery, fbAccent);
+
+  return y;
+}
+
+/**
+ * 渲染模式专属统计行（根据 mode 显示不同指标）
+ */
+function drawFBModeStatsRow(
+  ctx: CanvasRenderingContext2D,
+  y: number,
+  W: number,
+  fb: FBReportData,
+  accent: string,
+): number {
+  const rowH = 100;
+  const ms = fb.modeStats;
+  // 根据模式构造 3 列指标
+  let stats: Array<{ label: string; value: string; color: string }>;
+  switch (fb.mode) {
+    case "story":
+      stats = [
+        { label: "通关关卡", value: `${ms.storyStagesCleared ?? 0} / 6`, color: accent },
+        { label: "当前关卡", value: `第 ${(ms.storyStageIdx ?? 0) + 1} 关`, color: "#FFD666" },
+        { label: "本局模式", value: "剧情战役", color: "#B388FF" },
+      ];
+      break;
+    case "speedrun": {
+      const dur = ms.speedrunDuration ?? 0;
+      const mm = Math.floor(dur / 60);
+      const ss = Math.floor(dur % 60);
+      const total = ms.speedrunTotal ?? 30;
+      const correct = ms.speedrunCorrect ?? 0;
+      const acc = total > 0 ? Math.round((correct / total) * 100) : 0;
+      stats = [
+        { label: "用时", value: `${mm}:${String(ss).padStart(2, "0")}`, color: accent },
+        { label: "正确数", value: `${correct} / ${total}`, color: "#1AD670" },
+        { label: "正确率", value: `${acc}%`, color: "#FFD666" },
+      ];
+      break;
+    }
+    case "hardcore":
+      stats = [
+        { label: "连对题数", value: `${ms.hardcoreCorrect ?? 0}`, color: "#E5353B" },
+        { label: "本局模式", value: "硬核生存", color: accent },
+        { label: "评级", value: fb.perfectRun ? "完美" : "终局", color: "#FFD666" },
+      ];
+      break;
+    case "daily":
+      stats = [
+        { label: "每日日期", value: ms.dailyKey ?? "—", color: accent },
+        { label: "正确数", value: `${ms.dailyCorrect ?? 0} / 10`, color: "#1AD670" },
+        { label: "本局模式", value: "每日挑战", color: "#FFD666" },
+      ];
+      break;
+    case "review":
+      stats = [
+        { label: "清除题数", value: `${ms.reviewNightmareCleared ?? 0}`, color: accent },
+        { label: "本局模式", value: "错题噩梦", color: "#B388FF" },
+        { label: "评级", value: fb.perfectRun ? "完美" : "训练", color: "#FFD666" },
+      ];
+      break;
+    default: // endless
+      stats = [
+        { label: "本局模式", value: "无尽模式", color: accent },
+        { label: "完美一局", value: fb.perfectRun ? "是" : "否", color: "#FFD666" },
+        { label: "知识掌握", value: `${Math.round(fb.knowledgeMastery * 100)}%`, color: "#1AD670" },
+      ];
+  }
+
+  const gap = 16;
+  const colW = (W - 120 - gap * 2) / 3;
+  for (let i = 0; i < stats.length; i++) {
+    const sx = 60 + i * (colW + gap);
+    drawStatBlock(ctx, sx, y, colW, rowH, stats[i].label, stats[i].value, stats[i].color);
+  }
+  return rowH;
+}
+
+/**
+ * 渲染受害者档案面板
+ */
+function drawFBVictimProfilePanel(
+  ctx: CanvasRenderingContext2D,
+  y: number,
+  W: number,
+  vp: FBVictimProfile,
+): number {
+  const panelH = 200;
+  ctx.save();
+  ctx.fillStyle = withAlpha(vp.color, 0.06);
+  roundRectPath(ctx, 60, y, W - 120, panelH, 16);
+  ctx.fill();
+  ctx.fillStyle = vp.color;
+  ctx.fillRect(60, y, 6, panelH);
+
+  // 标题
+  ctx.font = `400 20px ${Theme.fonts.mono}`;
+  ctx.fillStyle = withAlpha(vp.color, 0.85);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillText("受害者档案 · 心理弱点分析", 90, y + 18);
+
+  // 档案名（大字）
+  ctx.font = `700 36px ${Theme.fonts.display}`;
+  ctx.fillStyle = vp.color;
+  ctx.shadowColor = withAlpha(vp.color, 0.5);
+  ctx.shadowBlur = 12;
+  ctx.fillText(vp.name, 90, y + 44);
+  ctx.shadowBlur = 0;
+
+  // 严重度进度条（右侧）
+  const sev = Math.min(1, Math.max(0, vp.severity));
+  const sevLabel = sev < 0.15 ? "免疫" : sev < 0.35 ? "轻度" : sev < 0.6 ? "中度" : "重度";
+  ctx.font = `400 18px ${Theme.fonts.mono}`;
+  ctx.fillStyle = withAlpha(Theme.colors.ink.muted, 0.9);
+  ctx.textAlign = "right";
+  ctx.fillText(`易受骗程度 · ${sevLabel}`, W - 90, y + 18);
+  // 进度条
+  const barW = 280;
+  const barX = W - 90 - barW;
+  const barY = y + 52;
+  ctx.fillStyle = withAlpha(Theme.colors.bg.line, 0.6);
+  roundRectPath(ctx, barX, barY, barW, 12, 6);
+  ctx.fill();
+  if (sev > 0) {
+    ctx.fillStyle = vp.color;
+    ctx.shadowColor = vp.color;
+    ctx.shadowBlur = 10;
+    roundRectPath(ctx, barX, barY, barW * sev, 12, 6);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+  ctx.font = `700 22px ${Theme.fonts.mono}`;
+  ctx.fillStyle = vp.color;
+  ctx.textAlign = "right";
+  ctx.fillText(`${Math.round(sev * 100)}%`, W - 90, y + 72);
+
+  // 描述（左下，换行）
+  ctx.font = `400 22px ${Theme.fonts.body}`;
+  ctx.fillStyle = withAlpha(Theme.colors.ink.DEFAULT, 0.88);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  const descLines = wrapText(ctx, vp.desc, W - 220);
+  descLines.forEach((line, i) => ctx.fillText(line, 90, y + 92 + i * 30));
+  // 防护建议（最下方一行）
+  if (vp.advice.length > 0) {
+    const adviceY = y + panelH - 28;
+    ctx.font = `700 18px ${Theme.fonts.display}`;
+    ctx.fillStyle = vp.color;
+    ctx.fillText(`💡 ${vp.advice[0]}`, 90, adviceY);
+  }
+  ctx.restore();
+  return panelH;
+}
+
+/**
+ * 渲染真实案例档案面板（最多 3 条）
+ */
+function drawFBCaseArchivesPanel(
+  ctx: CanvasRenderingContext2D,
+  y: number,
+  W: number,
+  archives: FBCaseArchive[],
+): number {
+  const showCount = Math.min(archives.length, 3);
+  const headerH = 50;
+  const itemH = 90;
+  const panelH = headerH + showCount * itemH + 16;
+  const accent = "#FF7A1A";
+
+  ctx.save();
+  ctx.fillStyle = withAlpha(accent, 0.06);
+  roundRectPath(ctx, 60, y, W - 120, panelH, 16);
+  ctx.fill();
+  ctx.fillStyle = accent;
+  ctx.fillRect(60, y, 6, panelH);
+
+  // 标题
+  ctx.font = `400 20px ${Theme.fonts.mono}`;
+  ctx.fillStyle = withAlpha(accent, 0.85);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillText(`真实案例溯源 · 本局遭遇 ${archives.length} 个案例`, 90, y + 18);
+
+  // 每条案例
+  for (let i = 0; i < showCount; i++) {
+    const a = archives[i];
+    const iy = y + headerH + i * itemH;
+    // 案例标题
+    ctx.font = `700 24px ${Theme.fonts.display}`;
+    ctx.fillStyle = accent;
+    ctx.fillText(`📌 ${a.title}`, 90, iy);
+    // 日期 + 来源
+    ctx.font = `400 18px ${Theme.fonts.mono}`;
+    ctx.fillStyle = withAlpha(Theme.colors.ink.muted, 0.9);
+    ctx.textAlign = "right";
+    ctx.fillText(`${a.date} · ${a.source}`, W - 90, iy + 4);
+    // 关键启示
+    ctx.font = `400 20px ${Theme.fonts.body}`;
+    ctx.fillStyle = withAlpha(Theme.colors.ink.DEFAULT, 0.88);
+    ctx.textAlign = "left";
+    const takeawayLines = wrapText(ctx, a.takeaway, W - 180);
+    takeawayLines.slice(0, 2).forEach((line, j) => ctx.fillText(line, 90, iy + 36 + j * 28));
+  }
+  ctx.restore();
+  return panelH;
+}
+
+/**
+ * 渲染知识点掌握度面板
+ */
+function drawFBKnowledgeMasteryPanel(
+  ctx: CanvasRenderingContext2D,
+  y: number,
+  W: number,
+  mastery: number,
+  accent: string,
+): number {
+  const panelH = 100;
+  const pct = Math.round(mastery * 100);
+  ctx.save();
+  ctx.fillStyle = withAlpha(accent, 0.06);
+  roundRectPath(ctx, 60, y, W - 120, panelH, 16);
+  ctx.fill();
+  ctx.fillStyle = accent;
+  ctx.fillRect(60, y, 6, panelH);
+
+  // 标签
+  ctx.font = `400 20px ${Theme.fonts.mono}`;
+  ctx.fillStyle = withAlpha(accent, 0.85);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillText("知识点掌握度 · 本局综合", 90, y + 18);
+
+  // 大百分比
+  const masteryColor = pct >= 80 ? "#1AD670" : pct >= 60 ? "#FFD666" : "#E5353B";
+  ctx.font = `700 36px ${Theme.fonts.mono}`;
+  ctx.fillStyle = masteryColor;
+  ctx.shadowColor = withAlpha(masteryColor, 0.5);
+  ctx.shadowBlur = 12;
+  ctx.fillText(`${pct}%`, 90, y + 48);
+  ctx.shadowBlur = 0;
+
+  // 进度条（右侧）
+  const barW = W - 120 - 280;
+  const barX = 280 + 60;
+  const barY = y + 50;
+  ctx.fillStyle = withAlpha(Theme.colors.bg.line, 0.6);
+  roundRectPath(ctx, barX, barY, barW, 14, 7);
+  ctx.fill();
+  if (mastery > 0) {
+    ctx.fillStyle = masteryColor;
+    ctx.shadowColor = masteryColor;
+    ctx.shadowBlur = 10;
+    roundRectPath(ctx, barX, barY, barW * mastery, 14, 7);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+  ctx.restore();
+  return panelH;
 }
 
 // ============================================================

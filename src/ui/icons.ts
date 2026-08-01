@@ -10,7 +10,8 @@ export type IconName =
   | "bomb" | "lock" | "check" | "x" | "info" | "trophy" | "rotate" | "share"
   | "star" | "clock" | "award" | "book" | "users" | "crosshair" | "target"
   | "gift" | "calendar" | "coin" | "energy" | "fragment" | "download" | "story"
-  | "chevronRight" | "flag" | "flame" | "lightning" | "gear";
+  | "chevronRight" | "flag" | "flame" | "lightning" | "gear"
+  | "chat" | "brain";
 
 export function drawIcon(
   ctx: CanvasRenderingContext2D,
@@ -528,6 +529,61 @@ export function drawIcon(
       ctx.stroke();
       ctx.beginPath();
       ctx.arc(cx, cy, holeR, 0, Math.PI * 2);
+      ctx.stroke();
+      break;
+    }
+    case "chat": {
+      // 对话气泡：圆角矩形 + 尾巴 + 3 点
+      const bw = r * 1.5;
+      const bh = r * 1.1;
+      const bx = cx - bw / 2;
+      const by = cy - bh / 2 - r * 0.1;
+      ctx.beginPath();
+      ctx.moveTo(bx + r * 0.25, by);
+      ctx.lineTo(bx + bw - r * 0.25, by);
+      ctx.arcTo(bx + bw, by, bx + bw, by + r * 0.25, r * 0.25);
+      ctx.lineTo(bx + bw, by + bh - r * 0.25);
+      ctx.arcTo(bx + bw, by + bh, bx + bw - r * 0.25, by + bh, r * 0.25);
+      ctx.lineTo(bx + r * 0.4, by + bh);
+      ctx.lineTo(bx + r * 0.2, by + bh + r * 0.35);
+      ctx.lineTo(bx + r * 0.3, by + bh);
+      ctx.lineTo(bx + r * 0.25, by + bh);
+      ctx.arcTo(bx, by + bh, bx, by + bh - r * 0.25, r * 0.25);
+      ctx.lineTo(bx, by + r * 0.25);
+      ctx.arcTo(bx, by, bx + r * 0.25, by, r * 0.25);
+      ctx.closePath();
+      ctx.stroke();
+      // 3 点
+      for (let i = 0; i < 3; i++) {
+        ctx.beginPath();
+        ctx.arc(bx + bw * (0.3 + i * 0.2), by + bh / 2, r * 0.08, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      break;
+    }
+    case "brain": {
+      // 大脑/知识：两个半球 + 沟回
+      ctx.beginPath();
+      // 左半球
+      ctx.arc(cx - r * 0.18, cy, r * 0.55, Math.PI * 0.35, Math.PI * 1.65, false);
+      // 右半球
+      ctx.arc(cx + r * 0.18, cy, r * 0.55, -Math.PI * 0.65, Math.PI * 0.65, false);
+      ctx.closePath();
+      ctx.stroke();
+      // 中线
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - r * 0.55);
+      ctx.lineTo(cx, cy + r * 0.5);
+      ctx.stroke();
+      // 沟回（左）
+      ctx.beginPath();
+      ctx.moveTo(cx - r * 0.45, cy - r * 0.2);
+      ctx.bezierCurveTo(cx - r * 0.3, cy - r * 0.35, cx - r * 0.55, cy + r * 0.1, cx - r * 0.4, cy + r * 0.3);
+      ctx.stroke();
+      // 沟回（右）
+      ctx.beginPath();
+      ctx.moveTo(cx + r * 0.45, cy - r * 0.2);
+      ctx.bezierCurveTo(cx + r * 0.3, cy - r * 0.35, cx + r * 0.55, cy + r * 0.1, cx + r * 0.4, cy + r * 0.3);
       ctx.stroke();
       break;
     }

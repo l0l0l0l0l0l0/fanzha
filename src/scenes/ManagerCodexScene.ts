@@ -16,6 +16,7 @@ import {
 import { drawIcon } from "@/ui/icons";
 import { MANAGER_CODEX } from "@/games/manager/data";
 import { KNOWLEDGE_GRAPH, getGraphLinks } from "@/games/manager/data.v7";
+import { MANAGER_SYSTEMS } from "@/games/manager/data.v8";
 import { MAZE_TERMS } from "@/games/manager/maze";
 import type { CodexCategory, CodexEntry, KnowledgeGraphNode } from "@/games/manager/types";
 import { platformStore } from "@/store/platformStore";
@@ -44,8 +45,8 @@ export class ManagerCodexScene extends Scene {
   private dragStartScroll = 0;
   private isDragging = false;
   // ===== v7 知识图谱 + 口诀收集 =====
-  /** 当前视图模式：网格 / 图谱 / 口诀 */
-  private viewMode: "grid" | "graph" | "terms" = "grid";
+  /** 当前视图模式：网格 / 图谱 / 口诀 / 系统（v10 新增） */
+  private viewMode: "grid" | "graph" | "terms" | "systems" = "grid";
   /** 图谱中选中的节点 codexId */
   private selectedGraphNode: string | null = null;
   private pressedGraphNode: string | null = null;
@@ -82,10 +83,10 @@ export class ManagerCodexScene extends Scene {
   }
 
   private getTabRect(idx: number, screenW: number): Rect {
-    // v7：5 个 Tab（敌人/探员/案件/图谱/口诀），宽度自适应
+    // v10：6 个 Tab（敌人/探员/案件/图谱/口诀/系统），宽度自适应
     const tabW = 84;
     const gap = 6;
-    const totalW = 5 * tabW + 4 * gap;
+    const totalW = 6 * tabW + 5 * gap;
     const startX = (screenW - totalW) / 2;
     return { x: startX + idx * (tabW + gap), y: 8, w: tabW, h: 32 };
   }
@@ -155,19 +156,22 @@ export class ManagerCodexScene extends Scene {
     ctx.fillText("反诈档案 · 图鉴系统", screenW / 2, 24);
     ctx.restore();
 
-    // 三个类别 Tab + v7 第 4 Tab（知识图谱）+ 第 5 Tab（口诀）
+    // 三个类别 Tab + v7 第 4 Tab（知识图谱）+ 第 5 Tab（口诀）+ v10 第 6 Tab（系统）
     const categories: CodexCategory[] = ["enemy", "agent", "case"];
     for (let i = 0; i < categories.length; i++) {
       this.renderTab(ctx, i, categories[i], screenW);
     }
     this.renderGraphTab(ctx, 3, screenW);
     this.renderTermsTab(ctx, 4, screenW);
+    this.renderSystemsTab(ctx, 5, screenW);
 
-    // v7：图谱视图 / 口诀视图 / 网格视图
+    // v7：图谱视图 / 口诀视图 / 网格视图 / v10 系统视图
     if (this.viewMode === "graph") {
       this.renderGraphView(ctx, screenW, screenH);
     } else if (this.viewMode === "terms") {
       this.renderTermsView(ctx, screenW, screenH);
+    } else if (this.viewMode === "systems") {
+      this.renderSystemsView(ctx, screenW, screenH);
     } else {
       // 滚动内容：类别标题 + 进度 + 网格
       ctx.save();
@@ -324,6 +328,111 @@ export class ManagerCodexScene extends Scene {
       }
       ctx.restore();
     }
+  }
+
+  /** v10：系统总览 Tab */
+  private renderSystemsTab(ctx: CanvasRenderingContext2D, idx: number, screenW: number): void {
+    const accent = "#00E5FF";
+    const rect = this.getTabRect(idx, screenW);
+    const selected = this.viewMode === "systems";
+    drawPanel(ctx, rect.x, rect.y, rect.w, rect.h, {
+      borderColor: selected ? accent : withAlpha(Theme.colors.bg.line, 0.5),
+      borderWidth: selected ? 2 : 1,
+      bgColor: selected ? withAlpha(accent, 0.12) : Theme.colors.bg.card,
+    });
+    ctx.save();
+    ctx.font = `400 14px ${Theme.fonts.body}`;
+    ctx.fillStyle = selected ? accent : Theme.colors.ink.DEFAULT;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("🧩", rect.x + 18, rect.y + rect.h / 2);
+    ctx.font = `${selected ? "700" : "500"} 11px ${Theme.fonts.display}`;
+    ctx.fillStyle = selected ? accent : Theme.colors.ink.muted;
+    ctx.fillText(`系统 ${MANAGER_SYSTEMS.length}`, rect.x + 52, rect.y + rect.h / 2);
+    ctx.restore();
+  }
+
+  /** v10：系统总览视图 — 按 category 分组列出 20+ 系统 + 触发条件 */
+  private renderSystemsView(ctx: CanvasRenderingContext2D, screenW: number, screenH: number): void {
+    const accent = "#00E5FF";
+    // 滚动容器
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 56, screenW, screenH - 56);
+    ctx.clip();
+    ctx.translate(0, -this.scrollY);
+
+    // 标题
+    ctx.font = `700 16px ${Theme.fonts.display}`;
+    ctx.fillStyle = accent;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.shadowColor = withAlpha(accent, 0.4);
+    ctx.shadowBlur = 6;
+    ctx.fillText(`🧩 系统总览 · ${MANAGER_SYSTEMS.length} 个系统`, 20, 70);
+    ctx.shadowBlur = 0;
+    ctx.font = `400 11px ${Theme.fonts.body}`;
+    ctx.fillStyle = Theme.colors.ink.muted;
+    ctx.fillText("manager 模块从 v3 到 v10 累计实现的全部系统及触发方式", 20, 92);
+
+    // 按 category 分组
+    const categoryOrder: { key: string; label: string; color: string }[] = [
+      { key: "core", label: "核心战斗", color: "#FF7A1A" },
+      { key: "element", label: "元素系统", color: "#00BFA5" },
+      { key: "bond", label: "羁绊协同", color: "#FF7AB8" },
+      { key: "education", label: "反诈教育", color: "#52C41A" },
+      { key: "meta", label: "元进度养成", color: "#FFD666" },
+    ];
+
+    let y = 116;
+    const cardH = 56;
+    const cardGap = 6;
+    const cardW = screenW - 40;
+    for (const cat of categoryOrder) {
+      const systems = MANAGER_SYSTEMS.filter((s) => s.category === cat.key);
+      if (systems.length === 0) continue;
+      // 分类标题
+      ctx.font = `700 13px ${Theme.fonts.display}`;
+      ctx.fillStyle = cat.color;
+      ctx.fillText(`▶ ${cat.label}（${systems.length}）`, 20, y);
+      y += 22;
+      // 系统卡片
+      for (const sys of systems) {
+        // 卡片背景
+        drawPanel(ctx, 20, y, cardW, cardH, {
+          borderColor: withAlpha(sys.color, 0.4),
+          borderWidth: 1,
+          bgColor: withAlpha(sys.color, 0.05),
+        });
+        // 左侧色条
+        ctx.fillStyle = sys.color;
+        ctx.fillRect(20, y, 3, cardH);
+        // emoji + 名称
+        ctx.font = `700 14px ${Theme.fonts.body}`;
+        ctx.fillStyle = sys.color;
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
+        ctx.fillText(`${sys.emoji} ${sys.name}`, 32, y + 8);
+        // 版本标签
+        ctx.font = `400 9px ${Theme.fonts.mono}`;
+        ctx.fillStyle = Theme.colors.ink.muted;
+        ctx.textAlign = "right";
+        ctx.fillText(sys.version.toUpperCase(), screenW - 28, y + 8);
+        // 描述
+        ctx.font = `400 11px ${Theme.fonts.body}`;
+        ctx.fillStyle = withAlpha(Theme.colors.ink.DEFAULT, 0.85);
+        ctx.textAlign = "left";
+        ctx.fillText(sys.desc, 32, y + 26);
+        // 触发条件
+        ctx.font = `400 10px ${Theme.fonts.body}`;
+        ctx.fillStyle = withAlpha(Theme.colors.ink.muted, 0.8);
+        ctx.fillText(`触发：${sys.trigger}`, 32, y + 41);
+        y += cardH + cardGap;
+      }
+      y += 8;
+    }
+    this.contentH = y + 32;
+    ctx.restore();
   }
 
   /** v7：知识图谱视图 — 圆形布局 + 连线 + 选中节点详情 */
@@ -811,6 +920,15 @@ export class ManagerCodexScene extends Scene {
         this.pressedButton = "tab-graph";
         return true;
       }
+      // v7：口诀 Tab（idx=4）/ v10：系统 Tab（idx=5）
+      if (hitTest(x, y, this.getTabRect(4, screenW))) {
+        this.pressedButton = "tab-terms";
+        return true;
+      }
+      if (hitTest(x, y, this.getTabRect(5, screenW))) {
+        this.pressedButton = "tab-systems";
+        return true;
+      }
       // v7：图谱视图下的节点点击
       if (this.viewMode === "graph") {
         const nodeHit = this.hitTestGraphNode(x, y, screenW, screenH);
@@ -860,6 +978,29 @@ export class ManagerCodexScene extends Scene {
           if (this.viewMode !== "graph") {
             this.viewMode = "graph";
             this.selectedGraphNode = null;
+            this.scrollY = 0;
+            playSfx("click");
+            vibrateShort();
+          }
+        }
+        return true;
+      }
+      if (pressed === "tab-terms") {
+        if (hitTest(x, y, this.getTabRect(4, screenW))) {
+          if (this.viewMode !== "terms") {
+            this.viewMode = "terms";
+            this.scrollY = 0;
+            playSfx("click");
+            vibrateShort();
+          }
+        }
+        return true;
+      }
+      if (pressed === "tab-systems") {
+        if (hitTest(x, y, this.getTabRect(5, screenW))) {
+          if (this.viewMode !== "systems") {
+            this.viewMode = "systems";
+            this.scrollY = 0;
             playSfx("click");
             vibrateShort();
           }

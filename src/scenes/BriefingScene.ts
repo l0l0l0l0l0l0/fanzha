@@ -18,12 +18,14 @@ import { FraudBusterScene } from "./FraudBusterScene";
 import { ManagerDeployScene } from "./ManagerDeployScene";
 import { ThunderScene } from "./ThunderScene";
 import { BombIslandBattleScene } from "./BombIslandBattleScene";
+import { ChatDetectiveScene } from "./ChatDetectiveScene";
 
 const GAME_SCENE_FACTORIES: Record<GameId, (d: SceneDirector) => Scene> = {
   "fraud-buster": (d) => new FraudBusterScene(d),
   manager: (d) => new ManagerDeployScene(d),
   thunder: (d) => new ThunderScene(d),
   "bomb-island": (d) => new BombIslandBattleScene(d),
+  "chat-detective": (d) => new ChatDetectiveScene(d),
 };
 
 export class BriefingScene extends Scene {
@@ -33,6 +35,8 @@ export class BriefingScene extends Scene {
   private entered = false;
   private pressedButton: string | null = null;
   private flashedFinalCountdown = false;
+  /** v9：需透传给游戏场景的额外参数（如诈园区模式配置） */
+  private forwardParams: Record<string, unknown> = {};
 
   enter(params?: Record<string, unknown>): void {
     super.enter(params);
@@ -41,6 +45,13 @@ export class BriefingScene extends Scene {
     this.countdownTimer = 0;
     this.entered = false;
     this.flashedFinalCountdown = false;
+    // v9：保留除 gameId 外的所有参数，进入游戏时透传
+    this.forwardParams = {};
+    if (params) {
+      for (const k of Object.keys(params)) {
+        if (k !== "gameId") this.forwardParams[k] = params[k];
+      }
+    }
   }
 
   update(dt: number): void {
@@ -66,7 +77,8 @@ export class BriefingScene extends Scene {
   private enterGame(): void {
     if (!this.gameId) return;
     const scene = GAME_SCENE_FACTORIES[this.gameId](this.director);
-    this.director.replace(scene);
+    // v9：透传模式配置等额外参数给游戏场景
+    this.director.replace(scene, this.forwardParams);
   }
 
   render(ctx: CanvasRenderingContext2D, screenW: number, screenH: number): void {

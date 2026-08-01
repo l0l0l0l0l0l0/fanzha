@@ -48,6 +48,7 @@ export const Theme = {
     manager: "#FFB020",
     thunder: "#00E5FF",
     "bomb-island": "#FF7A1A",
+    "chat-detective": "#FF5A8A",
   } as Record<string, string>,
   grid: { step: 32, color: "rgba(0,229,255,0.05)" },
   shadows: {

@@ -15,7 +15,7 @@ import { TIPS } from "@/data/tips";
 import { platformStore } from "@/store/platformStore";
 import { shareAppMessage, vibrateShort } from "@/platform/web";
 import { canvasToBlob, shareImageWithFallback } from "@/platform/web";
-import { renderBattleReportCanvas, type V7ManagerReportData } from "@/utils/battleReport";
+import { renderBattleReportCanvas, type V7ManagerReportData, type FBReportData } from "@/utils/battleReport";
 import { playSfx } from "@/engine/Audio";
 import { ParticleSystem } from "@/engine/Particle";
 import { postFX } from "@/engine/PostFX";
@@ -36,6 +36,8 @@ export interface ResultOverlayCallbacks {
   reviewLabel?: string;
   /** v7：反诈职业经理人专属战报数据（仅 manager 模块传入，战报图追加 v7 区块） */
   v7ManagerData?: V7ManagerReportData;
+  /** v3：是男人就反诈专属战报数据（仅 fraudBuster 模块传入，战报图追加 v3 区块） */
+  fbReportData?: FBReportData;
 }
 
 export class ResultOverlay {
@@ -59,12 +61,21 @@ export class ResultOverlay {
   private shareState: "idle" | "busy" | "done" = "idle";
   private shareMessage = "";
   private shareStateUntil = 0;
+  /** v3 Phase 3.4：完美一局庆祝状态 */
+  private perfectBurstDone = false;
+  private perfectMotto: string;
 
   constructor(director: SceneDirector, result: GameResultPayload, cb: ResultOverlayCallbacks = {}) {
     this.director = director;
     this.result = result;
     this.cb = cb;
+    this.perfectMotto = PERFECT_MOTTOS[Math.floor(Math.random() * PERFECT_MOTTOS.length)];
     this.recordOnce();
+  }
+
+  /** v3 Phase 3.4：是否完美一局（零失误通关） */
+  private get perfectRun(): boolean {
+    return !!this.cb.fbReportData?.perfectRun && this.result.win;
   }
 
   private recordOnce(): void {
@@ -74,6 +85,8 @@ export class ResultOverlay {
     // 捕获是否破纪录（recordGame 会更新 bestScores）
     const prevBest = platformStore.state.bestScores[r.gameId] || 0;
     this.isNewRecord = r.score > prevBest && r.score > 0;
+    // v3：从 stats.byType 提取本局遭遇的诈骗类型 ID，用于图鉴解锁
+    const unlockedTypes = this.extractEncounteredTypes(r.stats);
     // 完整字段传入，触发各种成就判定
     this.unlockedAchievements = platformStore.recordGame({
       gameId: r.gameId,
@@ -83,10 +96,27 @@ export class ResultOverlay {
       win: r.win,
       wave: r.wave,
       destroyRate: r.destroyRate,
+      unlockedTypes,
     });
     if (this.unlockedAchievements.length > 0) {
       playSfx("good");
     }
+  }
+
+  /** v3：从游戏专属 stats 中提取遭遇的诈骗类型 ID（用于图鉴解锁） */
+  private extractEncounteredTypes(stats: unknown): string[] {
+    if (!stats || typeof stats !== "object") return [];
+    const s = stats as { byType?: Record<string, { correct: number; total: number }> };
+    if (!s.byType) return [];
+    return Object.keys(s.byType).filter((k) => s.byType![k].total > 0);
+  }
+
+  /** v10：从 manager 游戏 stats 中提取本局学到的反诈知识点列表 */
+  private extractLearnedFraudTips(): string[] {
+    if (this.result.gameId !== "manager") return [];
+    const stats = this.result.stats as { learnedFraudTips?: string[] } | undefined;
+    if (!stats || !Array.isArray(stats.learnedFraudTips)) return [];
+    return stats.learnedFraudTips.filter((t): t is string => typeof t === "string");
   }
 
   update(dt: number): void {
@@ -99,22 +129,65 @@ export class ResultOverlay {
     // 胜利彩屑：从屏幕顶部飘落
     if (this.result.win && this.enterT > 0.5) {
       const screenW = this.director.screenWidth;
-      const palette = ["#FFD666", "#00E5FF", "#52C41A", "#FF7A1A"];
-      for (let i = 0; i < 2; i++) {
+      const screenH = this.director.screenHeight;
+      // v3 Phase 3.4：完美一局使用金色主调 + 加密粒子 + 双向飘落
+      const perfect = this.perfectRun;
+      const palette = perfect
+        ? ["#FFD666", "#FFE699", "#FFC53D", "#FFFBCC", "#FFF1B8"]
+        : ["#FFD666", "#00E5FF", "#52C41A", "#FF7A1A"];
+      const spawnCount = perfect ? 5 : 2;
+      for (let i = 0; i < spawnCount; i++) {
+        // 完美一局：顶部 + 左右两侧同时飘落，呈"金雨"效果
+        const fromSide = perfect && Math.random() < 0.35;
+        let sx: number, sy: number, sAngle: number;
+        if (fromSide) {
+          const fromLeft = Math.random() < 0.5;
+          sx = fromLeft ? -10 : screenW + 10;
+          sy = Math.random() * screenH * 0.6;
+          sAngle = fromLeft
+            ? Math.PI / 3 + (Math.random() - 0.5) * 0.4
+            : (2 * Math.PI) / 3 + (Math.random() - 0.5) * 0.4;
+        } else {
+          sx = Math.random() * screenW;
+          sy = -10;
+          sAngle = Math.PI / 2 + (Math.random() - 0.5) * 0.6;
+        }
         this.particles.spawn({
-          x: Math.random() * screenW,
-          y: -10,
+          x: sx,
+          y: sy,
           count: 1,
-          speed: 60 + Math.random() * 40,
-          life: 2 + Math.random(),
-          size: 3 + Math.random() * 2,
+          speed: 70 + Math.random() * 60,
+          life: 2.4 + Math.random() * 1.2,
+          size: 3 + Math.random() * (perfect ? 3 : 2),
           color: palette[Math.floor(Math.random() * palette.length)],
           type: "debris",
-          gravity: 80,
+          gravity: 90,
           friction: 0.99,
-          angle: Math.PI / 2 + (Math.random() - 0.5) * 0.6,
+          angle: sAngle,
         });
       }
+    }
+    // v3 Phase 3.4：完美一局开场金色爆发（仅触发一次）
+    if (this.perfectRun && this.enterT > 0.3 && !this.perfectBurstDone) {
+      this.perfectBurstDone = true;
+      const cx = this.director.screenWidth / 2;
+      const cy = this.director.screenHeight / 2;
+      // 金色环形爆发
+      this.particles.spawn({
+        x: cx, y: cy, count: 32, speed: 220, life: 1.2,
+        size: 4, color: "#FFD666", type: "spark",
+        gravity: 0, friction: 0.94, angle: 0,
+        spread: Math.PI * 2,
+      });
+      // 二次爆发：白金混色
+      this.particles.spawn({
+        x: cx, y: cy, count: 18, speed: 140, life: 1.6,
+        size: 3, color: "#FFF1B8", type: "spark",
+        gravity: 0, friction: 0.96, angle: 0,
+        spread: Math.PI * 2,
+      });
+      // 金色闪屏
+      postFX.flash("#FFD666", 0.5, 0.6);
     }
     // 失败 glitch：只触发一次
     if (!this.result.win && this.enterT > 0.3 && !this.lostGlitchDone) {
@@ -174,6 +247,7 @@ export class ResultOverlay {
         result: this.result,
         unlockedAchievements: this.unlockedAchievements,
         v7ManagerData: this.cb.v7ManagerData,
+        fbReportData: this.cb.fbReportData,
       });
       const blob = await canvasToBlob(canvas, "image/png");
       if (!blob) {
@@ -203,30 +277,62 @@ export class ResultOverlay {
   }
 
   /**
-   * v7：构建分享文案（含 v7 专属信息：模式 / 真实案例 / 新口诀 / 排行榜段位）
-   * 文案降级：若无 v7 数据，回退到 v2 通用文案
+   * v7/v3：构建分享文案（含模块专属信息：模式 / 真实案例 / 排行榜段位 / 受害者档案）
+   * 文案降级：若无 v7/fb 数据，回退到 v2 通用文案
    */
   private buildShareText(): string {
     const game = getGame(this.result.gameId);
     const v7 = this.cb.v7ManagerData;
+    const fb = this.cb.fbReportData;
     const count = this.result.bustedCount ?? this.result.wave ?? 0;
     const base = `我在《${game.title}》中${this.result.win ? "识破" : "挑战"}了 ${count} 次诈骗，得分 ${this.result.score}`;
-    if (!v7) {
+    if (!v7 && !fb) {
       return `${base}。全民反诈，天下无诈！`;
     }
     const parts: string[] = [base];
-    parts.push(`【${v7.modeLabel}】`);
-    if (v7.towerFloor > 0) {
-      parts.push(`爬塔 ${v7.towerFloor} 层`);
+    if (v7) {
+      parts.push(`【${v7.modeLabel}】`);
+      if (v7.towerFloor > 0) {
+        parts.push(`爬塔 ${v7.towerFloor} 层`);
+      }
+      if (v7.realCase) {
+        parts.push(`还原真实案例《${v7.realCase.title}》`);
+      }
+      if (v7.newlyCollectedTerms.length > 0) {
+        parts.push(`新收集口诀 ${v7.newlyCollectedTerms.length} 句`);
+      }
+      if (v7.seasonRank) {
+        parts.push(`当前段位 ${v7.seasonRank}`);
+      }
     }
-    if (v7.realCase) {
-      parts.push(`还原真实案例《${v7.realCase.title}》`);
-    }
-    if (v7.newlyCollectedTerms.length > 0) {
-      parts.push(`新收集口诀 ${v7.newlyCollectedTerms.length} 句`);
-    }
-    if (v7.seasonRank) {
-      parts.push(`当前段位 ${v7.seasonRank}`);
+    if (fb) {
+      parts.push(`【${fb.modeLabel}】`);
+      if (fb.perfectRun) {
+        parts.push("★ 完美一局");
+      }
+      if (fb.victimProfile) {
+        parts.push(`画像 ${fb.victimProfile.name}`);
+      }
+      if (fb.caseArchives && fb.caseArchives.length > 0) {
+        parts.push(`遭遇真实案例 ${fb.caseArchives.length} 个`);
+      }
+      const masteryPct = Math.round(fb.knowledgeMastery * 100);
+      if (masteryPct > 0) {
+        parts.push(`知识掌握 ${masteryPct}%`);
+      }
+      // 模式专属统计
+      const ms = fb.modeStats;
+      if (fb.mode === "speedrun" && ms.speedrunCorrect !== undefined) {
+        parts.push(`${ms.speedrunCorrect}/${ms.speedrunTotal ?? 30} 正确`);
+      } else if (fb.mode === "hardcore" && ms.hardcoreCorrect !== undefined) {
+        parts.push(`连对 ${ms.hardcoreCorrect} 题`);
+      } else if (fb.mode === "story" && ms.storyStagesCleared !== undefined) {
+        parts.push(`通关 ${ms.storyStagesCleared}/6 关`);
+      } else if (fb.mode === "daily" && ms.dailyCorrect !== undefined) {
+        parts.push(`每日 ${ms.dailyCorrect}/10`);
+      } else if (fb.mode === "review" && ms.reviewNightmareCleared !== undefined) {
+        parts.push(`清除 ${ms.reviewNightmareCleared} 错题`);
+      }
     }
     parts.push("全民反诈，天下无诈！");
     return parts.join("·");
@@ -299,15 +405,91 @@ export class ResultOverlay {
 
     drawPanel(ctx, px, py, w, h, { borderColor: withAlpha(accent, 0.6), cut: 10 });
 
+    // v3 Phase 3.4：完美一局金色边框（动画发光描边 + 角落金饰）
+    if (this.perfectRun) {
+      const goldPulse = 0.6 + 0.4 * Math.sin(this.pulse * 2.5);
+      ctx.save();
+      // 外层金色辉光描边
+      ctx.strokeStyle = withAlpha("#FFD666", 0.85 * goldPulse);
+      ctx.lineWidth = 2;
+      ctx.shadowColor = "#FFD666";
+      ctx.shadowBlur = 18 * goldPulse;
+      roundRect(ctx, px + 1, py + 1, w - 2, h - 2, 9);
+      ctx.stroke();
+      // 内层细金线
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = withAlpha("#FFF1B8", 0.55);
+      ctx.lineWidth = 1;
+      roundRect(ctx, px + 4, py + 4, w - 8, h - 8, 7);
+      ctx.stroke();
+      // 四角金饰（直角光带）
+      const cornerLen = 18;
+      ctx.strokeStyle = withAlpha("#FFD666", 0.95);
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = "#FFD666";
+      ctx.shadowBlur = 8;
+      // 左上
+      ctx.beginPath();
+      ctx.moveTo(px + 2, py + cornerLen);
+      ctx.lineTo(px + 2, py + 2);
+      ctx.lineTo(px + cornerLen, py + 2);
+      ctx.stroke();
+      // 右上
+      ctx.beginPath();
+      ctx.moveTo(px + w - cornerLen, py + 2);
+      ctx.lineTo(px + w - 2, py + 2);
+      ctx.lineTo(px + w - 2, py + cornerLen);
+      ctx.stroke();
+      // 左下
+      ctx.beginPath();
+      ctx.moveTo(px + 2, py + h - cornerLen);
+      ctx.lineTo(px + 2, py + h - 2);
+      ctx.lineTo(px + cornerLen, py + h - 2);
+      ctx.stroke();
+      // 右下
+      ctx.beginPath();
+      ctx.moveTo(px + w - cornerLen, py + h - 2);
+      ctx.lineTo(px + w - 2, py + h - 2);
+      ctx.lineTo(px + w - 2, py + h - cornerLen);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     // 顶部渐变线
     ctx.save();
     const lg = ctx.createLinearGradient(px, py, px + w, py);
     lg.addColorStop(0, "transparent");
-    lg.addColorStop(0.5, accent);
+    lg.addColorStop(0.5, this.perfectRun ? "#FFD666" : accent);
     lg.addColorStop(1, "transparent");
     ctx.fillStyle = lg;
     ctx.fillRect(px, py, w, 1);
     ctx.restore();
+
+    // v3 Phase 3.4：完美一局铭言横幅（标题上方，金色双线 + 铭言文字）
+    if (this.perfectRun) {
+      const mottoAlpha = Math.min(1, Math.max(0, (t - 0.15) / 0.4));
+      ctx.save();
+      ctx.globalAlpha = mottoAlpha;
+      const mottoY = py + 8;
+      // 左右金色短线
+      ctx.strokeStyle = withAlpha("#FFD666", 0.8);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(px + 24, mottoY + 5);
+      ctx.lineTo(px + w / 2 - 90, mottoY + 5);
+      ctx.moveTo(px + w / 2 + 90, mottoY + 5);
+      ctx.lineTo(px + w - 24, mottoY + 5);
+      ctx.stroke();
+      // 铭言文字
+      ctx.font = `700 10px ${Theme.fonts.mono}`;
+      ctx.fillStyle = "#FFD666";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.shadowColor = "#FFD666";
+      ctx.shadowBlur = 6;
+      ctx.fillText(`★ PERFECT · ${this.perfectMotto} ★`, px + w / 2, mottoY + 5);
+      ctx.restore();
+    }
 
     // 标题
     const titleColor = this.result.win ? Theme.colors.safe.DEFAULT : Theme.colors.flag.DEFAULT;
@@ -394,9 +576,49 @@ export class ResultOverlay {
     drawBadge(ctx, px + 28, badgeY, "96110 报警咨询", "rgba(229,53,59,0.2)", Theme.colors.warn.DEFAULT);
     drawBadge(ctx, px + 28 + 120, badgeY, "国家反诈中心 APP", "rgba(27,95,204,0.2)", Theme.colors.neon.DEFAULT);
 
+    // v10：本局学到的反诈知识点卡片（仅 manager 游戏 + stats 中有 learnedFraudTips 时）
+    let learnedTipsY = tipY + tipH + 8;
+    const tips = this.extractLearnedFraudTips();
+    if (tips.length > 0) {
+      const tipsH = 28 + Math.ceil(tips.length / 3) * 22 + 12;
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, Math.max(0, (t - 0.3) / 0.4));
+      clipPanel(ctx, px + 16, learnedTipsY, w - 32, tipsH, 8);
+      ctx.fillStyle = "rgba(82,196,26,0.06)";
+      ctx.fillRect(px + 16, learnedTipsY, w - 32, tipsH);
+      ctx.restore();
+      ctx.save();
+      ctx.fillStyle = "#52C41A";
+      ctx.fillRect(px + 16, learnedTipsY, 3, tipsH);
+      ctx.restore();
+      drawIcon(ctx, "shield", px + 28, learnedTipsY + 10, 12, "#52C41A");
+      drawHudLabel(ctx, px + 44, learnedTipsY + 12, `本局学到的反诈知识点（${tips.length} 条）`, "#52C41A");
+      // 知识点 chips（3 列布局）
+      ctx.save();
+      ctx.font = `400 11px ${Theme.fonts.body}`;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      const chipW = (w - 56) / 3;
+      for (let i = 0; i < tips.length; i++) {
+        const col = i % 3;
+        const row = Math.floor(i / 3);
+        const cx = px + 28 + col * chipW;
+        const cy = learnedTipsY + 36 + row * 22;
+        const label = tips[i].length > 14 ? tips[i].slice(0, 13) + "…" : tips[i];
+        // chip 背景
+        ctx.fillStyle = "rgba(82,196,26,0.12)";
+        roundRect(ctx, cx, cy - 8, chipW - 6, 16, 8);
+        ctx.fill();
+        ctx.fillStyle = "#1F7A0D";
+        ctx.fillText("✓ " + label, cx + 4, cy);
+      }
+      ctx.restore();
+      learnedTipsY += tipsH + 4;
+    }
+
     // 成就解锁行（如有）：错落入场，金色发光
     if (this.unlockedAchievements.length > 0) {
-      const achY = tipY + tipH + 8;
+      const achY = learnedTipsY;
       const achH = 56;
       ctx.save();
       ctx.globalAlpha = Math.min(1, Math.max(0, (t - 0.4) / 0.4));
@@ -557,3 +779,21 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number)
   if (line) lines.push(line);
   return lines;
 }
+
+/**
+ * v3 Phase 3.4：完美一局（零失误通关）铭言池
+ * 每次结算随机抽取一句，作为完美一局的纪念文案
+ * 风格：四字 + 短句，反诈主题，金色铭文感
+ */
+const PERFECT_MOTTOS: string[] = [
+  "百诈不侵",
+  "火眼金睛",
+  "明察秋毫",
+  "一念之差·万诈不侵",
+  "智勇双全·识破万千",
+  "全民反诈·先锋无畏",
+  "心如明镜·诈无可乘",
+  "千局历练·一局无瑕",
+  "反诈达人·完美无瑕",
+  "天下无诈·从我做起",
+];

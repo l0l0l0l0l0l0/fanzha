@@ -1,0 +1,743 @@
+[
+  {
+    "id": "F45-001", "typeId": "F45", "type": "AI实时换脸视频通话", "cardType": "video", "difficulty": 4,
+    "kind": "single",
+    "title": "视频通话 / \"领导\"急令代转账",
+    "body": "视频通话中\"领导\"面容逼真，称正在开会不便接听，让你立即代转5万元给客户，事后报销。画面偶尔有细微卡顿，眨眼频率偏低。",
+    "options": ["领导急需，立即转账", "视频里是本人放心转", "挂断后用通讯录原号码电话核实", "先转一半稳住领导"],
+    "answer": 2, "cues": ["实时换脸", "急令转账", "眨眼频率低"],
+    "explain": "2026年AI实时换脸已可伪造视频通话。眨眼频率低、画面细微卡顿是破绽。涉及转账务必挂断后用通讯录原号码核实。",
+    "psychology": ["urgency", "authority", "trust"],
+    "knowledgePoints": ["KP-AI-REALTIME-DEEPFAKE"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "AI实时换脸冒充领导代转账案",
+      "date": "2026-05",
+      "source": "公安部联合网信办通报",
+      "takeaway": "AI实时换脸可伪造视频通话，转账务必挂断后用原号码核实。"
+    }
+  },
+  {
+    "id": "F45-002", "typeId": "F45", "type": "AI实时换脸视频通话", "cardType": "video", "difficulty": 3,
+    "kind": "single",
+    "title": "微信视频 / \"朋友\"借款称手机损坏",
+    "body": "朋友视频通话借款5000元，称手机摔坏借别人手机。画面是朋友本人，但称\"麦克风坏了\"只能打字配合视频。要求扫码转账。",
+    "options": ["视频里是本人，立即转", "扫码转账给朋友", "挂断后用微信语音通话核实", "先转1000元试一下"],
+    "answer": 2, "cues": ["麦克风坏了", "扫码转账", "借别人手机"],
+    "explain": "AI实时换脸+打字规避语音破绽是新型套路。挂断后通过微信语音/电话核实是关键防线。",
+    "psychology": ["urgency", "trust", "intimacy"],
+    "knowledgePoints": ["KP-AI-REALTIME-DEEPFAKE"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "AI换脸冒充朋友借款案",
+      "date": "2026-06",
+      "source": "深圳反诈中心通报",
+      "takeaway": "视频通话+打字规避语音是AI换脸诈骗新变种，语音核实是铁律。"
+    }
+  },
+  {
+    "id": "F45-003", "typeId": "F45", "type": "AI实时换脸视频通话", "cardType": "call", "difficulty": 3,
+    "kind": "single",
+    "title": "视频会议 / \"客户\"要求预付款",
+    "body": "视频会议中\"客户\"面容与往日一致，称项目紧急需先打2万元预付款。对方称\"网络不好\"频繁卡顿，催促尽快转账。",
+    "options": ["客户急需，立即转账", "按客户指引转账", "挂断后用通讯录客户原号码核实", "先转5000元稳住客户"],
+    "answer": 2, "cues": ["视频会议", "预付款", "频繁卡顿"],
+    "explain": "AI换脸可伪造商务视频会议。任何视频中的转账要求，都必须挂断后通过原号码核实。",
+    "psychology": ["urgency", "trust", "authority"],
+    "knowledgePoints": ["KP-AI-REALTIME-DEEPFAKE"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "AI换脸冒充客户骗预付款案",
+      "date": "2026-Q2",
+      "source": "公安部经济犯罪侦查局通报",
+      "takeaway": "商务视频会议也可被AI换脸伪造，转账必走二次核实。"
+    }
+  },
+  {
+    "id": "F45-004", "typeId": "F45", "type": "AI实时换脸视频通话", "cardType": "chat", "difficulty": 2,
+    "kind": "judge",
+    "title": "微信 / \"视频里是本人就可以转账\"",
+    "body": "朋友发来视频通话截图说\"你看视频是我本人，放心借我1万\"。判断：视频里是本人就可以转账。",
+    "options": ["正确：视频是本人放心转", "错误：AI实时换脸可伪造视频，必须二次电话核实"],
+    "answer": 1, "cues": ["视频截图", "放心转", "AI换脸"],
+    "explain": "视频截图/通话都可被AI换脸伪造。任何借款必须通过原号码电话核实，视频不是身份证明。",
+    "psychology": ["trust", "urgency"],
+    "knowledgePoints": ["KP-AI-REALTIME-DEEPFAKE"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "AI换脸视频借款系列案",
+      "date": "2026-Q2",
+      "source": "国家反诈中心通报",
+      "takeaway": "视频不是身份证明，借款必须二次电话核实。"
+    }
+  },
+  {
+    "id": "F45-005", "typeId": "F45", "type": "AI实时换脸视频通话", "cardType": "video", "difficulty": 3,
+    "kind": "multi",
+    "title": "视频通话 / 哪些是AI实时换脸的破绽",
+    "body": "视频通话中怀疑对方是AI实时换脸。下列哪些是AI换脸的常见破绽？",
+    "options": ["眨眼频率明显偏低", "口型与声音略有偏差", "光线自然面部阴影一致", "转头时耳朵轮廓变形", "画面偶尔细微卡顿"],
+    "answers": [0, 1, 3, 4], "cues": ["眨眼频率", "口型偏差", "轮廓变形"],
+    "explain": "AI实时换脸常见破绽：眨眼频率低、口型声音偏差、转头时轮廓变形、画面卡顿。光线自然阴影一致是真人特征。",
+    "psychology": ["curiosity", "trust"],
+    "knowledgePoints": ["KP-AI-REALTIME-DEEPFAKE"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "AI换脸破绽识别科普",
+      "date": "2026",
+      "source": "公安部刑事侦查局",
+      "takeaway": "AI换脸有迹可循，眨眼/口型/轮廓/卡顿是四大破绽。"
+    }
+  },
+
+  {
+    "id": "F46-001", "typeId": "F46", "type": "短视频直播带货诈骗", "cardType": "live", "difficulty": 2,
+    "kind": "single",
+    "title": "直播间 / \"限时秒杀\"付款不发货",
+    "body": "直播间主播大喊\"最后10单1元秒杀苹果手机，加微信付款直接发货\"。付款后对方拉黑，直播间已下播。",
+    "options": ["加微信付款秒杀", "先付1元试一下", "只在正规直播平台内下单", "拉家人一起抢"],
+    "answer": 2, "cues": ["加微信付款", "1元秒杀", "脱离平台"],
+    "explain": "直播带货诈骗常见套路：引导脱离平台私下交易。正规直播购物只在平台内下单支付，平台担保交易。",
+    "psychology": ["greed", "urgency", "scarcity"],
+    "knowledgePoints": ["KP-LIVE-COMMERCE"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "直播间1元秒杀诈骗案",
+      "date": "2026-03",
+      "source": "市场监管总局联合反诈中心通报",
+      "takeaway": "直播购物只在平台内交易，加微信付款=脱离担保=诈骗。"
+    }
+  },
+  {
+    "id": "F46-002", "typeId": "F46", "type": "短视频直播带货诈骗", "cardType": "live", "difficulty": 2,
+    "kind": "single",
+    "title": "直播间 / 主播引导私下交易",
+    "body": "主播称\"平台手续费太高，加我微信便宜200元，直接转账发货更快\"。已有粉丝晒收到货截图。",
+    "options": ["加微信便宜200元", "按粉丝晒单转账", "只在平台内下单有担保", "先转一半试试"],
+    "answer": 2, "cues": ["私下交易", "手续费高", "粉丝晒单"],
+    "explain": "引导脱离平台交易是直播带货诈骗核心话术。平台内交易有担保，私下转账无任何保障，晒单都是托。",
+    "psychology": ["greed", "conformity", "trust"],
+    "knowledgePoints": ["KP-LIVE-COMMERCE"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "直播带货私下交易诈骗案",
+      "date": "2026-04",
+      "source": "市场监管总局通报",
+      "takeaway": "引导脱离平台交易=诈骗，平台内交易才有担保。"
+    }
+  },
+  {
+    "id": "F46-003", "typeId": "F46", "type": "短视频直播带货诈骗", "cardType": "chat", "difficulty": 1,
+    "kind": "judge",
+    "title": "微信 / 主播\"加微信便宜\"",
+    "body": "主播私信\"平台手续费高，加微信直接转账便宜200，发货更快\"。判断：加微信直接转账更划算。",
+    "options": ["正确：便宜又快", "错误：脱离平台交易无担保，是诈骗"],
+    "answer": 1, "cues": ["加微信", "手续费高", "脱离平台"],
+    "explain": "任何引导脱离平台私下交易的直播带货都是诈骗。平台内交易有担保，私下转账无保障。",
+    "psychology": ["greed", "trust"],
+    "knowledgePoints": ["KP-LIVE-COMMERCE"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "直播带货私下交易引流案",
+      "date": "2026-Q1",
+      "source": "反诈中心通报",
+      "takeaway": "脱离平台交易无担保，加微信转账=诈骗。"
+    }
+  },
+  {
+    "id": "F46-004", "typeId": "F46", "type": "短视频直播带货诈骗", "cardType": "popup", "difficulty": 2,
+    "kind": "multi",
+    "title": "广告 / 直播带货诈骗常见话术",
+    "body": "下列哪些是直播带货诈骗的常见话术/行为？",
+    "options": ["加微信直接转账便宜", "1元秒杀苹果手机", "平台内下单有担保", "最后10单错过无", "粉丝晒收到货截图"],
+    "answers": [0, 1, 3, 4], "cues": ["加微信", "1元秒杀", "限时名额"],
+    "explain": "直播带货诈骗三件套：脱离平台交易+低价诱惑+限时紧迫+托晒单。平台内下单有担保是唯一正确做法。",
+    "psychology": ["greed", "urgency", "scarcity", "conformity"],
+    "knowledgePoints": ["KP-LIVE-COMMERCE"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "直播带货诈骗话术汇总",
+      "date": "2026",
+      "source": "市场监管总局",
+      "takeaway": "脱离平台+低价+限时+晒单=直播带货诈骗四件套。"
+    }
+  },
+  {
+    "id": "F46-005", "typeId": "F46", "type": "短视频直播带货诈骗", "cardType": "app", "difficulty": 1,
+    "kind": "sort",
+    "title": "正规直播购物流程排序",
+    "body": "请按正确顺序排列在正规直播平台购物的步骤。",
+    "options": ["在直播平台内选择商品", "点击平台内下单按钮", "通过平台支付通道付款", "平台担保交易发货", "确认收货后平台放款"],
+    "sortCorrect": [0, 1, 2, 3, 4],
+    "cues": ["平台担保", "确认收货"],
+    "explain": "正规直播购物全流程在平台内完成，平台担保交易，确认收货才放款。任何\"加微信转账\"都是诈骗。",
+    "psychology": ["trust"],
+    "knowledgePoints": ["KP-LIVE-COMMERCE"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "正规直播购物流程",
+      "date": "2026",
+      "source": "市场监管总局",
+      "takeaway": "直播购物全流程在平台内，担保交易，确认收货放款。"
+    }
+  },
+
+  {
+    "id": "F47-001", "typeId": "F47", "type": "二手平台\"客服\"诈骗", "cardType": "secondhand", "difficulty": 3,
+    "kind": "single",
+    "title": "闲鱼 / \"客服\"称买家付款异常",
+    "body": "你在闲鱼卖手机，收到\"闲鱼客服\"消息：买家付款异常冻结，需缴纳2000元\"解冻保证金\"到指定账户，缴清后保证金与货款一并返还。",
+    "options": ["转账2000元解冻", "按客服指引转账", "登录闲鱼APP官方客服核实", "提供银行卡接收退款"],
+    "answer": 2, "cues": ["付款异常", "解冻保证金", "指定账户"],
+    "explain": "闲鱼等二手平台客服只在APP内沟通，不会要求缴纳\"保证金\"\"解冻金\"。任何脱离APP的转账要求都是诈骗。",
+    "psychology": ["urgency", "fear", "authority"],
+    "knowledgePoints": ["KP-SECONDHAND"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "闲鱼解冻保证金诈骗案",
+      "date": "2026-02",
+      "source": "市场监管总局联合反诈中心通报",
+      "takeaway": "二手平台客服只在APP内沟通，任何\"保证金\"\"解冻金\"都是诈骗。"
+    }
+  },
+  {
+    "id": "F47-002", "typeId": "F47", "type": "二手平台\"客服\"诈骗", "cardType": "secondhand", "difficulty": 2,
+    "kind": "single",
+    "title": "转转 / \"链接\"要求扫码激活订单",
+    "body": "买家发来\"订单未激活\"链接，扫码后跳转非转转官方页面要求填写银行卡+验证码\"激活订单\"。买家催促\"不激活无法付款\"。",
+    "options": ["扫码填写信息激活", "按提示填验证码", "关闭链接，登录转转APP核实订单", "提供银行卡接收付款"],
+    "answer": 2, "cues": ["订单未激活", "扫码填信息", "非官方链接"],
+    "explain": "二手平台订单状态只在官方APP内查看。任何\"扫码激活订单填银行卡验证码\"都是钓鱼。",
+    "psychology": ["urgency", "trust"],
+    "knowledgePoints": ["KP-SECONDHAND"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "转转订单激活钓鱼案",
+      "date": "2026-03",
+      "source": "反诈中心通报",
+      "takeaway": "订单状态只在官方APP查看，扫码填验证码=钓鱼。"
+    }
+  },
+  {
+    "id": "F47-003", "typeId": "F47", "type": "二手平台\"客服\"诈骗", "cardType": "secondhand", "difficulty": 1,
+    "kind": "judge",
+    "title": "闲鱼 / \"客服\"发链接退款",
+    "body": "\"闲鱼客服\"发来链接称\"交易异常需退款，点击填写银行卡信息接收退款\"。判断：点击链接填银行卡即可退款。",
+    "options": ["正确：填信息退款", "错误：闲鱼退款在APP内原路返回，链接填银行卡是钓鱼"],
+    "answer": 1, "cues": ["退款链接", "填银行卡", "钓鱼"],
+    "explain": "闲鱼退款在APP内原路返回，不会发链接要求填银行卡。任何\"退款链接填银行卡\"都是钓鱼。",
+    "psychology": ["urgency", "greed"],
+    "knowledgePoints": ["KP-SECONDHAND"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "闲鱼退款钓鱼案",
+      "date": "2026-Q1",
+      "source": "反诈中心通报",
+      "takeaway": "闲鱼退款在APP内原路返回，链接填银行卡=钓鱼。"
+    }
+  },
+  {
+    "id": "F47-004", "typeId": "F47", "type": "二手平台\"客服\"诈骗", "cardType": "popup", "difficulty": 2,
+    "kind": "multi",
+    "title": "二手平台 / 哪些行为是错误的",
+    "body": "在二手平台交易时，下列哪些行为是错误的（有风险）？",
+    "options": ["扫买家发的\"订单激活\"二维码", "按\"客服\"指引缴纳保证金", "在闲鱼APP内沟通交易", "点击\"客服\"发的退款链接填银行卡", "脱离平台加微信交易"],
+    "answers": [0, 1, 3, 4], "cues": ["扫码激活", "保证金", "脱离平台"],
+    "explain": "二手平台交易全流程在APP内完成。扫码激活、缴纳保证金、退款链接填银行卡、脱离平台交易都是诈骗。",
+    "psychology": ["greed", "urgency", "trust"],
+    "knowledgePoints": ["KP-SECONDHAND"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "二手平台诈骗套路汇总",
+      "date": "2026",
+      "source": "市场监管总局",
+      "takeaway": "二手平台交易全在APP内，任何脱离APP的操作都是诈骗。"
+    }
+  },
+  {
+    "id": "F47-005", "typeId": "F47", "type": "二手平台\"客服\"诈骗", "cardType": "secondhand", "difficulty": 2,
+    "kind": "fill",
+    "title": "闲鱼官方客服沟通渠道补全",
+    "body": "闲鱼官方客服只通过 ____ 内的\"我的-客服中心\"沟通（请填写3字平台名）。",
+    "options": [],
+    "fillAnswer": "闲鱼APP",
+    "fillAccept": ["闲鱼", "闲鱼app", "闲鱼App"],
+    "cues": ["官方客服", "APP内沟通"],
+    "explain": "闲鱼官方客服只在闲鱼APP内沟通。任何私信、QQ、微信自称客服的都是冒充。",
+    "psychology": ["trust"],
+    "knowledgePoints": ["KP-SECONDHAND"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "闲鱼官方客服渠道",
+      "date": "2026",
+      "source": "闲鱼官方",
+      "takeaway": "闲鱼客服只在APP内，任何私信自称客服都是冒充。"
+    }
+  },
+
+  {
+    "id": "F48-001", "typeId": "F48", "type": "银行卡跑分洗钱招募", "cardType": "chat", "difficulty": 3,
+    "kind": "single",
+    "title": "QQ群 / \"租卡日500\"招募跑分",
+    "body": "\"闲着也是闲着，出租银行卡/微信收款码日入500-2000，提供卡号密码即可，资金过账抽成10%\"。群友晒单日入过千。",
+    "options": ["出租银行卡赚外快", "提供卡号密码参与", "拒绝，出租银行卡跑分涉嫌帮信罪", "拉同学一起租卡"],
+    "answer": 2, "cues": ["租卡日500", "资金过账", "帮信罪"],
+    "explain": "出租银行卡/收款码给他人过账=跑分洗钱，涉嫌\"帮助信息网络犯罪活动罪\"，最高判3年。任何\"租卡赚外快\"都是违法。",
+    "psychology": ["greed", "conformity"],
+    "knowledgePoints": ["KP-MONEY-LAUNDERING"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "租卡跑分洗钱帮信案",
+      "date": "2026-02",
+      "source": "公安部刑事侦查局通报",
+      "takeaway": "出租银行卡跑分=帮信罪，最高判3年，任何租卡赚外快都是违法。"
+    }
+  },
+  {
+    "id": "F48-002", "typeId": "F48", "type": "银行卡跑分洗钱招募", "cardType": "transfer", "difficulty": 3,
+    "kind": "single",
+    "title": "微信 / \"帮转账抽成\"洗钱招募",
+    "body": "\"帮转账即可，收到钱转给指定账户，每笔抽成5%，日入1000+，时间自由\"。对方称\"绝对安全，只是走个账\"。",
+    "options": ["帮转账赚抽成", "按指引走账", "拒绝，帮转账跑分涉嫌洗钱罪", "先做几笔试一试"],
+    "answer": 2, "cues": ["帮转账", "抽成5%", "走个账"],
+    "explain": "帮陌生人转账走账=跑分洗钱，涉嫌掩饰隐瞒犯罪所得罪，最高判7年。\"绝对安全\"是骗子话术，出事你担责。",
+    "psychology": ["greed", "trust"],
+    "knowledgePoints": ["KP-MONEY-LAUNDERING"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "帮转账跑分洗钱案",
+      "date": "2026-03",
+      "source": "公安部通报",
+      "takeaway": "帮转账走账=跑分洗钱，涉嫌洗钱罪，最高判7年。"
+    }
+  },
+  {
+    "id": "F48-003", "typeId": "F48", "type": "银行卡跑分洗钱招募", "cardType": "chat", "difficulty": 1,
+    "kind": "judge",
+    "title": "QQ群 / \"出租银行卡赚外快\"",
+    "body": "群里\"租卡日500\"称\"闲着也是闲着，出租银行卡赚外快，绝对安全\"。判断：出租银行卡赚外快可靠。",
+    "options": ["正确：闲着赚外快", "错误：出租银行卡跑分涉嫌帮信罪，最高判3年"],
+    "answer": 1, "cues": ["租卡赚外快", "绝对安全", "帮信罪"],
+    "explain": "出租银行卡给他人过账=跑分洗钱，涉嫌帮信罪。\"绝对安全\"是骗子话术，出事持卡人担责。",
+    "psychology": ["greed", "conformity"],
+    "knowledgePoints": ["KP-MONEY-LAUNDERING"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "出租银行卡帮信案",
+      "date": "2026-Q1",
+      "source": "公安部通报",
+      "takeaway": "出租银行卡=帮信罪，持卡人担责，绝对安全是骗子话术。"
+    }
+  },
+  {
+    "id": "F48-004", "typeId": "F48", "type": "银行卡跑分洗钱招募", "cardType": "popup", "difficulty": 2,
+    "kind": "multi",
+    "title": "广告 / 跑分洗钱的危害",
+    "body": "下列哪些是参与银行卡跑分洗钱的危害/特征？",
+    "options": ["涉嫌帮信罪最高判3年", "涉嫌洗钱罪最高判7年", "征信受损影响终身", "资金走账抽成是合法兼职", "银行卡被冻结影响正常生活"],
+    "answers": [0, 1, 2, 4], "cues": ["帮信罪", "洗钱罪", "征信受损"],
+    "explain": "跑分洗钱危害：涉嫌帮信罪/洗钱罪、征信受损终身、银行卡冻结。\"资金走账抽成合法\"是骗子话术，任何走账抽成都是违法。",
+    "psychology": ["greed", "trust"],
+    "knowledgePoints": ["KP-MONEY-LAUNDERING"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "跑分洗钱危害科普",
+      "date": "2026",
+      "source": "公安部刑事侦查局",
+      "takeaway": "跑分洗钱涉嫌犯罪+征信受损+冻卡，任何走账抽成都违法。"
+    }
+  },
+  {
+    "id": "F48-005", "typeId": "F48", "type": "银行卡跑分洗钱招募", "cardType": "chat", "difficulty": 2,
+    "kind": "link",
+    "title": "跑分话术与真相配对",
+    "body": "请将下列跑分招募话术与真相配对。",
+    "linkLeft": ["租卡日500", "帮转账抽成", "绝对安全", "只是走个账"],
+    "linkRight": ["帮信罪最高判3年", "洗钱罪最高判7年", "出事持卡人担责", "为诈骗资金洗白"],
+    "linkPairing": [0, 1, 2, 3],
+    "options": [],
+    "cues": ["跑分话术", "法律后果"],
+    "explain": "跑分招募话术背后是帮信罪/洗钱罪。租卡=帮信罪，帮转账=洗钱罪，\"绝对安全\"是谎言，\"走个账\"是为诈骗洗白。",
+    "psychology": ["greed", "trust"],
+    "knowledgePoints": ["KP-MONEY-LAUNDERING"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "跑分话术真相对照",
+      "date": "2026",
+      "source": "公安部刑事侦查局",
+      "takeaway": "跑分话术背后是刑事犯罪，租卡/帮转账都违法。"
+    }
+  },
+
+  {
+    "id": "F49-001", "typeId": "F49", "type": "未成年人网络打赏/游戏代练诈骗", "cardType": "chat", "difficulty": 2,
+    "kind": "single",
+    "title": "QQ群 / \"代练上分\"要账号密码",
+    "body": "\"专业代练上分，王者30星50元，提供游戏账号密码+定金即可，24小时上号\"。对方称\"定金防止跑单\"。",
+    "options": ["提供账号密码+定金", "先付定金50元", "拒绝，代练盗号是诈骗", "拉同学一起代练"],
+    "answer": 2, "cues": ["代练上分", "账号密码", "定金"],
+    "explain": "代练要求账号密码+定金=盗号诈骗。提供账号密码后装备被卖、账号被洗、关联手机被改，定金也追不回。",
+    "psychology": ["greed", "trust"],
+    "knowledgePoints": ["KP-MINOR-TIPPING"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "游戏代练盗号诈骗案",
+      "date": "2026-02",
+      "source": "公安部联合游戏厂商通报",
+      "takeaway": "代练要账号密码+定金=盗号诈骗，账号密码不可外泄。"
+    }
+  },
+  {
+    "id": "F49-002", "typeId": "F49", "type": "未成年人网络打赏/游戏代练诈骗", "cardType": "live", "difficulty": 3,
+    "kind": "single",
+    "title": "直播间 / 主播诱导未成年人巨额打赏",
+    "body": "主播对未成年人说\"打赏1万元上榜做我徒弟，带你打游戏上分，私信发红包返你\"。已有粉丝晒返现截图。",
+    "options": ["打赏1万元上榜", "等主播返现红包", "拒绝，打赏返现是诈骗，未成年人打赏可申诉", "借钱打赏博返现"],
+    "answer": 2, "cues": ["打赏返现", "上榜做徒弟", "未成年人"],
+    "explain": "诱导未成年人巨额打赏+返现是诈骗。未成年人打赏可凭证据向平台申诉退还，但打赏返现本身是诈骗话术。",
+    "psychology": ["greed", "intimacy", "conformity"],
+    "knowledgePoints": ["KP-MINOR-TIPPING"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "诱导未成年人打赏返现诈骗案",
+      "date": "2026-03",
+      "source": "网信办联合反诈中心通报",
+      "takeaway": "诱导未成年人打赏返现=诈骗，未成年人打赏可向平台申诉退还。"
+    }
+  },
+  {
+    "id": "F49-003", "typeId": "F49", "type": "未成年人网络打赏/游戏代练诈骗", "cardType": "chat", "difficulty": 1,
+    "kind": "judge",
+    "title": "QQ群 / \"代练送绝版皮肤\"",
+    "body": "\"代练上分送绝版皮肤，提供账号密码即可，24小时上号\"。判断：代练送皮肤安全可靠。",
+    "options": ["正确：代练送皮肤", "错误：代练要账号密码=盗号诈骗"],
+    "answer": 1, "cues": ["代练送皮肤", "账号密码", "盗号"],
+    "explain": "代练要求账号密码=盗号诈骗。绝版皮肤/段位是诱饵，提供账号密码后账号被洗劫。",
+    "psychology": ["greed", "trust"],
+    "knowledgePoints": ["KP-MINOR-TIPPING"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "代练送皮肤盗号案",
+      "date": "2026-Q1",
+      "source": "游戏厂商联合反诈中心通报",
+      "takeaway": "代练要账号密码=盗号，绝版皮肤是诱饵。"
+    }
+  },
+  {
+    "id": "F49-004", "typeId": "F49", "type": "未成年人网络打赏/游戏代练诈骗", "cardType": "popup", "difficulty": 2,
+    "kind": "multi",
+    "title": "广告 / 未成年人游戏诈骗错误行为",
+    "body": "下列哪些是未成年人参与游戏/直播时错误的（有风险的）行为？",
+    "options": ["提供游戏账号密码给代练", "打赏主播博返现", "在正规平台内消费并有家长监护", "扫\"免费送皮肤\"二维码", "轻信\"代练上分\"广告"],
+    "answers": [0, 1, 3, 4], "cues": ["账号密码", "打赏返现", "免费皮肤"],
+    "explain": "未成年人游戏/直播诈骗：代练盗号、打赏返现、免费皮肤二维码。正规平台内消费+家长监护是唯一正确做法。",
+    "psychology": ["greed", "trust", "curiosity"],
+    "knowledgePoints": ["KP-MINOR-TIPPING"],
+    "season": ["schoolOpen"],
+    "caseArchive": {
+      "title": "未成年人游戏诈骗套路汇总",
+      "date": "2026",
+      "source": "教育部联合反诈中心",
+      "takeaway": "代练盗号+打赏返现+免费皮肤=未成年人游戏诈骗三件套。"
+    }
+  },
+  {
+    "id": "F49-005", "typeId": "F49", "type": "未成年人网络打赏/游戏代练诈骗", "cardType": "app", "difficulty": 2,
+    "kind": "sort",
+    "title": "未成年人游戏消费维权流程排序",
+    "body": "请按正确顺序排列未成年人游戏消费退款的维权步骤。",
+    "options": ["收集孩子充值/打赏记录证据", "联系游戏/直播平台官方客服", "提交家长身份+亲子关系证明", "申请未成年人专属退款通道", "平台审核通过后退款原路返回"],
+    "sortCorrect": [0, 1, 2, 3, 4],
+    "cues": ["未成年人退款", "亲子关系证明"],
+    "explain": "未成年人游戏消费退款：收集证据→联系官方客服→提交亲子证明→申请专属通道→审核退款。任何\"代退\"都是二次诈骗。",
+    "psychology": ["trust"],
+    "knowledgePoints": ["KP-MINOR-TIPPING"],
+    "season": ["schoolOpen"],
+    "caseArchive": {
+      "title": "未成年人游戏消费维权流程",
+      "date": "2026",
+      "source": "教育部联合游戏厂商",
+      "takeaway": "未成年人退款走官方专属通道，任何代退都是二次诈骗。"
+    }
+  },
+
+  {
+    "id": "F50-001", "typeId": "F50", "type": "虚假招聘/培训贷诈骗", "cardType": "recruit", "difficulty": 3,
+    "kind": "single",
+    "title": "招聘APP / \"高薪兼职\"先交培训费",
+    "body": "\"高薪兼职日结800-1500，0经验可做，入职需先交1980元培训费，培训后上岗\"。对方称\"培训费上岗后退还\"。",
+    "options": ["交1980元培训费", "先交费等上岗退还", "拒绝，正规招聘不收任何费用", "借钱交培训费博高薪"],
+    "answer": 2, "cues": ["高薪兼职", "培训费", "上岗退还"],
+    "explain": "正规招聘不收任何费用（培训费/服装费/押金/工本费）。任何\"先交费后上岗\"都是诈骗，交费后对方消失。",
+    "psychology": ["greed", "trust", "sunkCost"],
+    "knowledgePoints": ["KP-FAKE-JOB"],
+    "season": ["summerJob", "schoolOpen"],
+    "caseArchive": {
+      "title": "高薪兼职培训费诈骗案",
+      "date": "2026-06",
+      "source": "人社部联合反诈中心通报",
+      "takeaway": "正规招聘不收任何费用，任何\"先交费后上岗\"都是诈骗。"
+    }
+  },
+  {
+    "id": "F50-002", "typeId": "F50", "type": "虚假招聘/培训贷诈骗", "cardType": "recruit", "difficulty": 4,
+    "kind": "single",
+    "title": "面试 / \"入职培训\"诱导办理培训贷",
+    "body": "面试通过后公司称\"入职需参加19800元培训，公司可协助办理培训贷，分期还款，上岗后用工资抵扣\"。合同条款复杂。",
+    "options": ["办理培训贷入职", "按公司指引办贷款", "拒绝，培训贷是诈骗，正规公司不要求办贷", "先办贷上岗后再还"],
+    "answer": 2, "cues": ["培训贷", "19800元", "工资抵扣"],
+    "explain": "\"培训贷\"是新型招聘诈骗：诱导求职者办贷款付培训费，公司跑路后贷款仍需偿还。正规公司不要求求职者办贷。",
+    "psychology": ["greed", "trust", "sunkCost"],
+    "knowledgePoints": ["KP-FAKE-JOB"],
+    "season": ["summerJob", "schoolOpen"],
+    "caseArchive": {
+      "title": "培训贷招聘诈骗案",
+      "date": "2026-07",
+      "source": "人社部联合银保监会通报",
+      "takeaway": "培训贷是新型招聘诈骗，正规公司不要求求职者办贷。"
+    }
+  },
+  {
+    "id": "F50-003", "typeId": "F50", "type": "虚假招聘/培训贷诈骗", "cardType": "sms", "difficulty": 1,
+    "kind": "judge",
+    "title": "短信 / \"高薪招聘先交费\"",
+    "body": "【XX招聘】高薪兼职日结800，0经验可做，入职需交培训费1980元，上岗退还。判断：先交费等退还可靠。",
+    "options": ["正确：上岗退还", "错误：正规招聘不收任何费用，先交费是诈骗"],
+    "answer": 1, "cues": ["高薪日结", "培训费", "上岗退还"],
+    "explain": "正规招聘不收培训费/服装费/押金/工本费。任何\"先交费后上岗退还\"都是诈骗，交费后对方消失。",
+    "psychology": ["greed", "trust"],
+    "knowledgePoints": ["KP-FAKE-JOB"],
+    "season": ["summerJob", "schoolOpen"],
+    "caseArchive": {
+      "title": "高薪招聘先交费诈骗案",
+      "date": "2026-Q2",
+      "source": "反诈中心通报",
+      "takeaway": "正规招聘不收任何费用，先交费=诈骗。"
+    }
+  },
+  {
+    "id": "F50-004", "typeId": "F50", "type": "虚假招聘/培训贷诈骗", "cardType": "popup", "difficulty": 2,
+    "kind": "multi",
+    "title": "广告 / 虚假招聘错误行为",
+    "body": "下列哪些是求职时错误的（有风险的）行为？",
+    "options": ["交培训费/服装费/押金", "办理培训贷入职", "核实公司营业执照与招聘资质", "扫\"高薪招聘\"二维码加微信", "轻信\"0经验日结800\""],
+    "answers": [0, 1, 3, 4], "cues": ["培训费", "培训贷", "0经验日结"],
+    "explain": "虚假招聘特征：收任何费用、办培训贷、扫码加微信、0经验高日结。正规招聘不收费、不办贷、有营业执照。",
+    "psychology": ["greed", "trust", "urgency"],
+    "knowledgePoints": ["KP-FAKE-JOB"],
+    "season": ["summerJob", "schoolOpen"],
+    "caseArchive": {
+      "title": "虚假招聘套路汇总",
+      "date": "2026",
+      "source": "人社部",
+      "takeaway": "收费用+办培训贷+扫码+0经验高薪=虚假招聘四件套。"
+    }
+  },
+  {
+    "id": "F50-005", "typeId": "F50", "type": "虚假招聘/培训贷诈骗", "cardType": "recruit", "difficulty": 2,
+    "kind": "fill",
+    "title": "正规招聘费用原则补全",
+    "body": "正规招聘 ____ 任何费用（培训费/服装费/押金/工本费）。（请填写2字）",
+    "options": [],
+    "fillAnswer": "不收",
+    "fillAccept": ["不收取", "不收任何"],
+    "cues": ["正规招聘", "不收费"],
+    "explain": "《劳动力市场管理规定》规定用人单位不得以任何名义向劳动者收取费用。正规招聘不收任何费用。",
+    "psychology": ["trust"],
+    "knowledgePoints": ["KP-FAKE-JOB"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "正规招聘费用原则",
+      "date": "2026",
+      "source": "人社部",
+      "takeaway": "正规招聘不收任何费用，收任何费用都是违规或诈骗。"
+    }
+  },
+
+  {
+    "id": "F51-001", "typeId": "F51", "type": "跨境换汇/USDT场外诈骗", "cardType": "chat", "difficulty": 3,
+    "kind": "single",
+    "title": "微信 / \"优惠汇率换汇\"收钱不换",
+    "body": "\"专业跨境换汇，汇率比银行高5%，微信转账人民币，秒到账美元/港币到海外账户\"。对方称\"量大优惠，先款后汇\"。",
+    "options": ["转账人民币换汇", "先款后汇试一下", "拒绝，私下换汇是诈骗且涉嫌洗钱", "拉朋友一起换"],
+    "answer": 2, "cues": ["优惠汇率", "先款后汇", "私下换汇"],
+    "explain": "私下跨境换汇是诈骗+洗钱。收钱后不换汇直接拉黑，且私下换汇涉嫌洗钱罪。换汇只走银行等持牌机构。",
+    "psychology": ["greed", "trust"],
+    "knowledgePoints": ["KP-CROSS-BORDER-FX"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "私下跨境换汇诈骗案",
+      "date": "2026-04",
+      "source": "外汇管理局联合反诈中心通报",
+      "takeaway": "私下换汇是诈骗+洗钱，换汇只走银行等持牌机构。"
+    }
+  },
+  {
+    "id": "F51-002", "typeId": "F51", "type": "跨境换汇/USDT场外诈骗", "cardType": "transfer", "difficulty": 4,
+    "kind": "single",
+    "title": "TG群 / 场外USDT要求先打币后付款",
+    "body": "场外USDT交易，卖家称\"信誉良好，你先打USDT到指定地址，到账后微信转人民币\"。卖家晒大量成交记录。",
+    "options": ["先打USDT等付款", "按卖家指引打币", "拒绝，场外USDT先打币后付款是诈骗", "先打小额试一下"],
+    "answer": 2, "cues": ["场外USDT", "先打币后付款", "成交记录"],
+    "explain": "场外USDT交易先打币后付款=诈骗，打币后对方消失。成交记录都是伪造。场外交易无担保，认准正规交易所。",
+    "psychology": ["greed", "trust", "conformity"],
+    "knowledgePoints": ["KP-CROSS-BORDER-FX"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "场外USDT先打币诈骗案",
+      "date": "2026-Q1",
+      "source": "区块链安全公司通报",
+      "takeaway": "场外USDT先打币后付款=诈骗，认准正规交易所。"
+    }
+  },
+  {
+    "id": "F51-003", "typeId": "F51", "type": "跨境换汇/USDT场外诈骗", "cardType": "sms", "difficulty": 1,
+    "kind": "judge",
+    "title": "短信 / \"私下换汇优惠汇率\"",
+    "body": "【XX换汇】专业跨境换汇，汇率比银行高5%，微信转账人民币秒到海外账户，量大优惠。判断：私下换汇优惠更划算。",
+    "options": ["正确：优惠汇率划算", "错误：私下换汇是诈骗+洗钱，换汇只走银行"],
+    "answer": 1, "cues": ["私下换汇", "优惠汇率", "洗钱"],
+    "explain": "私下换汇是诈骗+洗钱。换汇只走银行等持牌机构，任何\"私下换汇优惠汇率\"都是诈骗。",
+    "psychology": ["greed", "trust"],
+    "knowledgePoints": ["KP-CROSS-BORDER-FX"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "私下换汇诈骗引流案",
+      "date": "2026-Q2",
+      "source": "反诈中心通报",
+      "takeaway": "私下换汇=诈骗+洗钱，换汇只走银行。"
+    }
+  },
+  {
+    "id": "F51-004", "typeId": "F51", "type": "跨境换汇/USDT场外诈骗", "cardType": "popup", "difficulty": 2,
+    "kind": "multi",
+    "title": "广告 / 跨境换汇诈骗错误行为",
+    "body": "下列哪些是参与跨境换汇时错误的（有风险的）行为？",
+    "options": ["私下微信转账换汇", "场外USDT先打币后付款", "到银行办理购汇/结汇", "轻信\"汇率比银行高5%\"", "扫换汇广告二维码加微信"],
+    "answers": [0, 1, 3, 4], "cues": ["私下换汇", "先打币", "汇率高5%"],
+    "explain": "跨境换汇只走银行。私下转账换汇、场外先打币、汇率高5%、扫码加微信都是诈骗。银行购汇结汇是唯一正规渠道。",
+    "psychology": ["greed", "trust", "conformity"],
+    "knowledgePoints": ["KP-CROSS-BORDER-FX"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "跨境换汇诈骗套路汇总",
+      "date": "2026",
+      "source": "外汇管理局",
+      "takeaway": "跨境换汇只走银行，私下换汇+场外先打币+高汇率都是诈骗。"
+    }
+  },
+  {
+    "id": "F51-005", "typeId": "F51", "type": "跨境换汇/USDT场外诈骗", "cardType": "chat", "difficulty": 2,
+    "kind": "link",
+    "title": "换汇话术与真相配对",
+    "body": "请将下列换汇话术与真相配对。",
+    "linkLeft": ["汇率比银行高5%", "先款后汇", "量大优惠", "信誉良好先打币"],
+    "linkRight": ["收钱不换汇拉黑", "钱款两空", "诱导加大金额", "打币后对方消失"],
+    "linkPairing": [0, 1, 2, 3],
+    "options": [],
+    "cues": ["换汇话术", "诈骗真相"],
+    "explain": "换汇话术背后都是诈骗：高汇率=收钱不换，先款后汇=钱款两空，量大优惠=诱导加大金额，先打币=对方消失。",
+    "psychology": ["greed", "trust"],
+    "knowledgePoints": ["KP-CROSS-BORDER-FX"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "换汇话术真相对照",
+      "date": "2026",
+      "source": "外汇管理局",
+      "takeaway": "换汇话术背后都是诈骗，换汇只走银行。"
+    }
+  },
+
+  {
+    "id": "F52-001", "typeId": "F52", "type": "AI数字人直播诈骗", "cardType": "live", "difficulty": 3,
+    "kind": "single",
+    "title": "直播间 / \"AI美女\"诱导打赏+私下转账",
+    "body": "直播间\"AI美女\"主播面容精致无瑕疵，称\"打赏1万元上榜做女友，私信发红包返你\"。主播从不眨眼，动作略有重复循环。",
+    "options": ["打赏1万元上榜", "等主播返现红包", "拒绝，AI数字人直播打赏返现是诈骗", "借钱打赏博女友"],
+    "answer": 2, "cues": ["AI数字人", "打赏返现", "动作循环"],
+    "explain": "AI数字人直播诈骗：用AI生成主播诱导打赏返现。从不眨眼、动作循环是AI特征。打赏返现是诈骗话术。",
+    "psychology": ["greed", "intimacy", "conformity"],
+    "knowledgePoints": ["KP-AI-DIGITAL-HUMAN"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "AI数字人直播打赏诈骗案",
+      "date": "2026-05",
+      "source": "网信办联合反诈中心通报",
+      "takeaway": "AI数字人直播打赏返现=诈骗，不眨眼/动作循环是AI特征。"
+    }
+  },
+  {
+    "id": "F52-002", "typeId": "F52", "type": "AI数字人直播诈骗", "cardType": "live", "difficulty": 3,
+    "kind": "single",
+    "title": "直播间 / AI数字人带货虚假发货",
+    "body": "AI数字人主播带货\"1元秒杀iPhone\"，称\"加微信付款直接发货\"。主播话术重复机械，画面无真实互动。已有粉丝晒收到货截图。",
+    "options": ["加微信付款秒杀", "按粉丝晒单转账", "只在正规直播平台内下单", "拉家人一起抢"],
+    "answer": 2, "cues": ["AI带货", "加微信付款", "话术机械"],
+    "explain": "AI数字人带货诈骗：话术机械重复、无真实互动、引导脱离平台。粉丝晒单都是托。正规直播购物只在平台内交易。",
+    "psychology": ["greed", "conformity", "urgency"],
+    "knowledgePoints": ["KP-AI-DIGITAL-HUMAN"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "AI数字人带货诈骗案",
+      "date": "2026-06",
+      "source": "市场监管总局通报",
+      "takeaway": "AI数字人带货+脱离平台交易=诈骗，话术机械是AI特征。"
+    }
+  },
+  {
+    "id": "F52-003", "typeId": "F52", "type": "AI数字人直播诈骗", "cardType": "chat", "difficulty": 2,
+    "kind": "judge",
+    "title": "微信 / AI主播承诺\"保本投资\"",
+    "body": "AI数字人主播私信\"打赏上榜带你投资保本日化5%，已有粉丝晒到账\"。判断：AI主播带投资保本可靠。",
+    "options": ["正确：保本投资可靠", "错误：AI数字人+保本投资+打赏返现=三重诈骗"],
+    "answer": 1, "cues": ["AI主播", "保本投资", "打赏返现"],
+    "explain": "AI数字人+保本投资+打赏返现=三重诈骗话术。任何保本高收益都是诈骗，打赏返现是诱饵。",
+    "psychology": ["greed", "trust", "conformity"],
+    "knowledgePoints": ["KP-AI-DIGITAL-HUMAN"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "AI数字人保本投资诈骗案",
+      "date": "2026-Q2",
+      "source": "反诈中心通报",
+      "takeaway": "AI数字人+保本投资+打赏返现=三重诈骗，保本高收益都是诈骗。"
+    }
+  },
+  {
+    "id": "F52-004", "typeId": "F52", "type": "AI数字人直播诈骗", "cardType": "popup", "difficulty": 3,
+    "kind": "multi",
+    "title": "广告 / AI数字人直播诈骗特征",
+    "body": "下列哪些是AI数字人直播诈骗的常见特征？",
+    "options": ["主播从不眨眼", "动作重复循环", "话术机械无真实互动", "引导平台内下单有担保", "打赏返现/带投资保本"],
+    "answers": [0, 1, 2, 4], "cues": ["不眨眼", "动作循环", "话术机械"],
+    "explain": "AI数字人直播诈骗特征：不眨眼、动作循环、话术机械、打赏返现/保本投资。引导平台内下单有担保是正规直播特征。",
+    "psychology": ["curiosity", "greed", "conformity"],
+    "knowledgePoints": ["KP-AI-DIGITAL-HUMAN"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "AI数字人直播诈骗特征科普",
+      "date": "2026",
+      "source": "网信办",
+      "takeaway": "AI数字人特征：不眨眼/动作循环/话术机械，打赏返现+保本投资是诈骗。"
+    }
+  },
+  {
+    "id": "F52-005", "typeId": "F52", "type": "AI数字人直播诈骗", "cardType": "live", "difficulty": 1,
+    "kind": "fill",
+    "title": "直播打赏正规渠道补全",
+    "body": "直播打赏只通过平台官方\"____\"功能完成（请填写2字）。",
+    "options": [],
+    "fillAnswer": "礼物",
+    "fillAccept": ["虚拟礼物", "平台礼物"],
+    "cues": ["官方渠道", "平台礼物"],
+    "explain": "直播打赏只通过平台官方\"礼物\"功能完成。任何\"加微信转账返现\"\"私下打赏返利\"都是诈骗。",
+    "psychology": ["trust"],
+    "knowledgePoints": ["KP-AI-DIGITAL-HUMAN"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "直播打赏正规渠道",
+      "date": "2026",
+      "source": "网信办",
+      "takeaway": "直播打赏只走平台官方礼物功能，私下转账返现=诈骗。"
+    }
+  }
+]

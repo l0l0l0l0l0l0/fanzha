@@ -7,7 +7,7 @@
 // - 每个敌人生成时调用 randomPath() 取一条 entrance→exit 路径
 // ====================================================================
 
-import type { LevelTheme } from "./types";
+import type { LevelTheme, TerrainLayer, TerrainTile, TerrainKind } from "./types";
 
 /** 网格坐标 */
 export interface Cell {
@@ -46,6 +46,8 @@ export interface MazeEdge {
   toNodeId: number;
   /** 该边覆盖的格子序列（含起止节点格子，已去重） */
   cells: Cell[];
+  /** v11：路径权重（默认 1.0；越小敌人越偏好走此边，捷径设 0.6，绕远设 1.5） */
+  weight?: number;
 }
 
 /** 迷宫定义（v5 分支图版，运行时只读） */
@@ -84,6 +86,10 @@ export interface MazeDef {
   exitPt: Pt;
   /** 主路径航点（保留兼容；engine 不再使用此字段移动敌人） */
   waypoints: Pt[];
+
+  // ===== v11 升级 =====
+  /** v11：地形图层（null=该迷宫无地形，回退普通格） */
+  terrainLayer: TerrainLayer | null;
 }
 
 // 引擎画布尺寸（与 engine.ts 一致）
@@ -176,6 +182,8 @@ interface EdgeDef {
   from: number; // 起点节点 id
   to: number;   // 终点节点 id
   corners: Cell[]; // 拐角序列（含起止节点格子）
+  /** v11：路径权重（可选，缺省 1.0；捷径 <1.0 诱敌走捷径，绕远 >1.0） */
+  weight?: number;
 }
 
 /** 节点定义（手工迷宫用） */
@@ -206,7 +214,7 @@ export function buildMaze(
   // 边
   const edges: MazeEdge[] = edgeDefs.map((e, i) => {
     const cells = cellsFromCorners(e.corners);
-    return { id: i, fromNodeId: e.from, toNodeId: e.to, cells };
+    return { id: i, fromNodeId: e.from, toNodeId: e.to, cells, weight: e.weight };
   });
 
   // 邻接表
@@ -277,6 +285,7 @@ export function buildMaze(
     pathCells, pathSet,
     deployTiles, deploySet,
     entrance, exit, entrancePt, exitPt, waypoints,
+    terrainLayer: null,
   };
 }
 
@@ -334,6 +343,7 @@ export function randomPath(ctx: GraphCtx, startNodeId: number, endNodeId: number
       continue;
     }
     // 加权选择：距离 endNode 曼哈顿距离更近的节点优先（带随机扰动）
+    // v11：叠加边权重（捷径 weight<1 更易被选，绕远 weight>1 更不易被选）
     const endNode = ctx.nodeMap.get(endNodeId);
     let next: number;
     if (endNode && candidates.length > 1) {
@@ -342,7 +352,12 @@ export function randomPath(ctx: GraphCtx, startNodeId: number, endNodeId: number
         if (!cn) return 1;
         const d = Math.abs(cn.col - endNode.col) + Math.abs(cn.row - endNode.row);
         // 距离越近权重越高（指数衰减）
-        return Math.max(0.1, 2.5 - d * 0.15) + rng() * 0.5;
+        let w = Math.max(0.1, 2.5 - d * 0.15) + rng() * 0.5;
+        // v11：叠加边权重（除以 weight，捷径 0.6 → ×1.67，绕远 1.5 → ×0.67）
+        const edge = findEdge(ctx, current, cid);
+        const ew = edge?.weight ?? 1;
+        w /= Math.max(0.2, ew);
+        return w;
       });
       const total = weights.reduce((s, w) => s + w, 0);
       let pick = rng() * total;
@@ -528,11 +543,80 @@ const MAZE_3_EDGES: EdgeDef[] = [
   { from: 9, to: 10, corners: [{ col: 4, row: 6 }, { col: 4, row: 4 }, { col: 0, row: 4 }] },
 ];
 
-/** 构建好的 3 张手工迷宫（按关卡 1/2/3 索引） */
+/**
+ * 迷宫 4 · 数智反诈（v11：最复杂，5+ 条路线 + 双捷径 + 陷阱绕行）
+ * AI/数字资产主题，多岔路口 + 双层环路 + 2 条捷径诱敌
+ */
+const MAZE_4_NODES: NodeDef[] = [
+  { id: 0,  cell: { col: 23, row: 4 }, kind: "entrance" }, // 入口（右中）
+  { id: 1,  cell: { col: 20, row: 4 }, kind: "junction" }, // 第一岔路
+  { id: 2,  cell: { col: 20, row: 1 }, kind: "junction" }, // 上路
+  { id: 3,  cell: { col: 20, row: 7 }, kind: "junction" }, // 下路
+  { id: 4,  cell: { col: 14, row: 1 }, kind: "junction" }, // 上路中
+  { id: 5,  cell: { col: 14, row: 4 }, kind: "junction" }, // 中路核心枢纽
+  { id: 6,  cell: { col: 14, row: 7 }, kind: "junction" }, // 下路中
+  { id: 7,  cell: { col: 10, row: 4 }, kind: "junction" }, // 中路捷径交汇
+  { id: 8,  cell: { col: 7,  row: 1 }, kind: "junction" }, // 上路后段
+  { id: 9,  cell: { col: 7,  row: 4 }, kind: "junction" }, // 中路后段
+  { id: 10, cell: { col: 7,  row: 7 }, kind: "junction" }, // 下路后段
+  { id: 11, cell: { col: 12, row: 3 }, kind: "junction" }, // 陷阱岔路（上）
+  { id: 12, cell: { col: 12, row: 5 }, kind: "junction" }, // 陷阱岔路（下）
+  { id: 13, cell: { col: 3,  row: 4 }, kind: "junction" }, // 出口前汇合
+  { id: 14, cell: { col: 0,  row: 4 }, kind: "exit" },     // 出口
+];
+const MAZE_4_EDGES: EdgeDef[] = [
+  // 0→1: 入口到第一岔路
+  { from: 0, to: 1, corners: [{ col: 23, row: 4 }, { col: 20, row: 4 }] },
+  // 1→2: 上岔（主路）
+  { from: 1, to: 2, corners: [{ col: 20, row: 4 }, { col: 20, row: 1 }] },
+  // 1→3: 下岔（主路）
+  { from: 1, to: 3, corners: [{ col: 20, row: 4 }, { col: 20, row: 7 }] },
+  // 1→5: 中路捷径（weight 0.6，诱敌走捷径直插中枢）
+  { from: 1, to: 5, corners: [{ col: 20, row: 4 }, { col: 14, row: 4 }], weight: 0.6 },
+  // 2→4: 上路横移
+  { from: 2, to: 4, corners: [{ col: 20, row: 1 }, { col: 14, row: 1 }] },
+  // 3→6: 下路横移
+  { from: 3, to: 6, corners: [{ col: 20, row: 7 }, { col: 14, row: 7 }] },
+  // 4→5: 上路下行汇合
+  { from: 4, to: 5, corners: [{ col: 14, row: 1 }, { col: 14, row: 4 }] },
+  // 6→5: 下路上行汇合
+  { from: 6, to: 5, corners: [{ col: 14, row: 7 }, { col: 14, row: 4 }] },
+  // 4→11: 上路陷阱岔路（绕远，weight 1.5）
+  { from: 4, to: 11, corners: [{ col: 14, row: 1 }, { col: 12, row: 1 }, { col: 12, row: 3 }], weight: 1.5 },
+  // 6→12: 下路陷阱岔路（绕远，weight 1.5）
+  { from: 6, to: 12, corners: [{ col: 14, row: 7 }, { col: 12, row: 7 }, { col: 12, row: 5 }], weight: 1.5 },
+  // 11→7: 陷阱上路连中路捷径（weight 0.7，引诱走捷径但远离主路）
+  { from: 11, to: 7, corners: [{ col: 12, row: 3 }, { col: 12, row: 4 }, { col: 10, row: 4 }], weight: 0.7 },
+  // 12→7: 陷阱下路连中路捷径
+  { from: 12, to: 7, corners: [{ col: 12, row: 5 }, { col: 12, row: 4 }, { col: 10, row: 4 }], weight: 0.7 },
+  // 5→7: 中路横移到捷径交汇
+  { from: 5, to: 7, corners: [{ col: 14, row: 4 }, { col: 10, row: 4 }] },
+  // 4→8: 上路后段横移
+  { from: 4, to: 8, corners: [{ col: 14, row: 1 }, { col: 7, row: 1 }] },
+  // 6→10: 下路后段横移
+  { from: 6, to: 10, corners: [{ col: 14, row: 7 }, { col: 7, row: 7 }] },
+  // 7→9: 中路捷径后段
+  { from: 7, to: 9, corners: [{ col: 10, row: 4 }, { col: 7, row: 4 }] },
+  // 8→9: 上路下行汇合
+  { from: 8, to: 9, corners: [{ col: 7, row: 1 }, { col: 7, row: 4 }] },
+  // 10→9: 下路上行汇合
+  { from: 10, to: 9, corners: [{ col: 7, row: 7 }, { col: 7, row: 4 }] },
+  // 9→13: 汇合后向左
+  { from: 9, to: 13, corners: [{ col: 7, row: 4 }, { col: 3, row: 4 }] },
+  // 8→13: 上路直接连出口前（weight 1.4，绕远）
+  { from: 8, to: 13, corners: [{ col: 7, row: 1 }, { col: 3, row: 1 }, { col: 3, row: 4 }], weight: 1.4 },
+  // 10→13: 下路直接连出口前（weight 1.4，绕远）
+  { from: 10, to: 13, corners: [{ col: 7, row: 7 }, { col: 3, row: 7 }, { col: 3, row: 4 }], weight: 1.4 },
+  // 13→14: 出口
+  { from: 13, to: 14, corners: [{ col: 3, row: 4 }, { col: 0, row: 4 }] },
+];
+
+/** 构建好的 4 张手工迷宫（按关卡 1/2/3/4 索引） */
 export const STATIC_MAZES: MazeDef[] = [
   buildMaze("maze_residential", "社区防骗阵线", "#52C41A", MAZE_1_NODES, MAZE_1_EDGES),
   buildMaze("maze_city", "都市反诈中枢", "#FFB020", MAZE_2_NODES, MAZE_2_EDGES),
   buildMaze("maze_border", "跨境电诈围剿线", "#E5353B", MAZE_3_NODES, MAZE_3_EDGES),
+  buildMaze("maze_cyber_ai", "数智反诈矩阵", "#9C27B0", MAZE_4_NODES, MAZE_4_EDGES),
 ];
 
 // ====================================================================
@@ -747,6 +831,66 @@ export function generateMaze(seed: string, accent = "#B388FF"): MazeDef {
 }
 
 // ====================================================================
+// v11：地形图层生成（叠加在迷宫路径格子之上）
+// - highland: 探员射程 +30%、伤害 +15%（高地有利位）
+// - chokepoint: AOE 伤害 +30%，敌人减速 20%（瓶颈）
+// - trap: 敌人经过每秒损失 8% 最大血量（陷阱）
+// - safeIsland: 探员无敌且每秒回血 5%（安全岛）
+// - normal: 缺省，无地形效果（不生成 tile）
+// ====================================================================
+
+/** 地形类型 → 主题色 + emoji 映射 */
+const TERRAIN_STYLE: Record<TerrainKind, { color: string; emoji: string }> = {
+  highland: { color: "rgba(255,214,102,0.22)", emoji: "⛰️" },
+  chokepoint: { color: "rgba(229,53,59,0.22)", emoji: "🔻" },
+  trap: { color: "rgba(255,64,129,0.22)", emoji: "⚠️" },
+  safeIsland: { color: "rgba(82,196,26,0.22)", emoji: "🛡️" },
+  normal: { color: "transparent", emoji: "" },
+};
+
+/**
+ * v11：为指定迷宫生成地形图层
+ * - 基于格子坐标哈希确定性分配（同格始终同地形，避免帧间闪烁）
+ * - 仅生成非 normal 地形（normal 为缺省，不存 tile）
+ * - density 控制地形密度（0..1，默认 0.3 ≈ 30% 路径格有地形）
+ */
+export function generateTerrainLayer(maze: MazeDef, density = 0.3, seed = 0): TerrainLayer {
+  const tiles: TerrainTile[] = [];
+  const tileMap = new Map<string, TerrainTile>();
+  for (const cell of maze.pathCells) {
+    // 确定性哈希：col/row + seed
+    const h = ((cell.col * 73856093) ^ (cell.row * 19349663) ^ (seed * 83492791)) >>> 0;
+    const r = (h % 1000) / 1000;
+    if (r >= density) continue; // 多数格子无地形
+    // 按 r 落入地形类型区间
+    let kind: TerrainKind;
+    if (r < density * 0.4) kind = "highland";       // 40% 高地
+    else if (r < density * 0.65) kind = "chokepoint"; // 25% 瓶颈
+    else if (r < density * 0.85) kind = "trap";       // 20% 陷阱
+    else kind = "safeIsland";                          // 15% 安全岛
+    const k = key(cell.col, cell.row);
+    const style = TERRAIN_STYLE[kind];
+    const tile: TerrainTile = {
+      col: cell.col, row: cell.row, kind,
+      color: style.color, emoji: style.emoji,
+    };
+    tiles.push(tile);
+    tileMap.set(k, tile);
+  }
+  return { mazeId: maze.id, tiles, tileMap };
+}
+
+/**
+ * v11：为迷宫挂载地形图层（返回新迷宫对象，不可变更新）
+ * - Level 5（数智反诈）默认挂载中等密度地形
+ * - 其他关卡可按需挂载
+ */
+export function withTerrainLayer(maze: MazeDef, density = 0.3, seed = 0): MazeDef {
+  if (maze.terrainLayer) return maze; // 已挂载则不重复
+  return { ...maze, terrainLayer: generateTerrainLayer(maze, density, seed) };
+}
+
+// ====================================================================
 // 按模式/关卡选取迷宫
 // ====================================================================
 
@@ -756,27 +900,42 @@ export function generateMaze(seed: string, accent = "#B388FF"): MazeDef {
  * - timeTrial：迷宫 2（市级，中等复杂度）
  * - bossRush：迷宫 3（跨境，最长路径，BOSS 追击感）
  * - endlessRush：程序化（随机种子）
+ * - v11：Level 5（数智反诈）自动挂载地形图层
  */
 export function getInitialMaze(
   mode: string,
   level: number,
   seed: string,
 ): MazeDef {
+  let maze: MazeDef;
   switch (mode) {
     case "timeTrial":
-      return STATIC_MAZES[1];
+      maze = STATIC_MAZES[1];
+      break;
     case "bossRush":
-      return STATIC_MAZES[2];
+      maze = STATIC_MAZES[2];
+      break;
     case "endlessRush":
-      return generateMaze(seed, "#B388FF");
+      maze = generateMaze(seed, "#B388FF");
+      break;
     default:
-      return STATIC_MAZES[Math.max(0, Math.min(STATIC_MAZES.length - 1, level - 1))];
+      maze = STATIC_MAZES[Math.max(0, Math.min(STATIC_MAZES.length - 1, level - 1))];
   }
+  // v11：Level 5 及以上挂载地形图层
+  if (level >= 5) {
+    maze = withTerrainLayer(maze, 0.32, hashSeed(seed || "terrain_v11"));
+  }
+  return maze;
 }
 
 /** classic/daily 关卡推进时取下一关迷宫 */
 export function getLevelMaze(level: number): MazeDef {
-  return STATIC_MAZES[Math.max(0, Math.min(STATIC_MAZES.length - 1, level - 1))];
+  let maze = STATIC_MAZES[Math.max(0, Math.min(STATIC_MAZES.length - 1, level - 1))];
+  // v11：Level 5 挂载地形
+  if (level >= 5) {
+    maze = withTerrainLayer(maze, 0.32, 0);
+  }
+  return maze;
 }
 
 /** 关卡主题 → 迷宫主题色映射（保留兼容） */

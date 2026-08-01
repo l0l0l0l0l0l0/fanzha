@@ -12,20 +12,22 @@ import { ManagerEngine } from "@/games/manager/engine";
 import type {
   ManagerHud, DeploySlot, ManagerMode, AgentUpgradeKind,
   DialogueLine, TacticalDeviceKind, ChallengeAffix,
+  TacticalCommandKind,
 } from "@/games/manager/types";
 import {
-  MODE_META, TACTICAL_DEVICES, SKILL_LINKS, ELEMENT_REACTIONS,
+  MODE_META, TACTICAL_DEVICES, ELEMENT_REACTIONS,
   BOSS_RUSH_BOSSES, getBossDialogue, seasonRankFromScore,
+  TACTICAL_COMMANDS, AGENTS,
 } from "@/games/manager/data";
 import { getCaseByEnemyId, STORY_CHAPTERS } from "@/games/manager/data.v7";
 import type { RealCaseDef } from "@/games/manager/types";
 import type { V7ManagerReportData } from "@/utils/battleReport";
 import type { MazeDef } from "@/games/manager/maze";
+import { MAZE_CELL, MAZE_COLS, MAZE_ROWS, MAZE_OFFSET_X, MAZE_OFFSET_Y } from "@/games/manager/maze";
 import { roundRect } from "@/engine/Renderer";
 import { playSfx } from "@/engine/Audio";
 import { vibrateShort, setOrientation } from "@/platform/web";
 import { ResultOverlay } from "./ResultOverlay";
-import { ManagerDeployScene } from "./ManagerDeployScene";
 import { HubScene } from "./HubScene";
 import { TutorialOverlay } from "./TutorialOverlay";
 import { fontScale } from "./AccessibilityOverlay";
@@ -39,6 +41,8 @@ export class ManagerBattleScene extends GameShellScene {
   private mode: ManagerMode = "classic";
   /** v4：部署阶段传入的迷宫（与玩家岗哨位布局一致） */
   private maze: MazeDef | null = null;
+  /** v8：classic 模式下指定的起始关卡（1..4） */
+  private startLevel: number | undefined = undefined;
   private hud: ManagerHud | null = null;
   private toast: { text: string; tone: "good" | "bad" | "info"; until: number } | null = null;
   private toastTimer = 0;
@@ -48,6 +52,8 @@ export class ManagerBattleScene extends GameShellScene {
   private unsub: (() => void) | null = null;
   private pressedUlt = false;
   private pressedRedeploy = false;
+  /** v11：重部署目标格按压中（pickingTarget 模式下点击棋盘时置位） */
+  private pressedRedeployTarget = false;
   private pressedUpgradeIdx: number | null = null;
   private t = 0;
   private pulse = 0;
@@ -77,6 +83,22 @@ export class ManagerBattleScene extends GameShellScene {
   // ===== v6 Phase 3：极限挑战词缀（仅 challenge 模式，由 DeployScene 传入用于 HUD 展示） =====
   private challengeAffixes: ChallengeAffix[] = [];
 
+  // ===== v8 全面升级：UI 交互状态 =====
+  /** 当前选中的话术气泡 id（点击口诀槽时击破此气泡） */
+  private selectedBubbleId: number | null = null;
+  /** 卡牌手牌按压索引 */
+  private pressedCardIdx: number | null = null;
+  /** 口诀槽按压索引 */
+  private pressedCounterspellIdx: number | null = null;
+  /** 战术指令按钮按压索引 */
+  private pressedCommandIdx: number | null = null;
+  /** 案例复盘步骤按压索引 */
+  private pressedBreakdownIdx: number | null = null;
+  /** 探员选择按压索引（点击探员头像选中） */
+  private pressedAgentIdx: number | null = null;
+  /** v8：案例复盘答题时间戳（答题后 1.8s 自动关闭 overlay） */
+  private caseBreakdownAnsweredAt: number | null = null;
+
   getGameTitle(): string { return "反诈职业经理人"; }
   getGameSubtitle(): string { return "MANAGER"; }
   getAccent(): string {
@@ -89,6 +111,7 @@ export class ManagerBattleScene extends GameShellScene {
     this.mode = (params?.mode as ManagerMode) ?? "classic";
     this.maze = (params?.maze as MazeDef | undefined) ?? null;
     this.challengeAffixes = (params?.challengeAffixes as ChallengeAffix[] | undefined) ?? [];
+    this.startLevel = (params?.startLevel as number | undefined) ?? undefined;
     setOrientation("landscape");
     this.spawnEngine();
     // v7 D1：首次进入战斗展示新手引导
@@ -109,7 +132,7 @@ export class ManagerBattleScene extends GameShellScene {
   private spawnEngine(): void {
     const canvas = this.director.createOffscreenCanvas();
     this.engineCanvas = canvas;
-    const engine = new ManagerEngine(canvas, this.deployment, this.mode, this.maze ?? undefined);
+    const engine = new ManagerEngine(canvas, this.deployment, this.mode, this.maze ?? undefined, this.startLevel);
     this.engine = engine;
     this.unsub = engine.on((e: GameEvent) => this.onEngineEvent(e));
     // 由 updateGame/renderGame 同步驱动，消除双 RAF 撕裂闪烁
@@ -228,10 +251,23 @@ export class ManagerBattleScene extends GameShellScene {
     this.resultOverlay = new ResultOverlay(this.director, result, {
       onRetry: () => this.retry(),
       onBack: () => this.director.replace(new HubScene(this.director)),
-      // v7：结算页展示真实案例摘要 + 96110
-      renderExtraStats: realCase
-        ? (ctx, x, y, w) => this.renderRealCasePanel(ctx, x, y, w, realCase!)
-        : undefined,
+      // v10 P0-1d：结算页串联渲染"真实案例 + 本局学到的反诈知识点"
+      // - 有 realCase：先案例面板，下方 16px 处再渲染知识点面板
+      // - 无 realCase：仅渲染知识点面板（确保教育闭环始终可见）
+      renderExtraStats: (ctx, x, y, w) => {
+        let cursorY = y;
+        if (realCase) {
+          const caseH = this.renderRealCasePanel(ctx, x, cursorY, w, realCase!);
+          cursorY += caseH + 16;
+        }
+        // v10：从 result.stats 读取本局学到的反诈知识点
+        const tips = readLearnedTipsFromStats(result.stats);
+        if (tips.length > 0) {
+          const tipsH = this.renderLearnedTipsPanel(ctx, x, cursorY, w, tips);
+          cursorY += tipsH + 8;
+        }
+        return cursorY - y;
+      },
       // v7：战报分享数据
       v7ManagerData,
     });
@@ -323,6 +359,96 @@ export class ManagerBattleScene extends GameShellScene {
     return panelH;
   }
 
+  /**
+   * v10 P0-1d：本局学到的反诈知识点面板
+   * - 渲染为彩色 chip 网格（按击破敌人的 fraudType 去重）
+   * - 底部展示累计已学知识点数（跨局统计 learnedFraudTipsTotal）
+   * - 强化"战斗即学习"的教育闭环
+   */
+  private renderLearnedTipsPanel(
+    ctx: CanvasRenderingContext2D,
+    x: number, y: number, w: number,
+    tips: string[],
+  ): number {
+    if (tips.length === 0) return 0;
+    const meta = platformStore.managerMetaProgress();
+    const totalLearned = meta.learnedFraudTipsTotal;
+
+    // 面板高度：标题(28) + chip 区(根据数量) + 累计行(20) + padding
+    const chipH = 22;
+    const chipGap = 6;
+    const chipPadX = 8;
+    const maxRowW = w - 24;
+    // 估算行数：先按平均 chip 宽 80px 估算
+    const estRows = Math.max(1, Math.ceil(tips.length * 90 / maxRowW));
+    const panelH = 28 + estRows * (chipH + chipGap) + 24 + 12;
+
+    // 背景
+    ctx.save();
+    ctx.fillStyle = "rgba(82, 196, 26, 0.06)";
+    roundRect(ctx, x, y, w, panelH, 8);
+    ctx.fill();
+    ctx.restore();
+    // 左边框（绿色，象征学习）
+    ctx.save();
+    ctx.fillStyle = "#52C41A";
+    ctx.fillRect(x, y, 3, panelH);
+    ctx.restore();
+
+    // 标题
+    ctx.save();
+    ctx.font = `700 13px ${Theme.fonts.display}`;
+    ctx.fillStyle = "#52C41A";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillText(`📚 本局学到的反诈知识点（${tips.length} 条）`, x + 12, y + 10);
+    ctx.restore();
+
+    // chip 网格
+    ctx.save();
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.font = `600 10px ${Theme.fonts.body}`;
+    const chipColors = ["#52C41A", "#00B8D9", "#9D6BFF", "#FFB020", "#FF7AB8", "#5BC0DE"];
+    let cursorX = x + 12;
+    let cursorY = y + 32 + chipH / 2;
+    const rowTopY = cursorY - chipH / 2;
+    let curRowTop = rowTopY;
+    for (let i = 0; i < tips.length; i++) {
+      const tip = tips[i];
+      const color = chipColors[i % chipColors.length];
+      const textW = ctx.measureText(tip).width;
+      const cw = textW + chipPadX * 2;
+      // 换行检测
+      if (cursorX + cw > x + w - 12) {
+        cursorX = x + 12;
+        cursorY += chipH + chipGap;
+        curRowTop = cursorY - chipH / 2;
+      }
+      // chip 背景
+      ctx.fillStyle = withAlpha(color, 0.16);
+      roundRect(ctx, cursorX, curRowTop, cw, chipH, 4);
+      ctx.fill();
+      // chip 文字
+      ctx.fillStyle = color;
+      ctx.fillText(tip, cursorX + chipPadX, cursorY);
+      cursorX += cw + chipGap;
+    }
+    ctx.restore();
+
+    // 底部累计行
+    const footY = y + panelH - 22;
+    ctx.save();
+    ctx.font = `400 10px ${Theme.fonts.mono}`;
+    ctx.fillStyle = Theme.colors.ink.muted;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillText(`累计已学 ${totalLearned} 条反诈知识点（跨局统计）`, x + 12, footY);
+    ctx.restore();
+
+    return panelH;
+  }
+
   private retry(): void {
     if (this.engine) { this.engine.destroy(); this.engine = null; }
     this.resultOverlay = null;
@@ -330,6 +456,7 @@ export class ManagerBattleScene extends GameShellScene {
     this.toast = null;
     this.pressedUlt = false;
     this.pressedRedeploy = false;
+    this.pressedRedeployTarget = false;
     this.pressedUpgradeIdx = null;
     // v6 Phase 3：重置新增 UI 状态
     this.pressedQuizIdx = null;
@@ -343,6 +470,14 @@ export class ManagerBattleScene extends GameShellScene {
     this.prevBossName = undefined;
     this.prevBossHp = undefined;
     this.introTriggeredBosses.clear();
+    // v8：重置新增 UI 状态
+    this.pressedCardIdx = null;
+    this.pressedCounterspellIdx = null;
+    this.pressedCommandIdx = null;
+    this.pressedBreakdownIdx = null;
+    this.pressedAgentIdx = null;
+    this.selectedBubbleId = null;
+    this.caseBreakdownAnsweredAt = null;
     this.spawnEngine();
   }
 
@@ -357,6 +492,12 @@ export class ManagerBattleScene extends GameShellScene {
     }
     if (this.resultOverlay) this.resultOverlay.update(dt);
     if (this.tutorialOverlay?.active) this.tutorialOverlay.update(dt);
+    // v8：案例复盘答题后自动关闭 overlay（露出底层结算页）
+    if (this.caseBreakdownAnsweredAt !== null && this.t - this.caseBreakdownAnsweredAt > 1.8) {
+      this.engine?.dismissCaseBreakdown();
+      this.caseBreakdownAnsweredAt = null;
+      this.pressedBreakdownIdx = null;
+    }
   }
 
   private getUltButtonRect(screenW: number, screenH: number): Rect {
@@ -389,6 +530,63 @@ export class ManagerBattleScene extends GameShellScene {
     return { x: ultBtn.x - gap - pauseW, y: ultBtn.y, w: pauseW, h: ultBtn.h };
   }
 
+  // ===== v8：按钮矩形辅助 =====
+
+  /** v8：卡牌手牌矩形（最多 3 张，位于大招按钮上方） */
+  private getCardRect(idx: number, screenW: number, screenH: number): Rect {
+    const ultBtn = this.getUltButtonRect(screenW, screenH);
+    const cardW = 72;
+    const cardH = 88;
+    const gap = 6;
+    const total = this.hud?.cardHand?.cards.length ?? 0;
+    const totalW = total * cardW + Math.max(0, total - 1) * gap;
+    const startX = ultBtn.x + ultBtn.w - totalW;
+    return { x: startX + idx * (cardW + gap), y: ultBtn.y - cardH - 8, w: cardW, h: cardH };
+  }
+
+  /** v8 简化：口诀槽矩形（2 个，居中于重部署按钮上方，仅 BOSS 战显示） */
+  private getCounterspellRect(idx: number, screenW: number, screenH: number): Rect {
+    const redeployBtn = this.getRedeployButtonRect(screenW, screenH);
+    const slotW = 96;
+    const slotH = 44;
+    const gap = 8;
+    const totalW = 2 * slotW + gap;
+    const startX = redeployBtn.x + (redeployBtn.w - totalW) / 2;
+    return { x: startX + idx * (slotW + gap), y: redeployBtn.y - slotH - 8, w: slotW, h: slotH };
+  }
+
+  /** v8：战术指令按钮矩形（5 个，选中探员时显示于屏幕左侧中部） */
+  private getTacticalCommandRect(idx: number, screenW: number, _screenH: number): Rect {
+    const btnW = 56;
+    const btnH = 40;
+    const gap = 6;
+    return { x: 16 + idx * (btnW + gap), y: 60, w: btnW, h: btnH };
+  }
+
+  /** v8：案例复盘步骤矩形（5 个，垂直排列于 overlay 卡片内） */
+  private getCaseBreakdownStepRect(idx: number, screenW: number, screenH: number): Rect {
+    const cardW = Math.min(480, screenW - 64);
+    const cardH = 360;
+    const cardX = (screenW - cardW) / 2;
+    const cardY = (screenH - cardH) / 2;
+    const stepH = 44;
+    const stepGap = 6;
+    const stepW = cardW - 48;
+    const stepX = cardX + 24;
+    const stepStartY = cardY + 100;
+    return { x: stepX, y: stepStartY + idx * (stepH + stepGap), w: stepW, h: stepH };
+  }
+
+  /** v8：探员头像矩形（部署列表，位于底部按钮栏上方，用于选中下达战术指令） */
+  private getAgentPortraitRect(idx: number, screenW: number, screenH: number): Rect {
+    const redeployBtn = this.getRedeployButtonRect(screenW, screenH);
+    const portraitW = 36;
+    const portraitH = 36;
+    const gap = 4;
+    const startX = redeployBtn.x + redeployBtn.w + 8;
+    return { x: startX + idx * (portraitW + gap), y: redeployBtn.y, w: portraitW, h: portraitH };
+  }
+
   /** v6 Phase 3：战间答题选项矩形（4 个，垂直排列，中央卡片内） */
   private getQuizOptionRect(idx: number, screenW: number, screenH: number): Rect {
     const cardW = Math.min(440, screenW - 64);
@@ -418,6 +616,8 @@ export class ManagerBattleScene extends GameShellScene {
       this.drawComboHud(ctx, screenW, this.hud);
       // v3：元素克制提示（屏幕中央偏上，短暂浮动）
       this.drawElementalHint(ctx, screenW, this.hud);
+      // v11 D3：系统事件流左侧面板（元素反应/敌人AI/羁绊/弱点情报）
+      this.drawSystemEvents(ctx, screenW, this.hud);
       // v6 Phase 3：元素反应 / 技能链激活提示（连击 HUD 下方）
       this.drawActiveEffects(ctx, screenW, this.hud);
       // v6 Phase 3：极限挑战词缀徽章（左下角，重部署按钮上方）
@@ -461,12 +661,35 @@ export class ManagerBattleScene extends GameShellScene {
       ctx.restore();
     }
 
-    // 重新部署按钮
+    // v11：重部署按钮（战斗中花费能量移动探员；显示费用/就绪/取消态）
     const redeployBtn = this.getRedeployButtonRect(screenW, screenH);
-    drawButton(ctx, redeployBtn.x, redeployBtn.y, redeployBtn.w, redeployBtn.h, "重部署", {
-      variant: "ghost", accent: Theme.colors.ink.muted, pressed: this.pressedRedeploy,
+    const picking = this.hud?.redeployState?.pickingTarget === true;
+    const redeployReady = this.hud?.redeployReady ?? false;
+    const redeployCost = this.hud?.redeployCost ?? 30;
+    const redeployAccent = picking ? "#FF4D4F" : (redeployReady ? "#00E5FF" : Theme.colors.ink.muted);
+    const redeployLabel = picking ? "取消" : `重部署·${redeployCost}`;
+    drawButton(ctx, redeployBtn.x, redeployBtn.y, redeployBtn.w, redeployBtn.h, redeployLabel, {
+      variant: (picking || redeployReady) ? "primary" : "ghost",
+      accent: redeployAccent,
+      pressed: this.pressedRedeploy,
+      fontSize: 11,
     });
-    drawIcon(ctx, "rotate", redeployBtn.x + redeployBtn.w - 16, redeployBtn.y + 6, 12, Theme.colors.ink.muted);
+    drawIcon(ctx, "rotate", redeployBtn.x + redeployBtn.w - 16, redeployBtn.y + 6, 12, redeployAccent);
+    // v11：重部署选目标模式提示（屏幕中央偏上，半透明）
+    if (picking) {
+      ctx.save();
+      ctx.font = `700 13px ${Theme.fonts.body}`;
+      ctx.fillStyle = redeployAccent;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.shadowColor = redeployAccent;
+      ctx.shadowBlur = 10;
+      const blink = 0.6 + 0.4 * Math.sin(this.pulse * 6);
+      ctx.globalAlpha = blink;
+      ctx.fillText("🔄 点击棋盘空岗哨位移动探员（再次点击按钮取消）", screenW / 2, screenH / 2 - 40);
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
 
     // v6 Phase 3：战术装置图标（3 个）+ 战术暂停按钮（大招按钮左侧）
     this.renderTacticalDevices(ctx, screenW, screenH);
@@ -522,9 +745,26 @@ export class ManagerBattleScene extends GameShellScene {
       this.renderTowerEventOverlay(ctx, screenW, screenH);
     }
 
+    // ===== v8 全面升级 UI =====
+    // 卡牌手牌（大招按钮上方）
+    this.drawCardHand(ctx, screenW, screenH);
+    // 口诀槽（重部署按钮上方）
+    this.drawCounterspellSlots(ctx, screenW, screenH);
+    // 探员头像栏（用于选中下达战术指令）
+    this.drawAgentPortraits(ctx, screenW, screenH);
+    // 战术指令面板（选中探员时显示）
+    this.drawTacticalCommands(ctx, screenW, screenH);
+    // 受害人营救计数（顶部小面板）
+    this.drawVictimRescueHud(ctx, screenW);
+
     // 结算
     if (this.resultOverlay) {
       this.resultOverlay.render(ctx, screenW, screenH);
+    }
+
+    // v8：案例五步复盘 overlay —— 绘制于结算之上，答题后自动关闭露出结算
+    if (this.hud?.pendingCaseBreakdown) {
+      this.renderCaseBreakdownOverlay(ctx, screenW, screenH);
     }
 
     // v7 D1：新手引导覆盖层（最后绘制，置顶）
@@ -1024,14 +1264,13 @@ export class ManagerBattleScene extends GameShellScene {
   }
 
   // ====================================================================
-  // v6 Phase 3 任务 1.4：元素反应 / 技能链激活提示
+  // v6 Phase 3 任务 1.4：元素反应激活提示
   // ====================================================================
 
-  /** 渲染当前激活的元素反应 + 技能链（连击 HUD 下方，小图标行） */
+  /** 渲染当前激活的元素反应（连击 HUD 下方，小图标行） */
   private drawActiveEffects(ctx: CanvasRenderingContext2D, screenW: number, hud: ManagerHud): void {
     const reactions = hud.activeElementReactions ?? [];
-    const links = hud.activeSkillLinks ?? [];
-    if (reactions.length === 0 && links.length === 0) return;
+    if (reactions.length === 0) return;
     // 位置：连击 HUD（y=96）下方，右对齐
     const y = 120;
     const xRight = screenW - 16;
@@ -1039,30 +1278,7 @@ export class ManagerBattleScene extends GameShellScene {
     ctx.textAlign = "right";
     ctx.textBaseline = "middle";
     let cursorX = xRight;
-    // 技能链（先渲染，靠右）
-    for (let i = links.length - 1; i >= 0; i--) {
-      const link = links[i];
-      const def = SKILL_LINKS.find((s) => s.id === link.id);
-      const color = def?.color ?? Theme.colors.neon.DEFAULT;
-      const emoji = def?.emoji ?? "🔗";
-      const text = `${emoji} ${link.name} ${link.remaining.toFixed(1)}s`;
-      ctx.font = `700 10px ${Theme.fonts.mono}`;
-      const tw = ctx.measureText(text).width;
-      const bx = cursorX - tw - 12;
-      ctx.fillStyle = withAlpha(color, 0.15);
-      roundRect(ctx, bx, y - 8, tw + 12, 16, 3);
-      ctx.fill();
-      ctx.strokeStyle = withAlpha(color, 0.6);
-      ctx.lineWidth = 1;
-      ctx.stroke();
-      ctx.fillStyle = color;
-      ctx.shadowColor = color;
-      ctx.shadowBlur = 4;
-      ctx.fillText(text, cursorX - 6, y);
-      ctx.shadowBlur = 0;
-      cursorX = bx - 6;
-    }
-    // 元素反应（渲染在技能链左侧）
+    // 元素反应
     for (let i = reactions.length - 1; i >= 0; i--) {
       const r = reactions[i];
       const def = ELEMENT_REACTIONS.find((e) => e.kind === r.kind);
@@ -1421,7 +1637,90 @@ export class ManagerBattleScene extends GameShellScene {
     ctx.restore();
   }
 
-  /** v3：每日挑战 HUD（左上角，基地 HP 下方，垂直 3 修饰符徽章） */
+  /**
+   * v11 D3：系统事件流左侧面板渲染
+   * - 左侧 x=4 起，y=108 起（顶部状态栏下方），向下堆叠最多 4 条
+   * - 每条卡片：彩色左边框 + 半透明深色背景 + emoji/标题（行1）+ 描述（行2）
+   * - 按剩余 TTL 淡出；新事件有左滑入场动画
+   * - 替代 v10 居中 toast（避免遮挡中央波次/BOSS HUD）
+   */
+  private drawSystemEvents(ctx: CanvasRenderingContext2D, _screenW: number, hud: ManagerHud): void {
+    const events = hud.recentSystemEvents;
+    if (!events || events.length === 0) return;
+
+    const panelX = 4;
+    const panelW = 176;
+    // daily 模式下左上角有修饰符徽章（延伸至 y≈148），面板下移避免遮挡
+    const yBase = hud.mode === "daily" ? 154 : 108;
+    const rowH = 42;
+    const rowGap = 4;
+    const maxRows = 4;
+    const visible = events.slice(0, maxRows);
+
+    ctx.save();
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+
+    for (let i = 0; i < visible.length; i++) {
+      const ev = visible[i];
+      const elapsed = this.t - ev.at;
+      const ratio = Math.max(0, Math.min(1, 1 - elapsed / ev.ttl));
+      // 淡出：最后 30% 时间快速消退
+      const alpha = ratio > 0.3 ? 1 : Math.max(0, ratio / 0.3);
+      // 入场动画：前 0.3 秒从左滑入
+      const slideIn = Math.min(1, elapsed / 0.3);
+      const offsetX = (1 - slideIn) * -12;
+
+      const y = yBase + i * (rowH + rowGap);
+      const x = panelX + offsetX;
+
+      // 卡片背景（半透明深色）
+      ctx.globalAlpha = alpha * 0.82;
+      ctx.fillStyle = "rgba(8, 18, 32, 0.92)";
+      roundRect(ctx, x, y, panelW, rowH, 5);
+      ctx.fill();
+
+      // 彩色左边框（事件类型标识）
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = ev.color;
+      ctx.fillRect(x, y, 3, rowH);
+
+      // 顶部高光
+      ctx.globalAlpha = alpha * 0.15;
+      ctx.fillStyle = ev.color;
+      roundRect(ctx, x + 3, y, panelW - 3, rowH, 5);
+      ctx.fill();
+
+      // 行 1：emoji + 标题
+      ctx.globalAlpha = alpha;
+      ctx.font = `700 11px ${Theme.fonts.body}`;
+      ctx.fillStyle = ev.color;
+      ctx.shadowColor = ev.color;
+      ctx.shadowBlur = 4;
+      const title = ev.title.length > 14 ? ev.title.slice(0, 13) + "…" : ev.title;
+      ctx.fillText(`${ev.emoji} ${title}`, x + 10, y + 6);
+      ctx.shadowBlur = 0;
+
+      // 行 2：描述（截断 24 字）
+      ctx.font = `400 9px ${Theme.fonts.body}`;
+      ctx.fillStyle = withAlpha(Theme.colors.ink.DEFAULT, 0.7);
+      const desc = ev.desc.length > 26 ? ev.desc.slice(0, 24) + "…" : ev.desc;
+      ctx.fillText(desc, x + 10, y + 22);
+
+      // 剩余时间细条（底部 2px 进度条，直观显示 TTL）
+      const barW = panelW - 16;
+      ctx.globalAlpha = alpha * 0.3;
+      ctx.fillStyle = "rgba(255,255,255,0.2)";
+      ctx.fillRect(x + 8, y + rowH - 6, barW, 2);
+      ctx.globalAlpha = alpha * 0.8;
+      ctx.fillStyle = ev.color;
+      ctx.fillRect(x + 8, y + rowH - 6, barW * ratio, 2);
+    }
+
+    ctx.restore();
+  }
+
+  /** v3：每日挑战 HUD（左上角，基地 HP 条下方，垂直 3 修饰符徽章） */
   private drawDailyHud(ctx: CanvasRenderingContext2D, _screenW: number, hud: ManagerHud, baseY: number): void {
     if (hud.mode !== "daily" || !hud.dailyModifiers) return;
     const mods = hud.dailyModifiers;
@@ -1533,16 +1832,301 @@ export class ManagerBattleScene extends GameShellScene {
     ctx.fill();
   }
 
+  // ====================================================================
+  // v8 全面升级：UI 渲染方法
+  // ====================================================================
+
+  /** v8：卡牌手牌渲染（大招按钮上方，最多 3 张） */
+  private drawCardHand(ctx: CanvasRenderingContext2D, screenW: number, screenH: number): void {
+    const hand = this.hud?.cardHand;
+    if (!hand || hand.cards.length === 0) return;
+    for (let i = 0; i < hand.cards.length; i++) {
+      const card = hand.cards[i];
+      const rect = this.getCardRect(i, screenW, screenH);
+      const playable = hand.playable[i];
+      const pressed = this.pressedCardIdx === i;
+      // 卡牌背景
+      ctx.save();
+      ctx.globalAlpha = playable ? 1 : 0.5;
+      ctx.fillStyle = pressed ? withAlpha(card.color, 0.85) : "#1a1a2e";
+      roundRect(ctx, rect.x, rect.y, rect.w, rect.h, 6);
+      ctx.fill();
+      ctx.strokeStyle = card.color;
+      ctx.lineWidth = pressed ? 2 : 1.5;
+      ctx.stroke();
+      // 稀有度光晕
+      if (playable) {
+        const pulse = 0.4 + 0.3 * Math.sin(this.pulse * 3 + i);
+        ctx.shadowColor = card.color;
+        ctx.shadowBlur = 8 * pulse;
+        ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+        ctx.shadowBlur = 0;
+      }
+      // emoji
+      ctx.font = `700 22px ${Theme.fonts.body}`;
+      ctx.fillStyle = card.color;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(card.emoji, rect.x + rect.w / 2, rect.y + 20);
+      // 名称（截断）
+      ctx.font = `700 9px ${Theme.fonts.body}`;
+      ctx.fillStyle = "#FFF";
+      const name = card.name.length > 6 ? card.name.slice(0, 6) + "…" : card.name;
+      ctx.fillText(name, rect.x + rect.w / 2, rect.y + 44);
+      // 费用
+      ctx.font = `700 11px ${Theme.fonts.mono}`;
+      ctx.fillStyle = playable ? "#FFD666" : "#666";
+      ctx.fillText(`${card.cost}⚡`, rect.x + rect.w / 2, rect.y + 62);
+      // 稀有度条
+      const rarityColors: Record<string, string> = { common: "#999", rare: "#4FC3F7", epic: "#B388FF", legendary: "#FFD666" };
+      ctx.fillStyle = rarityColors[card.rarity] ?? "#999";
+      ctx.fillRect(rect.x + 4, rect.y + rect.h - 4, rect.w - 8, 3);
+      ctx.restore();
+    }
+  }
+
+  /** v8 简化：口诀槽渲染（重部署按钮上方，2 个，仅 BOSS 战显示） */
+  private drawCounterspellSlots(ctx: CanvasRenderingContext2D, screenW: number, screenH: number): void {
+    const slots = this.hud?.counterspellSlots;
+    if (!slots || slots.slots.length === 0) return;
+    for (let i = 0; i < slots.slots.length; i++) {
+      const cs = slots.slots[i];
+      const cd = slots.cooldowns[i] ?? 0;
+      const rect = this.getCounterspellRect(i, screenW, screenH);
+      const pressed = this.pressedCounterspellIdx === i;
+      const onCooldown = cd > 0;
+      ctx.save();
+      ctx.globalAlpha = onCooldown ? 0.4 : 1;
+      ctx.fillStyle = pressed ? withAlpha(cs.color, 0.85) : "#1a1a2e";
+      roundRect(ctx, rect.x, rect.y, rect.w, rect.h, 5);
+      ctx.fill();
+      ctx.strokeStyle = cs.color;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      // emoji + 口诀文本
+      ctx.font = `700 11px ${Theme.fonts.body}`;
+      ctx.fillStyle = cs.color;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(`${cs.emoji} ${cs.text}`, rect.x + rect.w / 2, rect.y + rect.h / 2);
+      // 冷却覆盖
+      if (onCooldown) {
+        ctx.fillStyle = "rgba(0,0,0,0.6)";
+        roundRect(ctx, rect.x, rect.y, rect.w, rect.h, 5);
+        ctx.fill();
+        ctx.fillStyle = "#FFD666";
+        ctx.font = `700 11px ${Theme.fonts.mono}`;
+        ctx.fillText(`${cd.toFixed(1)}s`, rect.x + rect.w / 2, rect.y + rect.h / 2);
+      }
+      ctx.restore();
+    }
+  }
+
+  /** v8：探员头像栏渲染（重部署按钮右侧，用于选中下达战术指令） */
+  private drawAgentPortraits(ctx: CanvasRenderingContext2D, screenW: number, screenH: number): void {
+    const agents = this.hud?.agents;
+    if (!agents || agents.length === 0) return;
+    const selectedIdx = this.hud?.selectedAgentIdx ?? null;
+    for (let i = 0; i < agents.length; i++) {
+      const a = agents[i];
+      const rect = this.getAgentPortraitRect(i, screenW, screenH);
+      const pressed = this.pressedAgentIdx === i;
+      const selected = selectedIdx === i;
+      ctx.save();
+      // 头像背景
+      ctx.fillStyle = a.alive ? (pressed ? "#FFD666" : "#2a2a4e") : "#333";
+      roundRect(ctx, rect.x, rect.y, rect.w, rect.h, 6);
+      ctx.fill();
+      ctx.strokeStyle = selected ? "#FFD666" : a.alive ? "#4FC3F7" : "#666";
+      ctx.lineWidth = selected ? 2.5 : 1;
+      ctx.stroke();
+      if (selected) {
+        ctx.shadowColor = "#FFD666";
+        ctx.shadowBlur = 8;
+        ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+        ctx.shadowBlur = 0;
+      }
+      // 探员 emoji（居中）
+      const def = AGENTS.find((ag) => ag.id === a.id);
+      const emoji = def?.emoji ?? "?";
+      ctx.font = `700 18px ${Theme.fonts.body}`;
+      ctx.fillStyle = a.alive ? "#FFF" : "#666";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(emoji, rect.x + rect.w / 2, rect.y + rect.h / 2 - 3);
+      // HP 条
+      if (a.alive) {
+        const hpRatio = Math.max(0, a.hp / a.maxHp);
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        ctx.fillRect(rect.x + 2, rect.y + rect.h - 5, rect.w - 4, 3);
+        ctx.fillStyle = hpRatio > 0.5 ? "#52C41A" : hpRatio > 0.25 ? "#FFB020" : "#E5353B";
+        ctx.fillRect(rect.x + 2, rect.y + rect.h - 5, (rect.w - 4) * hpRatio, 3);
+      }
+      ctx.restore();
+    }
+  }
+
+  /** v8：战术指令面板渲染（选中探员时显示 5 个指令按钮） */
+  private drawTacticalCommands(ctx: CanvasRenderingContext2D, screenW: number, screenH: number): void {
+    const selectedIdx = this.hud?.selectedAgentIdx;
+    const cmdState = this.hud?.tacticalCommandState;
+    if (selectedIdx === null || selectedIdx === undefined || !cmdState) return;
+    for (let i = 0; i < TACTICAL_COMMANDS.length; i++) {
+      const cmd = TACTICAL_COMMANDS[i];
+      const rect = this.getTacticalCommandRect(i, screenW, screenH);
+      const cd = cmdState.cooldowns[cmd.kind] ?? 0;
+      const active = cmdState.activeKind === cmd.kind;
+      const pressed = this.pressedCommandIdx === i;
+      const onCooldown = cd > 0;
+      ctx.save();
+      ctx.globalAlpha = onCooldown ? 0.4 : 1;
+      ctx.fillStyle = active ? cmd.color : pressed ? withAlpha(cmd.color, 0.7) : "#1a1a2e";
+      roundRect(ctx, rect.x, rect.y, rect.w, rect.h, 5);
+      ctx.fill();
+      ctx.strokeStyle = cmd.color;
+      ctx.lineWidth = active ? 2 : 1;
+      ctx.stroke();
+      if (active) {
+        ctx.shadowColor = cmd.color;
+        ctx.shadowBlur = 8;
+        ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+        ctx.shadowBlur = 0;
+      }
+      ctx.font = `700 10px ${Theme.fonts.body}`;
+      ctx.fillStyle = active ? "#FFF" : cmd.color;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(`${cmd.emoji}${cmd.name}`, rect.x + rect.w / 2, rect.y + rect.h / 2);
+      if (onCooldown) {
+        ctx.fillStyle = "rgba(0,0,0,0.6)";
+        roundRect(ctx, rect.x, rect.y, rect.w, rect.h, 5);
+        ctx.fill();
+        ctx.fillStyle = "#FFD666";
+        ctx.font = `700 9px ${Theme.fonts.mono}`;
+        ctx.fillText(`${cd.toFixed(0)}s`, rect.x + rect.w / 2, rect.y + rect.h / 2);
+      }
+      ctx.restore();
+    }
+  }
+
+  /** v8：受害人营救计数（顶部小面板） */
+  private drawVictimRescueHud(ctx: CanvasRenderingContext2D, screenW: number): void {
+    const rescued = this.hud?.victimsRescued ?? 0;
+    const lost = this.hud?.victimsLost ?? 0;
+    if (rescued === 0 && lost === 0) return;
+    ctx.save();
+    const x = screenW / 2 - 60;
+    const y = 56;
+    const w = 120;
+    const h = 22;
+    ctx.fillStyle = "rgba(26,26,46,0.85)";
+    roundRect(ctx, x, y, w, h, 4);
+    ctx.fill();
+    ctx.font = `700 11px ${Theme.fonts.body}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#52C41A";
+    ctx.fillText(`✓${rescued}`, x + 30, y + h / 2);
+    ctx.fillStyle = "#E5353B";
+    ctx.fillText(`✗${lost}`, x + 70, y + h / 2);
+    ctx.fillStyle = "#FFD666";
+    ctx.font = `400 9px ${Theme.fonts.mono}`;
+    ctx.fillText("营救", x + 100, y + h / 2);
+    ctx.restore();
+  }
+
+  /** v8：案例五步复盘 overlay（胜利时显示，玩家选择拦截点） */
+  private renderCaseBreakdownOverlay(ctx: CanvasRenderingContext2D, screenW: number, screenH: number): void {
+    const breakdown = this.hud?.pendingCaseBreakdown;
+    if (!breakdown) return;
+    const answered = this.hud?.lastBreakdownCorrect !== null && this.hud?.lastBreakdownCorrect !== undefined;
+    ctx.save();
+    // 遮罩
+    ctx.fillStyle = "rgba(0,0,0,0.75)";
+    ctx.fillRect(0, 0, screenW, screenH);
+    // 卡片
+    const cardW = Math.min(480, screenW - 64);
+    const cardH = 360;
+    const cardX = (screenW - cardW) / 2;
+    const cardY = (screenH - cardH) / 2;
+    ctx.fillStyle = "#1a1a2e";
+    roundRect(ctx, cardX, cardY, cardW, cardH, 12);
+    ctx.fill();
+    ctx.strokeStyle = "#FFB020";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // 标题
+    ctx.font = `700 14px ${Theme.fonts.body}`;
+    ctx.fillStyle = "#FFB020";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.fillText(breakdown.title, screenW / 2, cardY + 16);
+    ctx.font = `400 10px ${Theme.fonts.mono}`;
+    ctx.fillStyle = Theme.colors.ink.muted;
+    ctx.fillText("选择最关键的拦截点（答对获奖励）", screenW / 2, cardY + 38);
+    // 步骤列表
+    for (let i = 0; i < breakdown.steps.length; i++) {
+      const step = breakdown.steps[i];
+      const rect = this.getCaseBreakdownStepRect(i, screenW, screenH);
+      const pressed = this.pressedBreakdownIdx === i;
+      const isCorrect = answered && i === breakdown.correctInterceptIdx;
+      const isWrong = answered && this.hud?.lastBreakdownCorrect === false && i === this.pressedBreakdownIdx;
+      ctx.fillStyle = isCorrect ? "rgba(82,196,26,0.25)" : isWrong ? "rgba(229,53,59,0.25)" : pressed ? "rgba(255,176,32,0.2)" : "rgba(255,255,255,0.05)";
+      roundRect(ctx, rect.x, rect.y, rect.w, rect.h, 6);
+      ctx.fill();
+      ctx.strokeStyle = isCorrect ? "#52C41A" : isWrong ? "#E5353B" : "rgba(255,255,255,0.15)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.font = `700 11px ${Theme.fonts.body}`;
+      ctx.fillStyle = "#FFF";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(`${step.order}. ${step.name}`, rect.x + 10, rect.y + 14);
+      ctx.font = `400 9px ${Theme.fonts.mono}`;
+      ctx.fillStyle = Theme.colors.ink.muted;
+      ctx.fillText(step.desc.length > 32 ? step.desc.slice(0, 32) + "…" : step.desc, rect.x + 10, rect.y + 30);
+    }
+    ctx.restore();
+  }
+
   protected handleGameTouch(type: "start" | "move" | "end", x: number, y: number, _touchId: number): boolean {
     // v7 D1：新手引导最高优先级
     if (this.tutorialOverlay?.active) {
       return this.tutorialOverlay.handleTouch(type, x, y);
     }
+    const screenW = this.director.screenWidth;
+    const screenH = this.director.screenHeight;
+    // v8：案例五步复盘 overlay（绘制于结算之上，优先拦截触摸）
+    if (this.hud?.pendingCaseBreakdown) {
+      const breakdown = this.hud.pendingCaseBreakdown;
+      const answered = this.caseBreakdownAnsweredAt !== null;
+      if (type === "start" && !answered) {
+        for (let i = 0; i < breakdown.steps.length; i++) {
+          if (hitTest(x, y, this.getCaseBreakdownStepRect(i, screenW, screenH))) {
+            this.pressedBreakdownIdx = i;
+            return true;
+          }
+        }
+        return true; // 复盘阶段消费所有 touch
+      } else if (type === "end" && !answered) {
+        if (this.pressedBreakdownIdx !== null) {
+          const idx = this.pressedBreakdownIdx;
+          const rect = this.getCaseBreakdownStepRect(idx, screenW, screenH);
+          if (hitTest(x, y, rect)) {
+            this.engine?.answerCaseBreakdown(idx);
+            this.caseBreakdownAnsweredAt = this.t;
+            playSfx("click");
+            vibrateShort();
+          }
+          this.pressedBreakdownIdx = null;
+        }
+        return true;
+      }
+      return true; // 复盘 overlay 存在时消费所有 touch
+    }
     if (this.resultOverlay) {
       return this.resultOverlay.handleTouch(type, x, y);
     }
-    const screenW = this.director.screenWidth;
-    const screenH = this.director.screenHeight;
     const ultBtn = this.getUltButtonRect(screenW, screenH);
     const redeployBtn = this.getRedeployButtonRect(screenW, screenH);
 
@@ -1689,8 +2273,86 @@ export class ManagerBattleScene extends GameShellScene {
       return true; // 放置模式中消费所有 touch
     }
 
-    // ===== 触摸优先级 5：大招/重部署/战术装置/暂停按钮 =====
+    // ===== v11：触摸优先级 4.5 —— 重部署目标格选取（pickingTarget 模态） =====
+    if (this.hud?.redeployState?.pickingTarget) {
+      const redeployBtn = this.getRedeployButtonRect(screenW, screenH);
+      const inBottomBar = y > redeployBtn.y - 4;
+      if (type === "start") {
+        // 点击重部署按钮 → 取消（在 priority 5 之前消费，避免触发 beginRedeploy 二次进入）
+        if (hitTest(x, y, redeployBtn)) { this.pressedRedeploy = true; return true; }
+        // 点击棋盘区域（非底栏）→ 标记目标格按压
+        if (!inBottomBar) { this.pressedRedeployTarget = true; return true; }
+        return true; // 其余区域消费，不响应
+      } else if (type === "end") {
+        if (this.pressedRedeploy && hitTest(x, y, redeployBtn)) {
+          // 再次点击重部署按钮 → 取消
+          this.engine?.cancelRedeploy();
+          playSfx("click");
+          vibrateShort();
+        } else if (this.pressedRedeployTarget) {
+          // 选取目标格：屏幕坐标 → 引擎坐标 → 格子坐标
+          const local = this.director.screenToLocal(x, y, 960, 540);
+          const col = Math.floor((local.x - MAZE_OFFSET_X) / MAZE_CELL);
+          const row = Math.floor((local.y - MAZE_OFFSET_Y) / MAZE_CELL);
+          const selIdx = this.hud?.redeployState?.selectedAgentIdx;
+          if (selIdx !== null && selIdx !== undefined && col >= 0 && col < MAZE_COLS && row >= 0 && row < MAZE_ROWS) {
+            this.engine?.redeployAgent(selIdx, col, row);
+            playSfx("click");
+            vibrateShort();
+          } else {
+            // 越界 → 取消
+            this.engine?.cancelRedeploy();
+          }
+        }
+        this.pressedRedeploy = false;
+        this.pressedRedeployTarget = false;
+        return true;
+      }
+      return true;
+    }
+
+    // ===== 触摸优先级 5：v8 卡牌/口诀槽/探员头像/战术指令 + 大招/重部署/战术装置/暂停 =====
     if (type === "start") {
+      // v8：卡牌手牌
+      const cardHand = this.hud?.cardHand;
+      if (cardHand && cardHand.cards.length > 0) {
+        for (let i = 0; i < cardHand.cards.length; i++) {
+          if (hitTest(x, y, this.getCardRect(i, screenW, screenH))) {
+            this.pressedCardIdx = i;
+            return true;
+          }
+        }
+      }
+      // v8：口诀槽
+      const csSlots = this.hud?.counterspellSlots;
+      if (csSlots && csSlots.slots.length > 0) {
+        for (let i = 0; i < csSlots.slots.length; i++) {
+          if (hitTest(x, y, this.getCounterspellRect(i, screenW, screenH))) {
+            this.pressedCounterspellIdx = i;
+            return true;
+          }
+        }
+      }
+      // v8：探员头像
+      const agents = this.hud?.agents;
+      if (agents && agents.length > 0) {
+        for (let i = 0; i < agents.length; i++) {
+          if (hitTest(x, y, this.getAgentPortraitRect(i, screenW, screenH))) {
+            this.pressedAgentIdx = i;
+            return true;
+          }
+        }
+      }
+      // v8：战术指令（仅选中探员时可用）
+      const selectedAgentIdx = this.hud?.selectedAgentIdx;
+      if (selectedAgentIdx !== null && selectedAgentIdx !== undefined && this.hud?.tacticalCommandState) {
+        for (let i = 0; i < TACTICAL_COMMANDS.length; i++) {
+          if (hitTest(x, y, this.getTacticalCommandRect(i, screenW, screenH))) {
+            this.pressedCommandIdx = i;
+            return true;
+          }
+        }
+      }
       if (hitTest(x, y, ultBtn)) { this.pressedUlt = true; return true; }
       if (hitTest(x, y, redeployBtn)) { this.pressedRedeploy = true; return true; }
       // 战术装置图标
@@ -1703,16 +2365,127 @@ export class ManagerBattleScene extends GameShellScene {
       // 战术暂停按钮
       const pauseRect = this.getTacticalPauseRect(screenW, screenH);
       if (hitTest(x, y, pauseRect)) { this.pressedTacticalPause = true; return true; }
+      // v8：点击引擎区域内的话术气泡（选中以便精准击破）
+      if (this.hud?.speechBubbles && this.hud.speechBubbles.length > 0) {
+        const local = this.director.screenToLocal(x, y, 960, 540);
+        for (const b of this.hud.speechBubbles) {
+          // 气泡命中区：engine 坐标系，bw=150, bh=32, bx=b.x-75, by=b.y-32
+          if (local.x >= b.x - 75 && local.x <= b.x + 75 && local.y >= b.y - 34 && local.y <= b.y + 4) {
+            this.selectedBubbleId = b.id;
+            playSfx("click");
+            vibrateShort();
+            return true;
+          }
+        }
+      }
       return false;
     } else if (type === "end") {
+      // v8：卡牌大招
+      if (this.pressedCardIdx !== null) {
+        const idx = this.pressedCardIdx;
+        const rect = this.getCardRect(idx, screenW, screenH);
+        if (hitTest(x, y, rect)) {
+          const playable = this.hud?.cardHand?.playable[idx] ?? false;
+          if (playable) {
+            this.engine?.castCardSkill(idx);
+            playSfx("bomb");
+            vibrateShort();
+          } else {
+            playSfx("click");
+          }
+        }
+        this.pressedCardIdx = null;
+        // 卡牌点击后不再处理其他按钮
+        this.pressedUlt = false;
+        this.pressedRedeploy = false;
+        this.pressedDeviceIdx = null;
+        this.pressedTacticalPause = false;
+        this.pressedCounterspellIdx = null;
+        this.pressedAgentIdx = null;
+        this.pressedCommandIdx = null;
+        return true;
+      }
+      // v8：口诀槽击破
+      if (this.pressedCounterspellIdx !== null) {
+        const idx = this.pressedCounterspellIdx;
+        const rect = this.getCounterspellRect(idx, screenW, screenH);
+        if (hitTest(x, y, rect)) {
+          const cd = this.hud?.counterspellSlots?.cooldowns[idx] ?? 0;
+          if (cd <= 0) {
+            this.engine?.popSpeechBubbleBySlot(idx, this.selectedBubbleId ?? undefined);
+            playSfx("click");
+            vibrateShort();
+            // 击破后清除选中
+            this.selectedBubbleId = null;
+          } else {
+            playSfx("click");
+          }
+        }
+        this.pressedCounterspellIdx = null;
+        this.pressedUlt = false;
+        this.pressedRedeploy = false;
+        this.pressedDeviceIdx = null;
+        this.pressedTacticalPause = false;
+        this.pressedAgentIdx = null;
+        this.pressedCommandIdx = null;
+        return true;
+      }
+      // v8：探员头像选中（toggle）
+      if (this.pressedAgentIdx !== null) {
+        const idx = this.pressedAgentIdx;
+        const rect = this.getAgentPortraitRect(idx, screenW, screenH);
+        if (hitTest(x, y, rect)) {
+          const cur = this.hud?.selectedAgentIdx ?? null;
+          this.engine?.selectAgent(cur === idx ? null : idx);
+          playSfx("click");
+          vibrateShort();
+        }
+        this.pressedAgentIdx = null;
+        this.pressedUlt = false;
+        this.pressedRedeploy = false;
+        this.pressedDeviceIdx = null;
+        this.pressedTacticalPause = false;
+        this.pressedCommandIdx = null;
+        return true;
+      }
+      // v8：战术指令下达
+      if (this.pressedCommandIdx !== null) {
+        const idx = this.pressedCommandIdx;
+        const rect = this.getTacticalCommandRect(idx, screenW, screenH);
+        if (hitTest(x, y, rect)) {
+          const cmd = TACTICAL_COMMANDS[idx];
+          const selIdx = this.hud?.selectedAgentIdx;
+          if (cmd && selIdx !== null && selIdx !== undefined) {
+            const ok = this.engine?.useTacticalCommand(selIdx, cmd.kind) ?? false;
+            playSfx(ok ? "click" : "click");
+            vibrateShort();
+          }
+        }
+        this.pressedCommandIdx = null;
+        this.pressedUlt = false;
+        this.pressedRedeploy = false;
+        this.pressedDeviceIdx = null;
+        this.pressedTacticalPause = false;
+        return true;
+      }
       if (this.pressedUlt && hitTest(x, y, ultBtn)) {
         this.engine?.triggerUlt();
         playSfx("click");
         vibrateShort();
       } else if (this.pressedRedeploy && hitTest(x, y, redeployBtn)) {
-        playSfx("click");
-        setOrientation("portrait");
-        this.director.replace(new ManagerDeployScene(this.director));
+        // v11：进入重部署选目标模式（需先选中一名探员）
+        const selIdx = this.hud?.selectedAgentIdx;
+        if (selIdx === null || selIdx === undefined) {
+          this.toast = { text: "请先选中一名探员再重部署", tone: "bad", until: this.t + 2 };
+          playSfx("click");
+        } else if (this.hud?.redeployReady) {
+          this.engine?.beginRedeploy(selIdx);
+          playSfx("click");
+          vibrateShort();
+        } else {
+          this.toast = { text: "能量不足，无法重部署", tone: "bad", until: this.t + 2 };
+          playSfx("click");
+        }
       } else if (this.pressedDeviceIdx !== null) {
         const idx = this.pressedDeviceIdx;
         const rect = this.getTacticalDeviceRect(idx, screenW, screenH);
@@ -1802,4 +2575,18 @@ function formatAmount(yuan: number): string {
     return `${(yuan / 10000).toFixed(yuan % 10000 === 0 ? 0 : 1)} 万`;
   }
   return `${yuan}`;
+}
+
+/**
+ * v10 P0-1d：从 GameResultPayload.stats 中安全读取 learnedFraudTips 数组
+ * - stats 类型为 unknown，需做类型守卫
+ * - 兼容 engine 写入的 { learnedFraudTips: string[] } 结构
+ */
+function readLearnedTipsFromStats(stats: unknown): string[] {
+  if (!stats || typeof stats !== "object") return [];
+  const s = stats as { learnedFraudTips?: unknown };
+  if (Array.isArray(s.learnedFraudTips)) {
+    return s.learnedFraudTips.filter((t): t is string => typeof t === "string");
+  }
+  return [];
 }

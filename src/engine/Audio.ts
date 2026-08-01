@@ -26,7 +26,12 @@ type SfxName =
   | "rankUp"        // 段位晋级（包E）
   | "wrongRecord"   // 错题记录（包D）
   | "bossSkill"     // Boss 技能触发
-  | "specialEvent";  // 特殊波次事件
+  | "specialEvent"  // 特殊波次事件
+  // ===== v5 升级：新模式专属音效 =====
+  | "phoneRing"     // AI 对战：骗子来电铃声
+  | "messageBeep"   // AI 对战/拆解：消息提示音
+  | "redFlag"       // 拆解：识别红旗警示音
+  | "versusHit";    // 双人对战：攻击命中音
 
 /** v2：BGM 曲目名 */
 export type BgmName = "hub" | "battle" | "tense" | "bossBattle" | "ultReady" | "none";
@@ -411,6 +416,27 @@ export function playSfx(name: SfxName): void {
       // 特殊事件：神秘提示 + 短 ping
       playTone({ freq: 660, type: "sine", duration: 0.25, gain: 0.15, freqEnd: 990 });
       setTimeout(() => playTone({ freq: 1320, type: "triangle", duration: 0.1, gain: 0.1 }), 150);
+      break;
+    // ===== v5 升级：新模式专属音效 =====
+    case "phoneRing":
+      // AI 对战：双音电话铃（模拟传统铃声）
+      playTone({ freq: 440, type: "sine", duration: 0.4, gain: 0.12 });
+      setTimeout(() => playTone({ freq: 480, type: "sine", duration: 0.4, gain: 0.12 }), 50);
+      break;
+    case "messageBeep":
+      // 消息提示：短促双音 blip
+      playTone({ freq: 1200, type: "square", duration: 0.04, gain: 0.08 });
+      setTimeout(() => playTone({ freq: 1600, type: "square", duration: 0.05, gain: 0.08 }), 40);
+      break;
+    case "redFlag":
+      // 红旗警示：尖锐警报 + 低频威胁
+      playTone({ freq: 1800, type: "sawtooth", duration: 0.15, gain: 0.14, freqEnd: 1200 });
+      setTimeout(() => playTone({ freq: 160, type: "sawtooth", duration: 0.25, gain: 0.16, freqEnd: 80 }), 80);
+      break;
+    case "versusHit":
+      // 双人对战命中：冲击 + 电流
+      playNoise(0.12, 0.15, 1500);
+      playTone({ freq: 800, type: "square", duration: 0.08, gain: 0.12, freqEnd: 200 });
       break;
   }
 }

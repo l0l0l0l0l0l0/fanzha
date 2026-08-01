@@ -1,0 +1,4764 @@
+[
+  {
+    "id": "F124-001",
+    "typeId": "F124",
+    "type": "AI大模型仿冒客服",
+    "cardType": "chat",
+    "difficulty": 2,
+    "kind": "single",
+    "title": "微信 / 自称\"通义千问安全中心\"",
+    "body": "陌生人加好友称\"我是通义千问安全中心，检测到您的账号涉嫌违规操作即将封号，需配合核实身份\"，并发来一张盖有红章的\"核实通知\"图片，要求点击链接填写信息。",
+    "options": [
+      "点击链接填写身份信息",
+      "提供支付宝账号自证清白",
+      "不理会，去通义千问官方APP内核实",
+      "按对方要求扫码核验"
+    ],
+    "answer": 2,
+    "cues": [
+      "红章通知",
+      "涉嫌违规",
+      "点击链接核实"
+    ],
+    "explain": "AI可生成逼真假公章通知。官方不会私加微信发链接核实，封号管理走官方APP内的消息中心，挂断自行核实。",
+    "psychology": [
+      "authority",
+      "fear",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-AI-IMPERSONATION"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "通义千问仿冒安全中心案",
+      "date": "2026-03",
+      "source": "国家反诈中心通报",
+      "takeaway": "大模型官方不会私加微信发链接核实，封号通知只走APP站内消息。"
+    },
+    "tags": [
+      "AI",
+      "通义千问",
+      "仿冒客服",
+      "钓鱼链接"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F124-002",
+    "typeId": "F124",
+    "type": "AI大模型仿冒客服",
+    "cardType": "call",
+    "difficulty": 3,
+    "kind": "single",
+    "title": "语音来电 / \"文心一言客服\"",
+    "body": "来电显示疑似官方号码，对方声音专业温和：\"您好文心一言客服，您开通的Pro会员每月扣费588元，如需取消请按1转人工。\"按1后对方称需共享屏幕协助操作。",
+    "options": [
+      "共享屏幕配合取消",
+      "按提示输入支付密码核验",
+      "挂断，回拨文心一言官方电话核实",
+      "提供验证码完成核验"
+    ],
+    "answer": 2,
+    "cues": [
+      "AI仿声",
+      "共享屏幕",
+      "扣费恐吓"
+    ],
+    "explain": "AI仿声可模拟官方客服音色，来电号码也可伪造。共享屏幕会让对方看到验证码和密码，挂断回拨官方唯一热线核实。",
+    "psychology": [
+      "authority",
+      "fear",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-AI-VOICE"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "文心一言AI仿声客服案",
+      "date": "2026-04",
+      "source": "北京反诈中心通报",
+      "takeaway": "AI可仿造官方客服音色与号码，共享屏幕=交出账户控制权，挂断回拨官方核实。"
+    },
+    "tags": [
+      "AI",
+      "文心一言",
+      "仿声",
+      "共享屏幕"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F124-003",
+    "typeId": "F124",
+    "type": "AI大模型仿冒客服",
+    "cardType": "sms",
+    "difficulty": 1,
+    "kind": "judge",
+    "title": "短信 / Kimi\"Pro会员退订\"",
+    "body": "【Kimi】您已开通Pro会员每月扣费388元，如需退订请点击 http://kimi-vip-cancel.xyz 24小时内办理，否则自动续费。判断：点击链接退订即可。",
+    "options": [
+      "正确：点击链接退订",
+      "错误：kimi官方域名为kimi.com，此为钓鱼链接"
+    ],
+    "answer": 1,
+    "cues": [
+      "kimi-vip-cancel.xyz",
+      "24小时",
+      "陌生链接"
+    ],
+    "explain": "kimi-vip-cancel.xyz是仿冒域名，官方域名为kimi.com。陌生短信链接一律不点，会员管理在官方APP内操作。",
+    "psychology": [
+      "urgency",
+      "fear"
+    ],
+    "knowledgePoints": [
+      "KP-AI-IMPERSONATION"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "Kimi仿冒域名退订钓鱼案",
+      "date": "2026-05",
+      "source": "工信部反诈通报",
+      "takeaway": "看清域名拼写，仿冒域名常加后缀，会员退订认准官方APP。"
+    },
+    "tags": [
+      "AI",
+      "Kimi",
+      "钓鱼短信",
+      "域名仿冒"
+    ],
+    "updateDate": "2026-07",
+    "severity": 3
+  },
+  {
+    "id": "F124-004",
+    "typeId": "F124",
+    "type": "AI换脸视频",
+    "cardType": "video",
+    "difficulty": 4,
+    "kind": "single",
+    "title": "视频通话 / \"领导\"急需周转",
+    "body": "微信视频来电，画面中是熟悉的公司领导模样，开口：\"小王，我在谈一个紧急项目需要5万周转，你先转到我这个卡上，下午还你。\"画面清晰但稍有不自然。",
+    "options": [
+      "领导开口立刻转账",
+      "先转一半表示诚意",
+      "挂断，用领导通讯录里原有电话回拨核实",
+      "让同事也凑一份"
+    ],
+    "answer": 2,
+    "cues": [
+      "AI换脸",
+      "紧急转账",
+      "私下借款"
+    ],
+    "explain": "2026年AI换脸已能实时伪造熟人面孔视频。涉及转账务必挂断，通过原通讯录电话回拨核实，不轻信视频画面。",
+    "psychology": [
+      "authority",
+      "urgency",
+      "trust"
+    ],
+    "knowledgePoints": [
+      "KP-AI-DEEPFAKE"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "AI换脸伪造领导借款案",
+      "date": "2026-02",
+      "source": "公安部反诈中心通报",
+      "takeaway": "AI换脸可实时伪造熟人视频，涉及转账必须电话回拨核实。"
+    },
+    "tags": [
+      "AI换脸",
+      "伪造领导",
+      "紧急转账"
+    ],
+    "updateDate": "2026-07",
+    "severity": 5
+  },
+  {
+    "id": "F124-005",
+    "typeId": "F124",
+    "type": "AI换脸视频",
+    "cardType": "video",
+    "difficulty": 4,
+    "kind": "single",
+    "title": "视频通话 / \"儿子\"出事求助",
+    "body": "收到\"儿子\"微信视频，画面中的人哭着说：\"爸我在医院，朋友受伤急需2万手术费，你快转过来。\"声音和脸都很像，但说话断断续续。",
+    "options": [
+      "心疼孩子立刻转账",
+      "让对方再发一次视频确认",
+      "挂断，拨打儿子平时常用号码核实",
+      "转账时备注一下"
+    ],
+    "answer": 2,
+    "cues": [
+      "AI换脸",
+      "AI仿声",
+      "紧急求救",
+      "医院"
+    ],
+    "explain": "AI换脸+仿声可伪造亲人求助视频。涉及紧急汇款，挂断后用原号码回拨是最有效的核实方式，别被画面带节奏。",
+    "psychology": [
+      "fear",
+      "urgency",
+      "intimacy"
+    ],
+    "knowledgePoints": [
+      "KP-AI-DEEPFAKE"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "AI换脸伪造儿子求助案",
+      "date": "2026-01",
+      "source": "上海反诈中心通报",
+      "takeaway": "AI可伪造亲人视频求助，紧急汇款前必须电话回拨核实。"
+    },
+    "tags": [
+      "AI换脸",
+      "伪造亲人",
+      "紧急求救"
+    ],
+    "updateDate": "2026-07",
+    "severity": 5
+  },
+  {
+    "id": "F124-006",
+    "typeId": "F124",
+    "type": "AI换脸视频",
+    "cardType": "video",
+    "difficulty": 3,
+    "kind": "single",
+    "title": "视频通话 / \"警察\"在线办案",
+    "body": "对方自称\"市公安局民警\"，发起视频通话，画面中是穿警服的人：\"你涉嫌洗钱，需要你把钱转入安全账户配合调查，全程保密不得告诉家人。\"",
+    "options": [
+      "配合警方转账到安全账户",
+      "全程保密不告诉家人",
+      "挂断拨打110核实",
+      "按对方要求开屏幕共享"
+    ],
+    "answer": 2,
+    "cues": [
+      "假冒警察",
+      "安全账户",
+      "保密要求"
+    ],
+    "explain": "公安机关绝不会视频通话办案，更无\"安全账户\"。所谓保密是隔绝你求证，挂断拨打110核实才是正道。",
+    "psychology": [
+      "authority",
+      "fear",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-AI-DEEPFAKE"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "AI换脸伪造警察办案案",
+      "date": "2026-03",
+      "source": "国家反诈中心通报",
+      "takeaway": "警察不会视频办案，无安全账户，保密要求是诈骗隔离手段。"
+    },
+    "tags": [
+      "AI换脸",
+      "假冒警察",
+      "安全账户"
+    ],
+    "updateDate": "2026-07",
+    "severity": 5
+  },
+  {
+    "id": "F124-007",
+    "typeId": "F124",
+    "type": "AI仿声电话",
+    "cardType": "voice",
+    "difficulty": 3,
+    "kind": "single",
+    "title": "语音来电 / \"孩子\"被绑架",
+    "body": "电话里传来孩子的哭声和\"爸救我\"，对方凶狠地说：\"你孩子在我手上，半小时内凑10万打到指定账户，不许报警，否则撕票。\"",
+    "options": [
+      "立刻凑钱转账保平安",
+      "电话里跟对方讨价还价",
+      "挂断后立刻联系孩子本人及学校核实，并报警",
+      "先转一部分稳住对方"
+    ],
+    "answer": 2,
+    "cues": [
+      "AI仿声",
+      "绑架勒索",
+      "不许报警"
+    ],
+    "explain": "AI仿声可复制孩子哭声。绑架勒索几乎都要求\"不许报警\"，挂断后第一时间联系本人核实是关键。",
+    "psychology": [
+      "fear",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-AI-VOICE"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "AI仿声伪造绑架勒索案",
+      "date": "2026-02",
+      "source": "广东反诈中心通报",
+      "takeaway": "AI可仿造亲人哭声勒索，挂断联系本人核实并报警。"
+    },
+    "tags": [
+      "AI仿声",
+      "绑架勒索",
+      "不许报警"
+    ],
+    "updateDate": "2026-07",
+    "severity": 5
+  },
+  {
+    "id": "F124-008",
+    "typeId": "F124",
+    "type": "AI换脸视频",
+    "cardType": "video",
+    "difficulty": 4,
+    "kind": "single",
+    "title": "视频通话 / \"配偶\"在外借钱",
+    "body": "\"老公\"视频来电：\"我在外地出差钱包丢了，先借我1万应急，回来还你。\"画面是配偶的脸，但背景模糊、动作略显僵硬。",
+    "options": [
+      "夫妻之间直接转账",
+      "让\"老公\"再说几句家常话确认",
+      "挂断，用配偶手机号回拨核实",
+      "转少一点意思一下"
+    ],
+    "answer": 2,
+    "cues": [
+      "AI换脸",
+      "动作僵硬",
+      "借钱应急"
+    ],
+    "explain": "AI换脸在弱光背景下更易露馅（动作僵硬、背景模糊）。亲人借款也需回拨原号码核实，别因亲密关系放松警惕。",
+    "psychology": [
+      "trust",
+      "urgency",
+      "intimacy"
+    ],
+    "knowledgePoints": [
+      "KP-AI-DEEPFAKE"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "AI换脸伪造配偶借款案",
+      "date": "2026-04",
+      "source": "杭州反诈中心通报",
+      "takeaway": "AI换脸背景常模糊、动作僵硬，亲人借款也要电话回拨核实。"
+    },
+    "tags": [
+      "AI换脸",
+      "伪造配偶",
+      "借钱应急"
+    ],
+    "updateDate": "2026-07",
+    "severity": 5
+  },
+  {
+    "id": "F124-009",
+    "typeId": "F124",
+    "type": "AI仿声电话",
+    "cardType": "call",
+    "difficulty": 4,
+    "kind": "single",
+    "title": "语音来电 / \"老板\"紧急转账",
+    "body": "电话里传来熟悉的老板声音：\"我现在在外面开会不方便，你马上给这个账户转8万，是项目保证金，半小时内办好，回公司报销。\"",
+    "options": [
+      "老板声音熟悉立刻转",
+      "让对方发微信文字确认",
+      "挂断，按公司流程用通讯录电话回拨老板核实",
+      "先转一半稳住"
+    ],
+    "answer": 2,
+    "cues": [
+      "AI仿声",
+      "紧急转账",
+      "绕过流程"
+    ],
+    "explain": "AI仿声只需几秒语音样本就能克隆老板声音。公司转账必须走对公流程，回拨通讯录原号码核实。",
+    "psychology": [
+      "authority",
+      "urgency",
+      "trust"
+    ],
+    "knowledgePoints": [
+      "KP-AI-VOICE"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "AI仿声伪造老板转账案",
+      "date": "2026-05",
+      "source": "深圳反诈中心通报",
+      "takeaway": "AI几秒即可克隆声音，公司转账必须回拨核实并走对公流程。"
+    },
+    "tags": [
+      "AI仿声",
+      "伪造老板",
+      "绕过流程"
+    ],
+    "updateDate": "2026-07",
+    "severity": 5
+  },
+  {
+    "id": "F124-010",
+    "typeId": "F124",
+    "type": "AI生成钓鱼",
+    "cardType": "popup",
+    "difficulty": 1,
+    "kind": "single",
+    "title": "弹窗 / \"DeepSeek用户破亿送会员\"",
+    "body": "浏览网页弹出广告：\"DeepSeek用户破亿，点击免费领Pro会员1年+88元红包，扫码进群领取，名额有限。\"",
+    "options": [
+      "扫码进群领取会员",
+      "填写手机号领红包",
+      "关闭弹窗，到deepseek.com官方核实",
+      "拉好友一起领"
+    ],
+    "answer": 2,
+    "cues": [
+      "免费送",
+      "扫码进群",
+      "名额有限"
+    ],
+    "explain": "\"免费送会员+红包\"是新型引流话术，扫码填信息即被钓鱼。官方活动只走官方渠道，关闭弹窗最稳妥。",
+    "psychology": [
+      "greed",
+      "curiosity",
+      "scarcity"
+    ],
+    "knowledgePoints": [
+      "KP-AI-PHISHING"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "DeepSeek免费会员钓鱼案",
+      "date": "2026-06",
+      "source": "网信办联合反诈中心通报",
+      "takeaway": "大模型官方不会\"免费送会员+红包\"，扫码填信息即被钓。"
+    },
+    "tags": [
+      "AI",
+      "DeepSeek",
+      "免费送",
+      "钓鱼"
+    ],
+    "updateDate": "2026-07",
+    "severity": 3
+  },
+  {
+    "id": "F124-011",
+    "typeId": "F124",
+    "type": "AI生成钓鱼",
+    "cardType": "chat",
+    "difficulty": 3,
+    "kind": "single",
+    "title": "邮件 / 仿冒\"国家网信办AI备案通知\"",
+    "body": "收到邮件，标题\"关于开展AI大模型应用备案的紧急通知\"，落款\"国家网信办\"，正文要求企业点击链接下载附件填写《AI备案申请表》并缴纳备案费。",
+    "options": [
+      "点击链接下载附件缴费",
+      "转发给财务处理",
+      "不点击，通过网信办官网核实备案流程",
+      "先缴小额试试"
+    ],
+    "answer": 2,
+    "cues": [
+      "AI生成公文",
+      "缴费备案",
+      "陌生附件"
+    ],
+    "explain": "AI可生成以假乱真的公文邮件。政府备案不收费、不发缴费链接，认准gov.cn官网核实。",
+    "psychology": [
+      "authority",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-AI-PHISHING"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "AI生成公文钓鱼邮件案",
+      "date": "2026-05",
+      "source": "国家网信办通报",
+      "takeaway": "AI可生成逼真公文，政府备案不收费不发链接，认准gov.cn。"
+    },
+    "tags": [
+      "AI",
+      "公文钓鱼",
+      "网信办",
+      "缴费"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F124-012",
+    "typeId": "F124",
+    "type": "AI代写诈骗",
+    "cardType": "secondhand",
+    "difficulty": 2,
+    "kind": "single",
+    "title": "闲鱼 / \"AI代写毕业论文包过\"",
+    "body": "二手平台卖家称\"用最新AI代写毕业论文，查重率低于5%，包过包修改，先交500定金，过稿付尾款。\"要求加QQ私聊交易。",
+    "options": [
+      "交定金走私下交易",
+      "让对方先写一段看看",
+      "拒绝，论文须自主完成，私下代写违规且易被骗",
+      "砍价后交定金"
+    ],
+    "answer": 2,
+    "cues": [
+      "AI代写",
+      "包过",
+      "私下交易",
+      "定金"
+    ],
+    "explain": "AI代写论文本身违规，私下交易无保障，定金交后常被拉黑。学术诚信要求自主完成，别走捷径。",
+    "psychology": [
+      "greed",
+      "sunkCost"
+    ],
+    "knowledgePoints": [
+      "KP-AI-SERVICE"
+    ],
+    "season": [
+      "spring"
+    ],
+    "caseArchive": {
+      "title": "AI代写论文诈骗案",
+      "date": "2026-04",
+      "source": "教育部反诈通报",
+      "takeaway": "AI代写论文违规，私下交易定金易被骗，学术须自主完成。"
+    },
+    "tags": [
+      "AI代写",
+      "论文",
+      "定金诈骗"
+    ],
+    "updateDate": "2026-07",
+    "severity": 3
+  },
+  {
+    "id": "F124-013",
+    "typeId": "F124",
+    "type": "AI代写诈骗",
+    "cardType": "chat",
+    "difficulty": 1,
+    "kind": "judge",
+    "title": "微信 / \"AI代写作业5元一科\"",
+    "body": "群里有人发广告：\"AI代写中小学作业，5元一科包对，加微信付款后5分钟交付。\"判断：便宜又快，可以试试。",
+    "options": [
+      "正确：便宜高效可以用",
+      "错误：代写作业违规且存在收款拉黑风险，更不利于学习"
+    ],
+    "answer": 1,
+    "cues": [
+      "AI代写",
+      "低价诱惑",
+      "加微信付款"
+    ],
+    "explain": "代写作业违规且削弱学习，收款后被拉黑也常见。学习须自主完成，别图便宜走捷径。",
+    "psychology": [
+      "greed",
+      "conformity"
+    ],
+    "knowledgePoints": [
+      "KP-AI-SERVICE"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "AI代写作业诈骗案",
+      "date": "2026-03",
+      "source": "共青团反诈宣传",
+      "takeaway": "代写作业违规且收款易拉黑，学习须自主完成。"
+    },
+    "tags": [
+      "AI代写",
+      "作业",
+      "低价"
+    ],
+    "updateDate": "2026-07",
+    "severity": 2
+  },
+  {
+    "id": "F124-014",
+    "typeId": "F124",
+    "type": "AI算命诈骗",
+    "cardType": "qrcode",
+    "difficulty": 2,
+    "kind": "single",
+    "title": "扫码 / \"AI面相分析大师\"",
+    "body": "朋友圈广告\"AI算命面相，扫描面部3秒出详批，大师级解读事业财运婚姻，原价299现价9.9\"，需上传清晰正面照并填写生辰。",
+    "options": [
+      "上传正面照付费测算",
+      "先付9.9试试再说",
+      "拒绝，面部数据属敏感生物信息勿随意上传",
+      "分享给朋友一起测"
+    ],
+    "answer": 2,
+    "cues": [
+      "AI算命",
+      "面部数据",
+      "低价引流"
+    ],
+    "explain": "AI算命是话术套路，面部数据属敏感生物信息，上传即可能被用于AI换脸或贩卖。9.9只是引流，后续会不断加价。",
+    "psychology": [
+      "curiosity",
+      "greed"
+    ],
+    "knowledgePoints": [
+      "KP-AI-SERVICE"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "AI面相算命诈骗案",
+      "date": "2026-06",
+      "source": "网信办通报",
+      "takeaway": "AI算命是话术，面部数据是敏感信息，勿随意上传给不明平台。"
+    },
+    "tags": [
+      "AI算命",
+      "面相",
+      "生物信息",
+      "引流"
+    ],
+    "updateDate": "2026-07",
+    "severity": 3
+  },
+  {
+    "id": "F124-015",
+    "typeId": "F124",
+    "type": "AI算命诈骗",
+    "cardType": "app",
+    "difficulty": 2,
+    "kind": "single",
+    "title": "APP / \"AI塔罗大师年运\"",
+    "body": "某APP称\"AI塔罗牌结合大模型精准测算2026年全年运势，开通年卡399元享大师1对1解读\"，需实名认证并绑定手机号。",
+    "options": [
+      "开通年卡享大师解读",
+      "绑定手机号获取报告",
+      "不迷信，运势测算无科学依据且泄露隐私",
+      "先开月卡试试"
+    ],
+    "answer": 2,
+    "cues": [
+      "AI塔罗",
+      "年卡付费",
+      "实名认证"
+    ],
+    "explain": "AI运势测算无科学依据，实名+手机号绑定是借算命收集个人信息贩卖。运势无法被AI预测，别交信息。",
+    "psychology": [
+      "curiosity",
+      "fear"
+    ],
+    "knowledgePoints": [
+      "KP-AI-SERVICE"
+    ],
+    "season": [
+      "winter",
+      "spring"
+    ],
+    "caseArchive": {
+      "title": "AI塔罗年运诈骗案",
+      "date": "2026-01",
+      "source": "公安部反诈中心通报",
+      "takeaway": "AI运势测算无科学依据，借算命收集贩卖个人信息。"
+    },
+    "tags": [
+      "AI算命",
+      "塔罗",
+      "隐私泄露"
+    ],
+    "updateDate": "2026-07",
+    "severity": 3
+  },
+  {
+    "id": "F124-016",
+    "typeId": "F124",
+    "type": "AI数字人直播",
+    "cardType": "live",
+    "difficulty": 3,
+    "kind": "single",
+    "title": "直播 / \"AI数字人主播清仓\"",
+    "body": "直播间主播口齿清晰、24小时不下播，称\"厂家直销清仓，原价1999的护肤品现价199，限量100单\"，下方滚动\"已抢购\"弹幕，催促立刻下单。",
+    "options": [
+      "限量立刻下单抢购",
+      "看弹幕人气高就买",
+      "谨慎，24小时不下播+滚动弹幕疑似AI数字人套路，先看商品评价和店铺资质",
+      "先买一单试试真假"
+    ],
+    "answer": 2,
+    "cues": [
+      "AI数字人",
+      "24小时不下播",
+      "滚动弹幕",
+      "限量催单"
+    ],
+    "explain": "AI数字人可24小时直播，弹幕和销量可程序伪造。下单前查店铺资质和真实评价，别被\"限量\"和虚假人气带节奏。",
+    "psychology": [
+      "urgency",
+      "conformity",
+      "scarcity"
+    ],
+    "knowledgePoints": [
+      "KP-LIVE-COMMERCE"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "AI数字人清仓直播案",
+      "date": "2026-05",
+      "source": "市场监管总局通报",
+      "takeaway": "AI数字人可24小时直播造假，下单前查店铺资质和真实评价。"
+    },
+    "tags": [
+      "AI数字人",
+      "直播带货",
+      "虚假人气"
+    ],
+    "updateDate": "2026-07",
+    "severity": 3
+  },
+  {
+    "id": "F124-017",
+    "typeId": "F124",
+    "type": "AI换脸视频",
+    "cardType": "video",
+    "difficulty": 4,
+    "kind": "single",
+    "title": "视频 / \"明星\"代言理财",
+    "body": "短视频里某知名明星举着产品说\"我都在用的理财APP，年化收益15%稳赚不赔，点击视频下方链接注册即送888元红包\"，画面逼真。",
+    "options": [
+      "明星代言可信立刻注册",
+      "有红包领先注册再说",
+      "警惕，AI换脸可伪造明星代言，高收益理财多是诈骗，核实明星官方账号",
+      "先小额投资试试"
+    ],
+    "answer": 2,
+    "cues": [
+      "AI换脸",
+      "明星代言",
+      "高收益理财",
+      "注册红包"
+    ],
+    "explain": "AI换脸可伪造明星代言理财APP。\"稳赚不赔年化15%\"违背金融常识，明星真代言走官方账号，高收益理财多为诈骗。",
+    "psychology": [
+      "trust",
+      "greed",
+      "authority"
+    ],
+    "knowledgePoints": [
+      "KP-AI-DEEPFAKE"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "AI换脸明星代言理财案",
+      "date": "2026-04",
+      "source": "国家反诈中心通报",
+      "takeaway": "AI可伪造明星代言，高收益理财违背常识，认准明星官方账号。"
+    },
+    "tags": [
+      "AI换脸",
+      "明星代言",
+      "理财诈骗"
+    ],
+    "updateDate": "2026-07",
+    "severity": 5
+  },
+  {
+    "id": "F124-018",
+    "typeId": "F124",
+    "type": "AI仿声电话",
+    "cardType": "call",
+    "difficulty": 4,
+    "kind": "single",
+    "title": "语音来电 / \"客服\"索验证码",
+    "body": "来电显示为某大厂客服号，对方声音温和：\"为核实是您本人，请报一下刚收到的6位短信验证码。\"并称\"我们不会用验证码操作您的账户，只是核验身份。\"",
+    "options": [
+      "报验证码配合核验",
+      "对方声音专业可信就报",
+      "拒绝，验证码绝不外报，挂断回拨官方核实",
+      "报一半数字试试"
+    ],
+    "answer": 2,
+    "cues": [
+      "AI仿声",
+      "索要验证码",
+      "伪造号码"
+    ],
+    "explain": "验证码是最后一道防线，任何\"客服\"索要验证码都是诈骗。AI仿声+伪造号码极具迷惑性，挂断回拨官方唯一热线。",
+    "psychology": [
+      "authority",
+      "trust",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-AI-VOICE"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "AI仿声索验证码案",
+      "date": "2026-06",
+      "source": "公安部反诈中心通报",
+      "takeaway": "验证码绝不外报，AI仿声+伪造号码极具迷惑性，回拨官方核实。"
+    },
+    "tags": [
+      "AI仿声",
+      "验证码",
+      "伪造号码"
+    ],
+    "updateDate": "2026-07",
+    "severity": 5
+  },
+  {
+    "id": "F124-019",
+    "typeId": "F124",
+    "type": "AI生成钓鱼",
+    "cardType": "sms",
+    "difficulty": 1,
+    "kind": "judge",
+    "title": "短信 / \"DeepSeek Pro退订\"",
+    "body": "【DeepSeek】您已开通Pro会员每月扣费388元，如需取消请点击 http://deepsek-vip.xyz 24小时内办理。判断：点击链接取消即可。",
+    "options": [
+      "正确：点击链接取消",
+      "错误：deepsek拼写错误，官方为deepseek.com，是钓鱼链接"
+    ],
+    "answer": 1,
+    "cues": [
+      "deepsek拼写错误",
+      "陌生链接",
+      "24小时"
+    ],
+    "explain": "deepsek-vip.xyz是仿冒域名（拼写差字母）。官方为deepseek.com，会员管理走官方APP，陌生链接不点。",
+    "psychology": [
+      "urgency",
+      "fear"
+    ],
+    "knowledgePoints": [
+      "KP-AI-PHISHING"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "DeepSeek仿冒域名钓鱼案",
+      "date": "2026-05",
+      "source": "工信部反诈通报",
+      "takeaway": "看清域名拼写，仿冒常差一字母，会员管理走官方APP。"
+    },
+    "tags": [
+      "AI",
+      "DeepSeek",
+      "域名仿冒",
+      "钓鱼短信"
+    ],
+    "updateDate": "2026-07",
+    "severity": 3
+  },
+  {
+    "id": "F124-020",
+    "typeId": "F124",
+    "type": "AI生成钓鱼",
+    "cardType": "chat",
+    "difficulty": 3,
+    "kind": "single",
+    "title": "邮件 / 仿冒\"法院电子传票\"",
+    "body": "收到邮件\"【XX人民法院】您有一份电子传票待领取，点击下载查看，逾期将缺席判决\"，附件为zip文件，要求下载查看并填写身份信息。",
+    "options": [
+      "下载附件查看传票",
+      "填写身份信息确认",
+      "不点不下载，拨打12368司法服务热线核实",
+      "转发给家人帮忙看"
+    ],
+    "answer": 2,
+    "cues": [
+      "AI生成公文",
+      "zip附件",
+      "缺席判决恐吓"
+    ],
+    "explain": "法院传票不会带zip附件和缴费链接。AI可生成逼真公文，认准12368核实，陌生附件可能含木马。",
+    "psychology": [
+      "authority",
+      "fear",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-AI-PHISHING"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "AI生成法院传票钓鱼案",
+      "date": "2026-04",
+      "source": "最高法反诈通报",
+      "takeaway": "法院传票不带附件不缴费，AI可生成逼真公文，认准12368核实。"
+    },
+    "tags": [
+      "AI",
+      "法院传票",
+      "钓鱼邮件",
+      "木马"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F124-021",
+    "typeId": "F124",
+    "type": "AI换脸视频",
+    "cardType": "video",
+    "difficulty": 4,
+    "kind": "single",
+    "title": "视频面试 / \"HR\"在线面试",
+    "body": "求职者收到视频面试邀请，对方\"HR\"画面清晰：\"恭喜通过初筛，入职前需缴纳800元培训押金，转账后发录用通知。\"画面中HR的徽章和背景都似公司官网。",
+    "options": [
+      "交押金拿录用通知",
+      "对方画面专业可信",
+      "警惕，正规入职不收押金，通过官网电话核实招聘真伪",
+      "先交一半表示诚意"
+    ],
+    "answer": 2,
+    "cues": [
+      "AI换脸",
+      "入职押金",
+      "伪造HR"
+    ],
+    "explain": "AI换脸可伪造HR面试场景。《劳动法》规定入职不得收押金，正规招聘走官方渠道，转账即被骗。",
+    "psychology": [
+      "trust",
+      "greed",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-AI-DEEPFAKE"
+    ],
+    "season": [
+      "spring"
+    ],
+    "caseArchive": {
+      "title": "AI换脸伪造HR入职押金案",
+      "date": "2026-03",
+      "source": "人社部反诈通报",
+      "takeaway": "AI可伪造HR面试，入职收押金违反劳动法，招聘认准官方渠道。"
+    },
+    "tags": [
+      "AI换脸",
+      "入职押金",
+      "伪造招聘"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F124-022",
+    "typeId": "F124",
+    "type": "AI仿声电话",
+    "cardType": "voice",
+    "difficulty": 4,
+    "kind": "single",
+    "title": "语音来电 / \"父母\"突发疾病",
+    "body": "电话里传来带哭腔的\"妈\"声：\"我在外地晕倒了，医院要先交3万押金才能住院，你快转过来。\"声音很像母亲，但背景音嘈杂。",
+    "options": [
+      "心疼母亲立刻转账",
+      "让对方再说几句话确认",
+      "挂断，拨打母亲平时手机号核实，并联系其他家人",
+      "先转1万应急"
+    ],
+    "answer": 2,
+    "cues": [
+      "AI仿声",
+      "突发疾病",
+      "嘈杂背景"
+    ],
+    "explain": "AI仿声只需几秒样本就能模仿亲人。嘈杂背景是常用遮掩手法，挂断回拨原号码核实最有效。",
+    "psychology": [
+      "fear",
+      "urgency",
+      "intimacy"
+    ],
+    "knowledgePoints": [
+      "KP-AI-VOICE"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "AI仿声伪造父母生病案",
+      "date": "2026-02",
+      "source": "江苏反诈中心通报",
+      "takeaway": "AI可仿造亲人哭腔，嘈杂背景是遮掩，挂断回拨原号码核实。"
+    },
+    "tags": [
+      "AI仿声",
+      "伪造亲人",
+      "突发疾病"
+    ],
+    "updateDate": "2026-07",
+    "severity": 5
+  },
+  {
+    "id": "F124-023",
+    "typeId": "F124",
+    "type": "AI大模型仿冒客服",
+    "cardType": "popup",
+    "difficulty": 1,
+    "kind": "judge",
+    "title": "弹窗 / \"豆包内测资格\"",
+    "body": "弹窗广告\"字节豆包大模型内测资格限时开放，扫码加入体验群，免费送内测账号+100元红包\"。判断：扫码进群领资格很安全。",
+    "options": [
+      "正确：免费领内测资格",
+      "错误：内测资格不公开贩卖或扫码领取，是引流钓鱼"
+    ],
+    "answer": 1,
+    "cues": [
+      "内测资格",
+      "扫码进群",
+      "免费送红包"
+    ],
+    "explain": "大模型内测资格不通过弹窗扫码发放。\"免费送账号+红包\"是引流话术，扫码即被钓鱼或拉入诈骗群。",
+    "psychology": [
+      "greed",
+      "curiosity",
+      "scarcity"
+    ],
+    "knowledgePoints": [
+      "KP-AI-IMPERSONATION"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "豆包内测资格钓鱼案",
+      "date": "2026-06",
+      "source": "网信办通报",
+      "takeaway": "内测资格不扫码发放，免费送账号红包是引流钓鱼。"
+    },
+    "tags": [
+      "AI",
+      "豆包",
+      "内测资格",
+      "引流"
+    ],
+    "updateDate": "2026-07",
+    "severity": 3
+  },
+  {
+    "id": "F124-024",
+    "typeId": "F124",
+    "type": "AI生成钓鱼",
+    "cardType": "sms",
+    "difficulty": 1,
+    "kind": "judge",
+    "title": "短信 / \"智谱清言中奖\"",
+    "body": "【智谱清言】恭喜您成为幸运用户，获得现金红包588元，点击 http://zhipu-red.xyz 领取，24小时内有效。判断：点击领取红包。",
+    "options": [
+      "正确：点击领取红包",
+      "错误：从未参与活动却中奖，zhipu-red.xyz是钓鱼链接"
+    ],
+    "answer": 1,
+    "cues": [
+      "中奖短信",
+      "陌生链接",
+      "24小时"
+    ],
+    "explain": "未参与活动却\"中奖\"是典型诈骗。zhipu-red.xyz是仿冒域名，官方为zhipuai.cn，陌生链接不点。",
+    "psychology": [
+      "greed",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-AI-PHISHING"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "智谱清言中奖钓鱼案",
+      "date": "2026-05",
+      "source": "工信部反诈通报",
+      "takeaway": "未参与却中奖是诈骗，仿冒域名常加后缀，陌生链接不点。"
+    },
+    "tags": [
+      "AI",
+      "智谱清言",
+      "中奖钓鱼"
+    ],
+    "updateDate": "2026-07",
+    "severity": 3
+  },
+  {
+    "id": "F124-025",
+    "typeId": "F124",
+    "type": "AI数字人直播",
+    "cardType": "chat",
+    "difficulty": 2,
+    "kind": "single",
+    "title": "微信 / \"AI数字人客服退款\"",
+    "body": "陌生人加微信称\"我是XX直播AI客服，您购买的数字人课程订单异常需退款，请点击链接填写收款卡信息接收退款\"，并附一张\"退款工单\"截图。",
+    "options": [
+      "点击链接填写收款卡",
+      "提供验证码接收退款",
+      "挂断，到原购买平台官方客服核实",
+      "把卡内余额先转出"
+    ],
+    "answer": 2,
+    "cues": [
+      "AI客服",
+      "退款链接",
+      "工单截图"
+    ],
+    "explain": "退款走原支付渠道原路返回，无需点击链接填卡。\"AI客服\"私加微信发退款链接是新型话术，去官方平台核实。",
+    "psychology": [
+      "trust",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-AI-SERVICE"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "AI数字人客服退款诈骗案",
+      "date": "2026-06",
+      "source": "市场监管总局通报",
+      "takeaway": "退款走原支付渠道，AI客服私加微信发链接是诈骗。"
+    },
+    "tags": [
+      "AI客服",
+      "退款诈骗",
+      "钓鱼链接"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F125-001",
+    "typeId": "F125",
+    "type": "数字人民币仿冒",
+    "cardType": "app",
+    "difficulty": 2,
+    "kind": "single",
+    "title": "APP / \"数字人民币钱包认证\"",
+    "body": "收到短信\"【数字人民币】您的DCEP钱包需实名认证，否则将冻结，请下载\"数字人民币钱包认证版\"APP完成认证\"，附下载链接。",
+    "options": [
+      "下载APP完成认证",
+      "点击链接按提示操作",
+      "拒绝，数字人民币官方APP只在应用商店下载，不通过短信链接",
+      "先下载看看界面"
+    ],
+    "answer": 2,
+    "cues": [
+      "DCEP认证",
+      "短信下载链接",
+      "冻结恐吓"
+    ],
+    "explain": "数字人民币官方APP只通过正规应用商店下载，不通过短信链接。\"认证版\"\"冻结\"都是假APP钓鱼套路。",
+    "psychology": [
+      "authority",
+      "fear",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-CRYPTO"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "数字人民币假APP认证案",
+      "date": "2026-03",
+      "source": "人民银行反诈通报",
+      "takeaway": "数字人民币官方APP只走应用商店，短信链接下载的均为假APP。"
+    },
+    "tags": [
+      "数字人民币",
+      "假APP",
+      "认证钓鱼"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F125-002",
+    "typeId": "F125",
+    "type": "数字人民币仿冒",
+    "cardType": "sms",
+    "difficulty": 1,
+    "kind": "single",
+    "title": "短信 / \"DCEP红包领取\"",
+    "body": "【数字人民币】央行发放DCEP体验金每人500元，点击 http://dcep-red.xyz 领取，需填写银行卡和密码核验身份，24小时有效。",
+    "options": [
+      "点击链接领取红包",
+      "填写银行卡密码核验",
+      "不信，央行不通过短信发红包，认准官方渠道",
+      "先填一张空卡试试"
+    ],
+    "answer": 2,
+    "cues": [
+      "DCEP红包",
+      "陌生链接",
+      "索要密码"
+    ],
+    "explain": "央行不通过短信链接发放数字人民币红包。\"填写银行卡密码核验\"是盗刷套路，认准官方APP和政府公告。",
+    "psychology": [
+      "greed",
+      "urgency",
+      "authority"
+    ],
+    "knowledgePoints": [
+      "KP-CRYPTO"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "DCEP红包钓鱼案",
+      "date": "2026-04",
+      "source": "人民银行反诈通报",
+      "takeaway": "央行不发短信红包，索要银行卡密码的都是盗刷。"
+    },
+    "tags": [
+      "数字人民币",
+      "红包钓鱼",
+      "盗刷"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F125-003",
+    "typeId": "F125",
+    "type": "USDT洗钱跑路",
+    "cardType": "chat",
+    "difficulty": 4,
+    "kind": "single",
+    "title": "微信 / \"USDT搬砖套利\"",
+    "body": "网友称\"USDT搬砖套利，利用不同平台价差日赚5%，本金1万起，钱打入指定USDT地址，每周返利\"，并晒出多张\"成功提现\"截图。",
+    "options": [
+      "先投1万试水",
+      "看截图真实就投",
+      "警惕，USDT搬砖多为资金盘或洗钱，高返利不可信",
+      "拉朋友一起投分佣金"
+    ],
+    "answer": 2,
+    "cues": [
+      "USDT搬砖",
+      "高返利",
+      "成功截图",
+      "拉人头"
+    ],
+    "explain": "USDT搬砖套利是典型资金盘，返利来自新投资人本金，本质是洗钱或庞氏骗局。\"成功截图\"可伪造，高返利必崩盘。",
+    "psychology": [
+      "greed",
+      "trust",
+      "conformity"
+    ],
+    "knowledgePoints": [
+      "KP-CRYPTO"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "USDT搬砖套利资金盘案",
+      "date": "2026-05",
+      "source": "公安部经侦通报",
+      "takeaway": "USDT搬砖是资金盘，返利来自新本金，截图可伪造，高返利必崩盘。"
+    },
+    "tags": [
+      "USDT",
+      "搬砖套利",
+      "资金盘"
+    ],
+    "updateDate": "2026-07",
+    "severity": 5
+  },
+  {
+    "id": "F125-004",
+    "typeId": "F125",
+    "type": "USDT洗钱跑路",
+    "cardType": "transfer",
+    "difficulty": 1,
+    "kind": "single",
+    "title": "转账 / \"USDT高息理财\"",
+    "body": "理财群\"老师\"称\"USDT稳定币理财年化18%，本金随时赎回，扫码充值USDT即可，平台已运营3年安全可靠\"，并展示平台运营资质图片。",
+    "options": [
+      "扫码充值USDT理财",
+      "年化18%比银行高就投",
+      "不信，USDT理财不受法律保护，年化18%违背常识，平台资质可伪造",
+      "先充小额试水"
+    ],
+    "answer": 2,
+    "cues": [
+      "USDT理财",
+      "年化18%",
+      "资质图片"
+    ],
+    "explain": "USDT理财不受国内法律保护，年化18%远超正常水平。平台资质图片可伪造，充值后本金难追回。",
+    "psychology": [
+      "greed",
+      "trust",
+      "authority"
+    ],
+    "knowledgePoints": [
+      "KP-CRYPTO"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "USDT高息理财跑路案",
+      "date": "2026-04",
+      "source": "银保监会反诈通报",
+      "takeaway": "USDT理财不受法律保护，年化18%违背常识，资质可伪造。"
+    },
+    "tags": [
+      "USDT",
+      "高息理财",
+      "跑路"
+    ],
+    "updateDate": "2026-07",
+    "severity": 5
+  },
+  {
+    "id": "F125-005",
+    "typeId": "F125",
+    "type": "虚拟币交易所跑路",
+    "cardType": "app",
+    "difficulty": 4,
+    "kind": "single",
+    "title": "APP / \"新兴交易所注册送币\"",
+    "body": "某虚拟币交易所APP宣传\"注册即送500元代币，充值翻倍，新用户专享年化25%活期收益\"，要求KYC实名认证上传身份证正反面和手持照。",
+    "options": [
+      "注册领币并充值翻倍",
+      "上传身份证实名认证",
+      "拒绝，野鸡交易所常以送币引流后跑路，KYC信息会被贩卖",
+      "先实名不充值"
+    ],
+    "answer": 2,
+    "cues": [
+      "注册送币",
+      "充值翻倍",
+      "野鸡交易所",
+      "KYC认证"
+    ],
+    "explain": "未备案的野鸡交易所常以送币引流，KYC信息被贩卖用于其他诈骗。充值后平台随时跑路，本金全无。",
+    "psychology": [
+      "greed",
+      "curiosity"
+    ],
+    "knowledgePoints": [
+      "KP-CRYPTO"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "野鸡交易所跑路案",
+      "date": "2026-06",
+      "source": "公安部经侦通报",
+      "takeaway": "野鸡交易所送币引流后跑路，KYC信息被贩卖用于诈骗。"
+    },
+    "tags": [
+      "虚拟币",
+      "交易所跑路",
+      "KYC贩卖"
+    ],
+    "updateDate": "2026-07",
+    "severity": 5
+  },
+  {
+    "id": "F125-006",
+    "typeId": "F125",
+    "type": "假ICO募资",
+    "cardType": "chat",
+    "difficulty": 4,
+    "kind": "single",
+    "title": "微信 / \"AI+区块链ICO首发\"",
+    "body": "群友发\"AI+区块链项目首发ICO，1ETH换10万AI代币，上线即涨10倍，已有红杉投资背书\"，附白皮书和\"投资人名单\"，催促私募阶段最后3天。",
+    "options": [
+      "抢私募最后3天买入",
+      "看白皮书专业就投",
+      "警惕，国内已禁止ICO，红杉背书可伪造，10倍涨幅是诱饵",
+      "拉朋友拼单投"
+    ],
+    "answer": 2,
+    "cues": [
+      "ICO首发",
+      "10倍涨幅",
+      "红杉背书",
+      "最后3天"
+    ],
+    "explain": "国内已全面禁止ICO融资。所谓红杉背书和投资人名单都可伪造，\"10倍涨幅\"是诱饵，发币后即归零跑路。",
+    "psychology": [
+      "greed",
+      "authority",
+      "scarcity",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-CRYPTO"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "AI+区块链ICO诈骗案",
+      "date": "2026-05",
+      "source": "证监会反诈通报",
+      "takeaway": "国内禁止ICO，背书和名单可伪造，10倍涨幅是诱饵，发币即归零。"
+    },
+    "tags": [
+      "ICO",
+      "代币",
+      "伪造背书"
+    ],
+    "updateDate": "2026-07",
+    "severity": 5
+  },
+  {
+    "id": "F125-007",
+    "typeId": "F125",
+    "type": "假ICO募资",
+    "cardType": "popup",
+    "difficulty": 3,
+    "kind": "single",
+    "title": "弹窗 / \"IFO分叉币免费领\"",
+    "body": "弹窗\"某主流币IFO分叉，持有原币即可1:1领取新分叉币，上线首日暴涨8倍，扫码绑定钱包地址领取，名额限量1000名\"。",
+    "options": [
+      "扫码绑定钱包地址领取",
+      "绑定后转币过去确认",
+      "拒绝，IFO分叉常是钓鱼，绑定钱包=交出私钥权限",
+      "抢限量名额"
+    ],
+    "answer": 2,
+    "cues": [
+      "IFO分叉",
+      "绑定钱包",
+      "暴涨8倍",
+      "限量名额"
+    ],
+    "explain": "IFO分叉币领取常通过钓鱼网站盗取钱包私钥。\"绑定钱包地址\"即授权转账权限，币会被瞬间转走。",
+    "psychology": [
+      "greed",
+      "curiosity",
+      "scarcity",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-CRYPTO"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "IFO分叉币钓鱼案",
+      "date": "2026-04",
+      "source": "公安部反诈通报",
+      "takeaway": "IFO分叉常是钓鱼，绑定钱包=授权转账，币会被秒转。"
+    },
+    "tags": [
+      "IFO",
+      "分叉币",
+      "钱包钓鱼"
+    ],
+    "updateDate": "2026-07",
+    "severity": 5
+  },
+  {
+    "id": "F125-008",
+    "typeId": "F125",
+    "type": "空气币传销",
+    "cardType": "chat",
+    "difficulty": 1,
+    "kind": "single",
+    "title": "微信 / \"环保币拉人头\"",
+    "body": "群友推广\"绿色环保币GEC，挖矿免费得，拉一人升级一档，上线后1币=10元，已是全球共识币\"，要求实名注册并发展下线。",
+    "options": [
+      "注册挖矿拉人头升级",
+      "看是环保项目就参与",
+      "拒绝，拉人头+层级返利是传销，空气币上线即归零",
+      "先拉家人试试"
+    ],
+    "answer": 2,
+    "cues": [
+      "拉人头",
+      "层级返利",
+      "空气币",
+      "全球共识"
+    ],
+    "explain": "\"拉人头升级+层级返利\"是典型传销结构。空气币无实际价值，\"全球共识\"是话术，上线后立刻归零。",
+    "psychology": [
+      "greed",
+      "conformity",
+      "trust"
+    ],
+    "knowledgePoints": [
+      "KP-CRYPTO"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "环保币传销案",
+      "date": "2026-03",
+      "source": "市场监管总局通报",
+      "takeaway": "拉人头+层级返利是传销，空气币无价值上线即归零。"
+    },
+    "tags": [
+      "空气币",
+      "传销",
+      "拉人头"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F125-009",
+    "typeId": "F125",
+    "type": "NFT藏品炒作",
+    "cardType": "app",
+    "difficulty": 4,
+    "kind": "single",
+    "title": "APP / \"数字藏品NFT稳赚\"",
+    "body": "某数字藏品平台称\"首发敦煌飞天NFT，发行价99元，二级市场已炒至5000元，保本回购，扫码充值抢首发，限购5份\"，并展示交易行情K线。",
+    "options": [
+      "抢首发5份等升值",
+      "看K线涨势好就买",
+      "警惕，NFT炒作击鼓传花，平台控盘拉高后跑路",
+      "拉朋友一起抢"
+    ],
+    "answer": 2,
+    "cues": [
+      "NFT首发",
+      "保本回购",
+      "控盘K线",
+      "限购催单"
+    ],
+    "explain": "NFT二级市场炒作多为平台自买自卖控盘，\"保本回购\"是诱饵。行情K线可伪造，平台拉高后跑路接盘血本无归。",
+    "psychology": [
+      "greed",
+      "conformity",
+      "scarcity",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-CRYPTO"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "NFT数字藏品炒作案",
+      "date": "2026-05",
+      "source": "文旅部反诈通报",
+      "takeaway": "NFT炒作击鼓传花，平台控盘拉高跑路，保本回购是诱饵。"
+    },
+    "tags": [
+      "NFT",
+      "数字藏品",
+      "炒作"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F125-010",
+    "typeId": "F125",
+    "type": "NFT藏品炒作",
+    "cardType": "live",
+    "difficulty": 4,
+    "kind": "single",
+    "title": "直播 / \"NFT盲盒开出豪车\"",
+    "body": "直播间主播现场拆NFT盲盒，\"开出稀有款价值10万，观众充值开盲盒，99元一个，必出藏品，稀有款可提现\"，弹幕刷\"我中了5万\"。",
+    "options": [
+      "充值开盲盒赌一把",
+      "看弹幕有人中奖就信",
+      "拒绝，NFT盲盒涉赌博，提现门槛高且平台控概率",
+      "先开一个试试"
+    ],
+    "answer": 2,
+    "cues": [
+      "NFT盲盒",
+      "提现诱惑",
+      "弹幕托儿",
+      "控概率"
+    ],
+    "explain": "NFT盲盒本质是赌博，平台控制稀有款概率和提现门槛，弹幕\"中奖\"多为托儿。充值后难以提现。",
+    "psychology": [
+      "greed",
+      "conformity",
+      "sunkCost"
+    ],
+    "knowledgePoints": [
+      "KP-CRYPTO"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "NFT盲盒涉赌案",
+      "date": "2026-06",
+      "source": "公安部治安通报",
+      "takeaway": "NFT盲盒涉赌博，平台控概率和提现门槛，弹幕多为托儿。"
+    },
+    "tags": [
+      "NFT",
+      "盲盒",
+      "赌博",
+      "直播"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F125-011",
+    "typeId": "F125",
+    "type": "链游打金诈骗",
+    "cardType": "app",
+    "difficulty": 4,
+    "kind": "single",
+    "title": "APP / \"链游玩赚打金\"",
+    "body": "链游宣传\"充值USDT购买游戏角色，每天自动打金收益3%，角色可交易升值，已上链BSC，合约开源透明\"，要求连接钱包授权。",
+    "options": [
+      "充值买角色打金",
+      "看合约开源就投",
+      "拒绝，链游打金多为庞氏，角色贬值后跑路，授权即风险",
+      "先小充试水"
+    ],
+    "answer": 2,
+    "cues": [
+      "链游打金",
+      "日收益3%",
+      "连接钱包",
+      "授权"
+    ],
+    "explain": "链游打金收益来自新玩家充值，角色价值随玩家减少归零。\"合约开源\"不等于安全，钱包授权可能转走全部资产。",
+    "psychology": [
+      "greed",
+      "trust",
+      "authority"
+    ],
+    "knowledgePoints": [
+      "KP-CRYPTO"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "链游打金跑路案",
+      "date": "2026-04",
+      "source": "公安部经侦通报",
+      "takeaway": "链游打金是庞氏，角色归零跑路，钱包授权有全部被盗风险。"
+    },
+    "tags": [
+      "链游",
+      "打金",
+      "庞氏"
+    ],
+    "updateDate": "2026-07",
+    "severity": 5
+  },
+  {
+    "id": "F125-012",
+    "typeId": "F125",
+    "type": "链游打金诈骗",
+    "cardType": "chat",
+    "difficulty": 2,
+    "kind": "single",
+    "title": "微信 / \"链游内测名额\"",
+    "body": "群友发\"某链游内测名额限量发放，先充值0.5ETH占位，公测后角色翻10倍，已对接交易所上线\"，催促今晚截止。",
+    "options": [
+      "充值0.5ETH占位",
+      "看群友都在投就投",
+      "拒绝，内测名额不收费，翻10倍是诱饵，链游道具上链多为炒作",
+      "今晚截止赶紧投"
+    ],
+    "answer": 2,
+    "cues": [
+      "链游内测",
+      "充值占位",
+      "翻10倍",
+      "今晚截止"
+    ],
+    "explain": "链游内测名额不收费，\"充值占位\"\"翻10倍\"是典型诈骗话术。群内\"都在投\"多为托儿带节奏。",
+    "psychology": [
+      "greed",
+      "conformity",
+      "urgency",
+      "scarcity"
+    ],
+    "knowledgePoints": [
+      "KP-CRYPTO"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "链游内测名额诈骗案",
+      "date": "2026-05",
+      "source": "公安部反诈通报",
+      "takeaway": "链游内测不收费，充值占位翻倍是诈骗，群内多为托儿。"
+    },
+    "tags": [
+      "链游",
+      "内测名额",
+      "托儿"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F125-013",
+    "typeId": "F125",
+    "type": "币圈老师带单",
+    "cardType": "chat",
+    "difficulty": 1,
+    "kind": "single",
+    "title": "微信 / \"币圈老师免费带单\"",
+    "body": "陌生人加好友拉入\"币圈财富群\"，\"老师\"每天晒合约单据\"昨日做空比特币赚30万\"，称免费带单，要求下载指定交易所APP注册并跟单。",
+    "options": [
+      "下载交易所跟单",
+      "看老师单据真实就跟",
+      "警惕，带单群多为交易所返佣+杀猪盘，老师与平台勾结",
+      "先小额跟一单"
+    ],
+    "answer": 2,
+    "cues": [
+      "免费带单",
+      "晒单据",
+      "指定交易所",
+      "返佣勾结"
+    ],
+    "explain": "带单老师与野鸡交易所勾结，你亏损他抽佣。晒的盈利单据可伪造，下载指定APP即落入杀猪盘。",
+    "psychology": [
+      "greed",
+      "trust",
+      "authority",
+      "conformity"
+    ],
+    "knowledgePoints": [
+      "KP-CRYPTO"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "币圈老师带单杀猪盘案",
+      "date": "2026-03",
+      "source": "公安部反诈中心通报",
+      "takeaway": "带单老师与交易所勾结抽佣，盈利单据可伪造，指定APP是杀猪盘。"
+    },
+    "tags": [
+      "币圈",
+      "老师带单",
+      "杀猪盘"
+    ],
+    "updateDate": "2026-07",
+    "severity": 5
+  },
+  {
+    "id": "F125-014",
+    "typeId": "F125",
+    "type": "币圈老师带单",
+    "cardType": "transfer",
+    "difficulty": 3,
+    "kind": "single",
+    "title": "转账 / \"老师带单爆仓补仓\"",
+    "body": "跟单后账户显示亏损，\"老师\"称\"行情震荡正常，补仓5万USDT即可回本翻倍\"，并展示其他群友\"补仓后已盈利\"的截图，催促尽快转账。",
+    "options": [
+      "补仓5万回本",
+      "看群友盈利就补",
+      "拒绝，补仓是杀猪盘诱骗追加，亏损是平台后台操控",
+      "补一半试试"
+    ],
+    "answer": 2,
+    "cues": [
+      "补仓翻倍",
+      "群友盈利截图",
+      "后台操控"
+    ],
+    "explain": "带单亏损是平台后台操控K线，\"群友盈利\"是托儿截图。补仓只会越陷越深，立即停止转账并报警。",
+    "psychology": [
+      "sunkCost",
+      "greed",
+      "conformity",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-CRYPTO"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "币圈带单补仓诈骗案",
+      "date": "2026-04",
+      "source": "公安部反诈中心通报",
+      "takeaway": "带单亏损是后台操控，补仓是诱骗追加，群友截图是托儿。"
+    },
+    "tags": [
+      "币圈",
+      "补仓",
+      "后台操控"
+    ],
+    "updateDate": "2026-07",
+    "severity": 5
+  },
+  {
+    "id": "F125-015",
+    "typeId": "F125",
+    "type": "数字人民币仿冒",
+    "cardType": "sms",
+    "difficulty": 1,
+    "kind": "judge",
+    "title": "短信 / \"数字人民币测试红包\"",
+    "body": "【央行数字货币】您被抽中为数字人民币试点用户，领取500元测试红包，点击 http://dcep-test.xyz 填银行卡密码领取。判断：点击领取测试红包。",
+    "options": [
+      "正确：被抽中领红包",
+      "错误：央行不通过短信链接发测试红包，索要密码是盗刷"
+    ],
+    "answer": 1,
+    "cues": [
+      "测试红包",
+      "陌生链接",
+      "索要密码"
+    ],
+    "explain": "数字人民币试点红包通过官方APP和政府公告发放，不通过短信链接。索要银行卡密码必是盗刷。",
+    "psychology": [
+      "greed",
+      "authority"
+    ],
+    "knowledgePoints": [
+      "KP-CRYPTO"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "数字人民币测试红包钓鱼案",
+      "date": "2026-05",
+      "source": "人民银行反诈通报",
+      "takeaway": "试点红包走官方APP，短信索要密码是盗刷。"
+    },
+    "tags": [
+      "数字人民币",
+      "测试红包",
+      "盗刷"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F125-016",
+    "typeId": "F125",
+    "type": "USDT洗钱跑路",
+    "cardType": "secondhand",
+    "difficulty": 1,
+    "kind": "single",
+    "title": "闲鱼 / \"USDT高价回收\"",
+    "body": "二手平台有人\"高价回收USDT，比市价高0.3元，转账即付，量大优先\"，要求加微信线下交易，先转USDT后转账。",
+    "options": [
+      "高价卖USDT先转账",
+      "看价格高就交易",
+      "拒绝，线下USDT交易涉嫌洗钱，对方收币后不付款或冻结账户",
+      "先转小额试水"
+    ],
+    "answer": 2,
+    "cues": [
+      "高价回收",
+      "线下交易",
+      "先转后付"
+    ],
+    "explain": "线下USDT高价回收常是洗钱或\"先转后不付\"套路。收到的款项可能涉案导致你账户被冻结，涉嫌帮信罪。",
+    "psychology": [
+      "greed",
+      "trust"
+    ],
+    "knowledgePoints": [
+      "KP-CRYPTO"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "USDT高价回收洗钱案",
+      "date": "2026-06",
+      "source": "公安部经侦通报",
+      "takeaway": "线下USDT高价回收涉洗钱，账户被冻结还可能涉帮信罪。"
+    },
+    "tags": [
+      "USDT",
+      "高价回收",
+      "洗钱",
+      "帮信罪"
+    ],
+    "updateDate": "2026-07",
+    "severity": 5
+  },
+  {
+    "id": "F125-017",
+    "typeId": "F125",
+    "type": "币圈老师带单",
+    "cardType": "chat",
+    "difficulty": 4,
+    "kind": "single",
+    "title": "微信 / \"合约跟单稳赢系统\"",
+    "body": "\"老师\"称\"我们的AI跟单系统接入交易所API，自动止盈止损，月收益30%以上，缴纳9800元年费即可使用，已有5000+用户盈利\"，附完整运营资质和用户感谢信。",
+    "options": [
+      "缴费9800用跟单系统",
+      "看资质和感谢信就信",
+      "拒绝，合约带单稳赢违背市场规律，资质感谢信皆可伪造",
+      "先交半年费试试"
+    ],
+    "answer": 2,
+    "cues": [
+      "AI跟单",
+      "稳赢系统",
+      "年费",
+      "伪造资质"
+    ],
+    "explain": "合约交易无稳赢系统，\"月收益30%\"远超市场水平。运营资质和感谢信都可伪造，缴费后系统失效或跑路。",
+    "psychology": [
+      "greed",
+      "authority",
+      "trust",
+      "conformity"
+    ],
+    "knowledgePoints": [
+      "KP-CRYPTO"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "AI合约跟单诈骗案",
+      "date": "2026-05",
+      "source": "证监会反诈通报",
+      "takeaway": "合约无稳赢系统，月收益30%违背规律，资质感谢信可伪造。"
+    },
+    "tags": [
+      "币圈",
+      "AI跟单",
+      "稳赢系统"
+    ],
+    "updateDate": "2026-07",
+    "severity": 5
+  },
+  {
+    "id": "F125-018",
+    "typeId": "F125",
+    "type": "虚拟币交易所跑路",
+    "cardType": "app",
+    "difficulty": 4,
+    "kind": "single",
+    "title": "APP / \"交易所维护无法提现\"",
+    "body": "在某虚拟币交易所APP充值后盈利，提现时提示\"系统维护，需缴纳20%保证金方可提现\"，客服称维护结束后保证金退还，并展示\"其他用户已成功提现\"记录。",
+    "options": [
+      "缴保证金提现",
+      "看记录已有人提现就缴",
+      "拒绝，正规交易所提现不收保证金，此为跑路前最后收割",
+      "先缴一半试试"
+    ],
+    "answer": 2,
+    "cues": [
+      "提现保证金",
+      "系统维护",
+      "伪造提现记录"
+    ],
+    "explain": "正规交易所提现不收保证金。\"维护+保证金\"是跑路前最后收割，提现记录可伪造，缴费后仍无法提现。",
+    "psychology": [
+      "sunkCost",
+      "greed",
+      "trust"
+    ],
+    "knowledgePoints": [
+      "KP-CRYPTO"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "交易所提现保证金诈骗案",
+      "date": "2026-06",
+      "source": "公安部经侦通报",
+      "takeaway": "正规交易所提现不收保证金，维护+保证金是跑路前收割。"
+    },
+    "tags": [
+      "交易所",
+      "提现保证金",
+      "跑路"
+    ],
+    "updateDate": "2026-07",
+    "severity": 5
+  },
+  {
+    "id": "F125-019",
+    "typeId": "F125",
+    "type": "假ICO募资",
+    "cardType": "sms",
+    "difficulty": 2,
+    "kind": "single",
+    "title": "短信 / \"代币空投领取\"",
+    "body": "【某链】尊敬用户，您持有原币符合空投条件，点击 http://airdrop-claim.xyz 领取新代币空投，需连接钱包并签名确认，24小时失效。",
+    "options": [
+      "点击连接钱包领取空投",
+      "签名确认领取",
+      "拒绝，空投钓鱼常通过签名盗取钱包资产",
+      "先领一个钱包的"
+    ],
+    "answer": 2,
+    "cues": [
+      "空投领取",
+      "连接钱包",
+      "签名确认",
+      "陌生链接"
+    ],
+    "explain": "空投钓鱼通过诱导签名授权转移钱包全部资产。\"连接钱包+签名\"即授权，币会被秒转，认准项目官方空投页。",
+    "psychology": [
+      "greed",
+      "urgency",
+      "curiosity"
+    ],
+    "knowledgePoints": [
+      "KP-CRYPTO"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "空投钓鱼签名盗币案",
+      "date": "2026-04",
+      "source": "公安部反诈通报",
+      "takeaway": "空投钓鱼通过签名授权盗币，连接钱包签名前务必核实官方。"
+    },
+    "tags": [
+      "空投",
+      "钱包钓鱼",
+      "签名授权"
+    ],
+    "updateDate": "2026-07",
+    "severity": 5
+  },
+  {
+    "id": "F125-020",
+    "typeId": "F125",
+    "type": "NFT藏品炒作",
+    "cardType": "secondhand",
+    "difficulty": 1,
+    "kind": "single",
+    "title": "闲鱼 / \"NFT高价回收\"",
+    "body": "二手平台买家称\"高价回收XX平台NFT，比市价高30%，加QQ交易，先转NFT后付款，量大可议价\"，并晒出高价收购清单。",
+    "options": [
+      "先转NFT等付款",
+      "看清单价格高就转",
+      "拒绝，先转后付常见不付款，且NFT跨平台交易有风险",
+      "先转1个试水"
+    ],
+    "answer": 2,
+    "cues": [
+      "高价回收",
+      "先转后付",
+      "跨平台交易"
+    ],
+    "explain": "NFT高价回收多为\"先转后不付\"，跨平台交易无保障。晒的清单可伪造，转出后无法追回。",
+    "psychology": [
+      "greed",
+      "trust"
+    ],
+    "knowledgePoints": [
+      "KP-CRYPTO"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "NFT高价回收诈骗案",
+      "date": "2026-05",
+      "source": "公安部反诈通报",
+      "takeaway": "NFT高价回收先转后不付，跨平台交易无保障，认准官方市场。"
+    },
+    "tags": [
+      "NFT",
+      "高价回收",
+      "先转后付"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F125-021",
+    "typeId": "F125",
+    "type": "链游打金诈骗",
+    "cardType": "qrcode",
+    "difficulty": 3,
+    "kind": "single",
+    "title": "扫码 / \"链游装备交易\"",
+    "body": "群友发来链游装备交易二维码\"低价转让稀有装备，扫码连接钱包支付0.3ETH即过户，装备可在游戏内变现日赚500\"",
+    "options": [
+      "扫码支付购买装备",
+      "看是稀有装备就买",
+      "拒绝，扫码连接钱包有风险，装备价值和变现均无法保障",
+      "先付一半"
+    ],
+    "answer": 2,
+    "cues": [
+      "链游装备",
+      "扫码连接钱包",
+      "变现诱惑"
+    ],
+    "explain": "链游装备交易扫码连接钱包可能授权转移全部资产。装备价值和\"日赚500\"变现多为话术，转出即被骗。",
+    "psychology": [
+      "greed",
+      "trust",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-CRYPTO"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "链游装备交易钓鱼案",
+      "date": "2026-05",
+      "source": "公安部反诈通报",
+      "takeaway": "链游装备扫码连接钱包有被盗风险，装备变现多为话术。"
+    },
+    "tags": [
+      "链游",
+      "装备交易",
+      "钱包钓鱼"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F125-022",
+    "typeId": "F125",
+    "type": "币圈老师带单",
+    "cardType": "chat",
+    "difficulty": 1,
+    "kind": "single",
+    "title": "微信 / \"币圈跟单群入群费\"",
+    "body": "陌生人拉群称\"币圈大佬带单群，月收益50%，入群费988元，包回本，已带3000人盈利\"，群内滚动晒盈利截图和\"感谢老师\"消息。",
+    "options": [
+      "交入群费跟单",
+      "看群内感谢消息就交",
+      "拒绝，月收益50%违背常识，入群费是收割，群内全是托儿",
+      "先交一半入群"
+    ],
+    "answer": 2,
+    "cues": [
+      "入群费",
+      "月收益50%",
+      "晒单感谢",
+      "包回本"
+    ],
+    "explain": "月收益50%远超任何合法投资。入群费是直接收割，群内感谢消息和盈利截图全是托儿，跟单后必亏。",
+    "psychology": [
+      "greed",
+      "conformity",
+      "authority",
+      "trust"
+    ],
+    "knowledgePoints": [
+      "KP-CRYPTO"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "币圈跟单群入群费案",
+      "date": "2026-04",
+      "source": "公安部反诈通报",
+      "takeaway": "月收益50%违背常识，入群费是收割，群内全是托儿。"
+    },
+    "tags": [
+      "币圈",
+      "跟单群",
+      "入群费",
+      "托儿"
+    ],
+    "updateDate": "2026-07",
+    "severity": 5
+  },
+  {
+    "id": "F125-023",
+    "typeId": "F125",
+    "type": "数字人民币仿冒",
+    "cardType": "popup",
+    "difficulty": 1,
+    "kind": "judge",
+    "title": "弹窗 / \"数字人民币1:1兑换\"",
+    "body": "弹窗广告\"数字人民币1:1兑换通道开放，扫码即可用人民币兑换DCEP，享专属优惠利率，名额有限\"。判断：扫码兑换数字人民币很安全。",
+    "options": [
+      "正确：扫码兑换DCEP",
+      "错误：数字人民币不通过弹窗扫码兑换，认准官方APP和银行渠道"
+    ],
+    "answer": 1,
+    "cues": [
+      "弹窗兑换",
+      "扫码",
+      "优惠利率"
+    ],
+    "explain": "数字人民币通过官方APP和六大行渠道兑换，不通过弹窗扫码。\"优惠利率\"是诱饵，扫码即被钓鱼。",
+    "psychology": [
+      "greed",
+      "urgency",
+      "scarcity"
+    ],
+    "knowledgePoints": [
+      "KP-CRYPTO"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "数字人民币兑换钓鱼案",
+      "date": "2026-05",
+      "source": "人民银行反诈通报",
+      "takeaway": "数字人民币走官方APP和银行，弹窗扫码兑换是钓鱼。"
+    },
+    "tags": [
+      "数字人民币",
+      "兑换",
+      "弹窗钓鱼"
+    ],
+    "updateDate": "2026-07",
+    "severity": 3
+  },
+  {
+    "id": "F125-024",
+    "typeId": "F125",
+    "type": "虚拟币交易所跑路",
+    "cardType": "chat",
+    "difficulty": 4,
+    "kind": "single",
+    "title": "微信 / \"交易所客服\"提现解冻",
+    "body": "提现失败后，自称交易所客服加微信\"您的账户涉嫌违规被冻结，需缴纳解冻金5万USDT到指定地址，解冻后本金全额返还\"，并展示\"反洗钱中心冻结通知\"红头文件。",
+    "options": [
+      "缴解冻金解冻账户",
+      "看红头文件真实就缴",
+      "拒绝，正规交易所不私加微信收费，红头文件AI可伪造，提现失败联系官方客服",
+      "先缴一半试试"
+    ],
+    "answer": 2,
+    "cues": [
+      "提现冻结",
+      "解冻金",
+      "AI红头文件",
+      "私加微信"
+    ],
+    "explain": "正规交易所客服不私加微信收费。\"解冻金\"是跑路前收割，红头文件AI可伪造，提现问题只联系APP内官方客服。",
+    "psychology": [
+      "fear",
+      "authority",
+      "sunkCost",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-CRYPTO"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "交易所解冻金诈骗案",
+      "date": "2026-06",
+      "source": "公安部反诈中心通报",
+      "takeaway": "交易所客服不私加微信收费，解冻金是收割，红头文件可伪造。"
+    },
+    "tags": [
+      "交易所",
+      "解冻金",
+      "AI公文"
+    ],
+    "updateDate": "2026-07",
+    "severity": 5
+  },
+  {
+    "id": "F125-025",
+    "typeId": "F125",
+    "type": "USDT洗钱跑路",
+    "cardType": "secondhand",
+    "difficulty": 3,
+    "kind": "single",
+    "title": "闲鱼 / \"USDT承兑商招募\"",
+    "body": "二手平台招聘\"USDT承兑商，提供资金收付USDT，每单抽成0.5%，日入过千，提供银行卡即可，已运营2年\"，要求提供多张银行卡。",
+    "options": [
+      "提供银行卡当承兑商",
+      "看抽成高就干",
+      "拒绝，提供银行卡收付USDT涉嫌洗钱帮信罪，账户将被冻结还担刑责",
+      "先提供一张卡试试"
+    ],
+    "answer": 2,
+    "cues": [
+      "承兑商招募",
+      "提供银行卡",
+      "日入过千",
+      "洗钱"
+    ],
+    "explain": "出借银行卡收付USDT涉嫌帮信罪和洗钱。账户将被冻结，本人可能承担刑事责任，所谓\"日入过千\"是诱饵。",
+    "psychology": [
+      "greed",
+      "trust"
+    ],
+    "knowledgePoints": [
+      "KP-CRYPTO"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "USDT承兑商洗钱帮信案",
+      "date": "2026-05",
+      "source": "公安部经侦通报",
+      "takeaway": "出借银行卡收付USDT涉洗钱帮信罪，账户冻结还担刑责。"
+    },
+    "tags": [
+      "USDT",
+      "承兑商",
+      "帮信罪",
+      "洗钱"
+    ],
+    "updateDate": "2026-07",
+    "severity": 5
+  },
+  {
+    "id": "F126-001",
+    "typeId": "F126",
+    "type": "跨境代购诈骗",
+    "cardType": "chat",
+    "difficulty": 2,
+    "kind": "single",
+    "title": "微信 / \"日韩代购直播\"",
+    "body": "朋友圈代购称\"人在日本直播采购LV包，专柜价7折，先付50%定金到私人账户，3天到货\"，并发来专柜采购视频和\"清关单据\"。",
+    "options": [
+      "付定金到私人账户",
+      "看视频和单据真实就付",
+      "警惕，代购视频可AI合成，私人账户无保障，要求走平台担保交易",
+      "先付30%试水"
+    ],
+    "answer": 2,
+    "cues": [
+      "代购直播",
+      "私人账户",
+      "AI合成视频",
+      "清关单据"
+    ],
+    "explain": "代购视频和清关单据可AI合成或伪造。私人转账无售后保障，要求走平台担保交易或官方专柜购买。",
+    "psychology": [
+      "greed",
+      "trust",
+      "scarcity"
+    ],
+    "knowledgePoints": [
+      "KP-CROSS-BORDER-FX"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "日韩代购直播诈骗案",
+      "date": "2026-03",
+      "source": "海关总署反诈通报",
+      "takeaway": "代购视频和单据可伪造，私人转账无保障，走平台担保交易。"
+    },
+    "tags": [
+      "跨境代购",
+      "奢侈品",
+      "AI视频"
+    ],
+    "updateDate": "2026-07",
+    "severity": 3
+  },
+  {
+    "id": "F126-002",
+    "typeId": "F126",
+    "type": "跨境代购诈骗",
+    "cardType": "secondhand",
+    "difficulty": 2,
+    "kind": "single",
+    "title": "闲鱼 / \"欧美代购化妆品\"",
+    "body": "二手平台卖家\"人在欧洲专柜代购雅诗兰黛套装，国内专柜6折，支持验货，需先转账3000元\"，要求加微信脱离平台交易，称\"平台手续费高\"。",
+    "options": [
+      "加微信脱离平台转账",
+      "看价格便宜就转账",
+      "拒绝，脱离平台交易无保障，验货承诺是空话",
+      "先转一半试试"
+    ],
+    "answer": 2,
+    "cues": [
+      "脱离平台",
+      "私人转账",
+      "手续费借口"
+    ],
+    "explain": "脱离平台私下交易无售后和退款保障，\"验货承诺\"无法兑现。手续费借口是诱导脱离平台的常见话术。",
+    "psychology": [
+      "greed",
+      "trust"
+    ],
+    "knowledgePoints": [
+      "KP-CROSS-BORDER-FX"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "欧美代购脱离平台诈骗案",
+      "date": "2026-04",
+      "source": "市场监管总局通报",
+      "takeaway": "脱离平台交易无保障，手续费借口是诱导私下转账话术。"
+    },
+    "tags": [
+      "跨境代购",
+      "脱离平台",
+      "化妆品"
+    ],
+    "updateDate": "2026-07",
+    "severity": 3
+  },
+  {
+    "id": "F126-003",
+    "typeId": "F126",
+    "type": "虚假海外仓发货",
+    "cardType": "chat",
+    "difficulty": 3,
+    "kind": "single",
+    "title": "微信 / \"海外仓直发假物流\"",
+    "body": "代购称\"货物已从洛杉矶海外仓发出，运单号XX，可查物流\"，但物流轨迹只显示\"已发货\"无后续更新，要求付清尾款后才\"加速清关\"。",
+    "options": [
+      "付清尾款加速清关",
+      "看有运单号就付",
+      "警惕，物流轨迹不更新是假物流，尾款付清后人消失",
+      "先付一半尾款"
+    ],
+    "answer": 2,
+    "cues": [
+      "海外仓",
+      "物流不更新",
+      "付清尾款",
+      "假运单"
+    ],
+    "explain": "假海外仓常用假运单号和\"不更新轨迹\"。\"付清尾款加速清关\"是二次收割，正规物流轨迹应实时更新到派件。",
+    "psychology": [
+      "sunkCost",
+      "trust",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-CROSS-BORDER-FX"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "虚假海外仓假物流案",
+      "date": "2026-05",
+      "source": "海关总署反诈通报",
+      "takeaway": "假海外仓运单不更新，付清尾款是人消失，正规物流应实时更新。"
+    },
+    "tags": [
+      "海外仓",
+      "假物流",
+      "二次收割"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F126-004",
+    "typeId": "F126",
+    "type": "关税退还诈骗",
+    "cardType": "sms",
+    "difficulty": 2,
+    "kind": "single",
+    "title": "短信 / \"关税退还到账\"",
+    "body": "【海关】您海淘包裹关税多缴，可申请退还关税288元，点击 http://customs-refund.xyz 填写银行卡信息接收退款，24小时内到账。",
+    "options": [
+      "点击链接填写银行卡",
+      "看是海关短信就信",
+      "拒绝，海关退税不通过短信链接，认准海关12360热线核实",
+      "先填一张空卡"
+    ],
+    "answer": 2,
+    "cues": [
+      "关税退还",
+      "陌生链接",
+      "索要银行卡"
+    ],
+    "explain": "海关退税不通过短信链接，更不索要银行卡信息。customs-refund.xyz是仿冒域名，认准12360官方热线。",
+    "psychology": [
+      "greed",
+      "authority",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-CROSS-BORDER-FX"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "关税退还钓鱼案",
+      "date": "2026-04",
+      "source": "海关总署反诈通报",
+      "takeaway": "海关退税不通过短信链接，认准12360热线核实。"
+    },
+    "tags": [
+      "关税",
+      "退税钓鱼",
+      "仿冒海关"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F126-005",
+    "typeId": "F126",
+    "type": "关税退还诈骗",
+    "cardType": "call",
+    "difficulty": 3,
+    "kind": "single",
+    "title": "语音来电 / \"海关\"补缴关税",
+    "body": "来电自称海关，\"您海淘包裹被扣，需补缴关税1200元到指定账户才能放行，否则包裹退回并罚款\"，声音专业并报出包裹收件人和地址。",
+    "options": [
+      "按对方要求补缴关税",
+      "对方知道地址可信",
+      "挂断，拨打12360海关热线核实，正规关税不缴私人账户",
+      "先缴一半试试"
+    ],
+    "answer": 2,
+    "cues": [
+      "补缴关税",
+      "私人账户",
+      "包裹恐吓",
+      "信息泄露"
+    ],
+    "explain": "信息泄露让骗子能报出收件人地址。正规关税通过海关官方渠道缴纳，不缴私人账户，挂断拨12360核实。",
+    "psychology": [
+      "authority",
+      "fear",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-CROSS-BORDER-FX"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "海关补缴关税诈骗案",
+      "date": "2026-05",
+      "source": "海关总署反诈通报",
+      "takeaway": "信息泄露让骗子报出地址，关税走官方渠道不缴私人账户。"
+    },
+    "tags": [
+      "关税",
+      "补缴",
+      "仿冒海关",
+      "信息泄露"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F126-006",
+    "typeId": "F126",
+    "type": "国际快递理赔",
+    "cardType": "call",
+    "difficulty": 2,
+    "kind": "single",
+    "title": "语音来电 / \"DHL快递理赔\"",
+    "body": "自称DHL客服来电\"您的国际包裹在运输中丢失，可获理赔3000元，请下载会议APP共享屏幕协助办理理赔\"，并准确报出运单号和收件信息。",
+    "options": [
+      "下载APP共享屏幕办理",
+      "对方知道运单号可信",
+      "挂断，拨打DHL官方客服95380核实，共享屏幕是诈骗",
+      "先共享看看"
+    ],
+    "answer": 2,
+    "cues": [
+      "快递理赔",
+      "共享屏幕",
+      "运单号泄露",
+      "下载APP"
+    ],
+    "explain": "运单号泄露让骗局更逼真。正规理赔不要求共享屏幕和下载APP，挂断拨DHL官方95380核实。",
+    "psychology": [
+      "trust",
+      "greed",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-CROSS-BORDER-FX"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "DHL快递理赔共享屏幕案",
+      "date": "2026-04",
+      "source": "邮政局反诈通报",
+      "takeaway": "运单号泄露让骗局逼真，正规理赔不共享屏幕，拨官方95380核实。"
+    },
+    "tags": [
+      "国际快递",
+      "理赔",
+      "共享屏幕"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F126-007",
+    "typeId": "F126",
+    "type": "国际快递理赔",
+    "cardType": "sms",
+    "difficulty": 2,
+    "kind": "single",
+    "title": "短信 / \"FedEx包裹理赔\"",
+    "body": "【FedEx】您的国际包裹丢失，点击 http://fedex-claim.xyz 申请理赔，需填写银行卡号、密码和身份证接收理赔款，3个工作日到账。",
+    "options": [
+      "点击链接填写信息",
+      "看是FedEx短信就填",
+      "拒绝，FedEx理赔不通过陌生链接索要密码，认准官方客服",
+      "先填卡号不填密码"
+    ],
+    "answer": 2,
+    "cues": [
+      "包裹理赔",
+      "陌生链接",
+      "索要密码",
+      "仿冒FedEx"
+    ],
+    "explain": "正规快递理赔不通过陌生链接索要银行卡密码。fedex-claim.xyz是仿冒域名，认准FedEx官方客服核实。",
+    "psychology": [
+      "greed",
+      "trust",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-CROSS-BORDER-FX"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "FedEx理赔钓鱼案",
+      "date": "2026-05",
+      "source": "邮政局反诈通报",
+      "takeaway": "快递理赔不索要密码，仿冒域名常加后缀，认准官方客服。"
+    },
+    "tags": [
+      "国际快递",
+      "理赔",
+      "钓鱼短信"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F126-008",
+    "typeId": "F126",
+    "type": "假海淘平台钓鱼",
+    "cardType": "app",
+    "difficulty": 3,
+    "kind": "single",
+    "title": "APP / \"海淘平台假一赔十\"",
+    "body": "下载某海淘APP\"全球直邮，假一赔十，SK-II神仙水专柜5折\"，界面仿某知名海淘平台，要求注册时绑定银行卡并授权免密支付。",
+    "options": [
+      "注册绑定银行卡授权",
+      "看界面专业就授权",
+      "拒绝，仿冒平台盗刷免密支付，认准应用商店正版APP",
+      "先绑定一张少额卡"
+    ],
+    "answer": 2,
+    "cues": [
+      "仿冒平台",
+      "假一赔十",
+      "免密授权",
+      "5折低价"
+    ],
+    "explain": "仿冒海淘平台界面可高度仿真，授权免密支付即开放盗刷权限。\"假一赔十\"是诱饵，认准应用商店正版APP。",
+    "psychology": [
+      "greed",
+      "trust",
+      "authority"
+    ],
+    "knowledgePoints": [
+      "KP-CROSS-BORDER-FX"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "仿冒海淘平台盗刷案",
+      "date": "2026-06",
+      "source": "市场监管总局通报",
+      "takeaway": "仿冒平台界面仿真，免密授权即盗刷，认准应用商店正版APP。"
+    },
+    "tags": [
+      "海淘平台",
+      "仿冒APP",
+      "免密盗刷"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F126-009",
+    "typeId": "F126",
+    "type": "跨境奢侈品鉴定",
+    "cardType": "secondhand",
+    "difficulty": 3,
+    "kind": "single",
+    "title": "闲鱼 / \"奢侈品鉴定师在线鉴定\"",
+    "body": "二手平台卖家\"专柜前鉴定师在线鉴定爱马仕包，支持第三方鉴定，原价3万现价1.2万\"，要求加微信发鉴定视频和\"鉴定证书\"，先转账后发货。",
+    "options": [
+      "看鉴定证书就转账",
+      "前鉴定师身份可信",
+      "警惕，鉴定师身份和证书可伪造，要求走平台验货付款",
+      "先转一半试试"
+    ],
+    "answer": 2,
+    "cues": [
+      "前鉴定师",
+      "鉴定证书",
+      "私人转账",
+      "低价诱惑"
+    ],
+    "explain": "前鉴定师身份和鉴定证书都可伪造。低于市场价过多的奢侈品多为假货或诈骗，走平台验货付款有保障。",
+    "psychology": [
+      "greed",
+      "trust",
+      "authority"
+    ],
+    "knowledgePoints": [
+      "KP-CROSS-BORDER-FX"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "奢侈品鉴定师诈骗案",
+      "date": "2026-05",
+      "source": "市场监管总局通报",
+      "takeaway": "鉴定师身份证书可伪造，过低价格多假货，走平台验货付款。"
+    },
+    "tags": [
+      "奢侈品",
+      "鉴定",
+      "伪造证书"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F126-010",
+    "typeId": "F126",
+    "type": "海外直邮奶粉",
+    "cardType": "chat",
+    "difficulty": 2,
+    "kind": "single",
+    "title": "微信 / \"荷兰直邮奶粉\"",
+    "body": "代购称\"荷兰牛栏奶粉直邮，比国内便宜30%，整箱起订，先付全款到私人账户，包清关包税\"，并晒出超市采购小票和\"保税仓发货\"照片。",
+    "options": [
+      "付全款到私人账户",
+      "看小票和照片真实就付",
+      "警惕，小票照片可伪造，全款私人账户无保障，走正规跨境电商",
+      "先付一半试试"
+    ],
+    "answer": 2,
+    "cues": [
+      "直邮奶粉",
+      "全款私人账户",
+      "伪造小票",
+      "低价"
+    ],
+    "explain": "海外采购小票和保税仓照片都可伪造。婴幼儿奶粉涉及健康安全，全款私人账户无售后，走正规跨境电商平台。",
+    "psychology": [
+      "greed",
+      "trust",
+      "intimacy"
+    ],
+    "knowledgePoints": [
+      "KP-CROSS-BORDER-FX"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "荷兰直邮奶粉诈骗案",
+      "date": "2026-04",
+      "source": "海关总署反诈通报",
+      "takeaway": "采购小票和保税仓照片可伪造，奶粉走正规跨境电商平台。"
+    },
+    "tags": [
+      "跨境代购",
+      "奶粉",
+      "伪造小票"
+    ],
+    "updateDate": "2026-07",
+    "severity": 3
+  },
+  {
+    "id": "F126-011",
+    "typeId": "F126",
+    "type": "海外保健品诈骗",
+    "cardType": "chat",
+    "difficulty": 2,
+    "kind": "single",
+    "title": "微信 / \"澳洲保健品代购\"",
+    "body": "代购发\"澳洲Swisse保健品直邮，养生套装国内5折，可调理三高改善睡眠，先付款到私人账户\"，朋友圈满是\"好评反馈\"截图。",
+    "options": [
+      "看好评就付款到私人账户",
+      "价格便宜就买",
+      "警惕，好评可刷单伪造，保健品功效宣传违法，走正规平台",
+      "先买一套试水"
+    ],
+    "answer": 2,
+    "cues": [
+      "保健品代购",
+      "功效宣传",
+      "好评刷单",
+      "私人账户"
+    ],
+    "explain": "保健品宣称\"调理三高改善睡眠\"违反广告法。好评截图可刷单伪造，私人账户无保障，走正规跨境电商。",
+    "psychology": [
+      "greed",
+      "trust",
+      "conformity"
+    ],
+    "knowledgePoints": [
+      "KP-CROSS-BORDER-FX"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "澳洲保健品代购诈骗案",
+      "date": "2026-05",
+      "source": "市场监管总局通报",
+      "takeaway": "保健品功效宣传违法，好评可刷单，走正规跨境电商平台。"
+    },
+    "tags": [
+      "跨境代购",
+      "保健品",
+      "功效宣传"
+    ],
+    "updateDate": "2026-07",
+    "severity": 3
+  },
+  {
+    "id": "F126-012",
+    "typeId": "F126",
+    "type": "仿自贸区优惠诈骗",
+    "cardType": "popup",
+    "difficulty": 2,
+    "kind": "single",
+    "title": "弹窗 / \"自贸区免税优惠\"",
+    "body": "弹窗广告\"自贸区免税店大促，SK-II、雅诗兰黛专柜3折，扫码进入免税店选购，全球免税包邮到家，限今日\"。",
+    "options": [
+      "扫码进入免税店选购",
+      "看3折便宜就买",
+      "拒绝，正规免税店不通过弹窗，扫码多为仿冒钓鱼",
+      "先买小样试试"
+    ],
+    "answer": 2,
+    "cues": [
+      "自贸区免税",
+      "扫码进入",
+      "3折低价",
+      "限时"
+    ],
+    "explain": "正规免税店（如中免日上）通过官方APP和线下门店销售，不通过弹窗扫码。\"3折包邮\"是钓鱼诱饵。",
+    "psychology": [
+      "greed",
+      "urgency",
+      "scarcity"
+    ],
+    "knowledgePoints": [
+      "KP-CROSS-BORDER-FX"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "自贸区免税钓鱼案",
+      "date": "2026-06",
+      "source": "海关总署反诈通报",
+      "takeaway": "正规免税店不通过弹窗扫码，3折包邮是钓鱼诱饵。"
+    },
+    "tags": [
+      "自贸区",
+      "免税",
+      "弹窗钓鱼"
+    ],
+    "updateDate": "2026-07",
+    "severity": 3
+  },
+  {
+    "id": "F126-013",
+    "typeId": "F126",
+    "type": "关税退还诈骗",
+    "cardType": "sms",
+    "difficulty": 1,
+    "kind": "judge",
+    "title": "短信 / \"关税补贴领取\"",
+    "body": "【商务部】跨境电商关税补贴发放，您可领取288元，点击 http://mofcom-subsidy.xyz 填银行卡密码领取，24小时失效。判断：点击领取补贴。",
+    "options": [
+      "正确：商务部发补贴",
+      "错误：商务部不通过短信发补贴，索要密码是盗刷，仿冒域名"
+    ],
+    "answer": 1,
+    "cues": [
+      "关税补贴",
+      "陌生链接",
+      "索要密码",
+      "仿冒域名"
+    ],
+    "explain": "商务部不通过短信链接发放补贴。mofcom-subsidy.xyz是仿冒域名（官方为mofcom.gov.cn），索要密码必是盗刷。",
+    "psychology": [
+      "greed",
+      "authority",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-CROSS-BORDER-FX"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "关税补贴钓鱼案",
+      "date": "2026-05",
+      "source": "商务部反诈通报",
+      "takeaway": "商务部不发短信补贴，仿冒域名加后缀，索要密码是盗刷。"
+    },
+    "tags": [
+      "关税",
+      "补贴钓鱼",
+      "仿冒域名"
+    ],
+    "updateDate": "2026-07",
+    "severity": 3
+  },
+  {
+    "id": "F126-014",
+    "typeId": "F126",
+    "type": "关税退还诈骗",
+    "cardType": "call",
+    "difficulty": 3,
+    "kind": "single",
+    "title": "语音来电 / \"海淘退税\"",
+    "body": "来电自称税务局\"您海淘消费可申请退税1288元，需提供银行卡接收退款，并报出收到的验证码完成身份核验\"，声音专业并报出消费记录。",
+    "options": [
+      "提供银行卡接收退款",
+      "报验证码核验身份",
+      "挂断，退税不索要验证码，挂断拨12366税务热线核实",
+      "先提供卡号不报码"
+    ],
+    "answer": 2,
+    "cues": [
+      "海淘退税",
+      "索要验证码",
+      "消费记录泄露"
+    ],
+    "explain": "退税不索要验证码，验证码是盗刷最后防线。消费记录泄露让骗局逼真，挂断拨12366核实。",
+    "psychology": [
+      "greed",
+      "authority",
+      "trust",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-CROSS-BORDER-FX"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "海淘退税验证码诈骗案",
+      "date": "2026-04",
+      "source": "税务总局反诈通报",
+      "takeaway": "退税不索要验证码，消费记录泄露让骗局逼真，拨12366核实。"
+    },
+    "tags": [
+      "关税",
+      "退税",
+      "验证码",
+      "信息泄露"
+    ],
+    "updateDate": "2026-07",
+    "severity": 5
+  },
+  {
+    "id": "F126-015",
+    "typeId": "F126",
+    "type": "虚假海外仓发货",
+    "cardType": "sms",
+    "difficulty": 2,
+    "kind": "single",
+    "title": "短信 / \"跨境包裹清关\"",
+    "body": "【海关】您的跨境包裹需补缴清关费38元，点击 http://customs-pay.xyz 缴费，否则包裹退回，需填写银行卡信息。",
+    "options": [
+      "点击链接缴费清关费",
+      "看金额小就缴",
+      "拒绝，正规清关费不通过陌生链接，认准物流官方APP缴费",
+      "先缴38元试试"
+    ],
+    "answer": 2,
+    "cues": [
+      "清关费",
+      "陌生链接",
+      "索要银行卡",
+      "包裹恐吓"
+    ],
+    "explain": "正规清关费用通过物流或海关官方渠道缴纳，不通过陌生短信链接。小额\"清关费\"是钓鱼诱饵，索要银行卡即盗刷。",
+    "psychology": [
+      "fear",
+      "urgency",
+      "authority"
+    ],
+    "knowledgePoints": [
+      "KP-CROSS-BORDER-FX"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "跨境清关费钓鱼案",
+      "date": "2026-05",
+      "source": "海关总署反诈通报",
+      "takeaway": "清关费走官方渠道，小额陌生链接是钓鱼诱饵，索要银行卡即盗刷。"
+    },
+    "tags": [
+      "清关费",
+      "钓鱼短信",
+      "盗刷"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F126-016",
+    "typeId": "F126",
+    "type": "虚假海外仓发货",
+    "cardType": "chat",
+    "difficulty": 3,
+    "kind": "single",
+    "title": "微信 / \"海外仓虚假物流\"",
+    "body": "代购发来物流截图\"包裹已到国内转运中心，需缴清关保证金2000元，到货后退还\"，物流截图显示\"国际段已妥投\"但国内段无更新。",
+    "options": [
+      "缴清关保证金",
+      "看物流截图真实就缴",
+      "警惕，保证金是无依据收费，物流截图可伪造，正规清关无保证金",
+      "先缴一半试试"
+    ],
+    "answer": 2,
+    "cues": [
+      "清关保证金",
+      "物流截图",
+      "无依据收费"
+    ],
+    "explain": "正规清关无\"保证金\"收费。物流截图可伪造，国内段无更新是异常，保证金付后人可能消失。",
+    "psychology": [
+      "sunkCost",
+      "fear",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-CROSS-BORDER-FX"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "海外仓保证金诈骗案",
+      "date": "2026-06",
+      "source": "海关总署反诈通报",
+      "takeaway": "正规清关无保证金，物流截图可伪造，国内段无更新是异常。"
+    },
+    "tags": [
+      "海外仓",
+      "保证金",
+      "假物流"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F126-017",
+    "typeId": "F126",
+    "type": "跨境奢侈品鉴定",
+    "cardType": "secondhand",
+    "difficulty": 3,
+    "kind": "single",
+    "title": "闲鱼 / \"专柜验货奢侈品\"",
+    "body": "卖家称\"劳力士手表支持专柜验货，全国联保，原价8万现价2.5万，急出\"，要求加微信付定金5000元，称\"专柜验货不满意退款\"。",
+    "options": [
+      "付定金等专柜验货",
+      "看支持验货就付",
+      "警惕，专柜不提供第三方验货，低价劳力士多假货，走平台担保",
+      "先付2000试水"
+    ],
+    "answer": 2,
+    "cues": [
+      "专柜验货",
+      "低价劳力士",
+      "私人定金",
+      "急出"
+    ],
+    "explain": "专柜不提供第三方验货服务，\"专柜验货\"是空头承诺。远低于市场价的奢侈品多为假货或诈骗，走平台担保交易。",
+    "psychology": [
+      "greed",
+      "trust",
+      "scarcity",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-CROSS-BORDER-FX"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "专柜验货奢侈品诈骗案",
+      "date": "2026-05",
+      "source": "市场监管总局通报",
+      "takeaway": "专柜不提供第三方验货，低价奢侈品多假货，走平台担保交易。"
+    },
+    "tags": [
+      "奢侈品",
+      "专柜验货",
+      "低价陷阱"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F126-018",
+    "typeId": "F126",
+    "type": "假海淘平台钓鱼",
+    "cardType": "app",
+    "difficulty": 2,
+    "kind": "single",
+    "title": "APP / \"海淘新人注册送\"",
+    "body": "某海淘APP\"新人注册送388元红包+满减券，下载即送，注册需实名认证+绑定手机号\"，首页显示\"全球直邮7天到货，假一赔十\"。",
+    "options": [
+      "注册领红包实名认证",
+      "看送红包就注册",
+      "警惕，送红包引流后多为假货或跑路，认准知名海淘平台",
+      "先注册不实名"
+    ],
+    "answer": 2,
+    "cues": [
+      "注册送红包",
+      "实名认证",
+      "假一赔十",
+      "引流"
+    ],
+    "explain": "送红包+假一赔十是引流话术，小平台常卖假货或跑路。实名信息被贩卖用于其他诈骗，认准知名海淘平台。",
+    "psychology": [
+      "greed",
+      "curiosity",
+      "trust"
+    ],
+    "knowledgePoints": [
+      "KP-CROSS-BORDER-FX"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "海淘新人红包诈骗案",
+      "date": "2026-06",
+      "source": "市场监管总局通报",
+      "takeaway": "送红包引流后多假货跑路，实名信息被贩卖，认准知名平台。"
+    },
+    "tags": [
+      "海淘平台",
+      "注册送",
+      "引流"
+    ],
+    "updateDate": "2026-07",
+    "severity": 3
+  },
+  {
+    "id": "F126-019",
+    "typeId": "F126",
+    "type": "跨境代购诈骗",
+    "cardType": "chat",
+    "difficulty": 2,
+    "kind": "single",
+    "title": "微信 / \"代购跑路\"付尾款",
+    "body": "代购称\"包裹已到国内，需付清尾款6000元才发货，再缴500元保险费保丢失理赔\"，之前付的定金3000元，对方称\"不付尾款定金不退\"。",
+    "options": [
+      "付尾款和保险费保定金",
+      "看已付定金就付尾款",
+      "警惕，追加收费是连环套，定金已成沉没成本，立即报警",
+      "先付尾款不付保险"
+    ],
+    "answer": 2,
+    "cues": [
+      "付尾款",
+      "保险费",
+      "定金不退",
+      "连环套"
+    ],
+    "explain": "追加\"尾款+保险费\"是连环诈骗，定金已成沉没成本。正规代购不收\"保险费\"，立即停止转账并报警。",
+    "psychology": [
+      "sunkCost",
+      "fear",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-CROSS-BORDER-FX"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "代购连环收费诈骗案",
+      "date": "2026-04",
+      "source": "市场监管总局通报",
+      "takeaway": "追加尾款保险费是连环套，定金是沉没成本，立即报警。"
+    },
+    "tags": [
+      "跨境代购",
+      "连环套",
+      "沉没成本"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F126-020",
+    "typeId": "F126",
+    "type": "国际快递理赔",
+    "cardType": "secondhand",
+    "difficulty": 3,
+    "kind": "single",
+    "title": "闲鱼 / \"国际转运丢件理赔\"",
+    "body": "二手平台有人\"代办理际转运丢件理赔，收取理赔款10%手续费，提供运单号和身份信息即可\"，并晒出多张\"成功理赔\"转账截图。",
+    "options": [
+      "提供信息代办理赔",
+      "看转账截图真实就办",
+      "拒绝，理赔应本人联系快递官方，代办涉信息泄露且多为骗手续费",
+      "先办一单试试"
+    ],
+    "answer": 2,
+    "cues": [
+      "代办理赔",
+      "手续费",
+      "信息泄露",
+      "伪造截图"
+    ],
+    "explain": "理赔应本人联系快递官方办理。代办理赔涉身份信息泄露，\"成功截图\"可伪造，所谓手续费是骗钱。",
+    "psychology": [
+      "greed",
+      "trust",
+      "sunkCost"
+    ],
+    "knowledgePoints": [
+      "KP-CROSS-BORDER-FX"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "国际转运代办理赔案",
+      "date": "2026-05",
+      "source": "邮政局反诈通报",
+      "takeaway": "理赔本人联系官方，代办涉信息泄露，手续费是骗钱。"
+    },
+    "tags": [
+      "国际快递",
+      "代办理赔",
+      "信息泄露"
+    ],
+    "updateDate": "2026-07",
+    "severity": 3
+  },
+  {
+    "id": "F126-021",
+    "typeId": "F126",
+    "type": "关税退还诈骗",
+    "cardType": "call",
+    "difficulty": 4,
+    "kind": "single",
+    "title": "语音来电 / \"海关\"关税保证金",
+    "body": "来电自称海关稽查科，\"您海淘包裹内含违禁品，需缴关税保证金2万元配合调查，否则立案侦查并影响征信\"，声音严肃并报出身份证号和包裹详情，要求保密。",
+    "options": [
+      "缴保证金配合调查",
+      "对方知道身份证号可信",
+      "挂断，海关办案不收保证金，保密+征信恐吓是诈骗标配，拨12360核实",
+      "先缴一半试试"
+    ],
+    "answer": 2,
+    "cues": [
+      "关税保证金",
+      "违禁品恐吓",
+      "征信影响",
+      "保密要求"
+    ],
+    "explain": "海关办案不收保证金，更不要求保密。\"违禁品+征信+保密\"三连恐吓是诈骗标配，身份证号泄露让骗局逼真，拨12360核实。",
+    "psychology": [
+      "authority",
+      "fear",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-CROSS-BORDER-FX"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "海关保证金恐吓诈骗案",
+      "date": "2026-06",
+      "source": "海关总署反诈通报",
+      "takeaway": "海关办案不收保证金，保密+征信恐吓是诈骗标配，拨12360核实。"
+    },
+    "tags": [
+      "关税",
+      "保证金",
+      "违禁品",
+      "恐吓"
+    ],
+    "updateDate": "2026-07",
+    "severity": 5
+  },
+  {
+    "id": "F126-022",
+    "typeId": "F126",
+    "type": "跨境奢侈品鉴定",
+    "cardType": "chat",
+    "difficulty": 2,
+    "kind": "single",
+    "title": "微信 / \"海淘假货退款\"",
+    "body": "购买奢侈品后发现是假货，联系卖家称\"可退款，需先退货并提供收款银行卡和验证码\"，并以\"系统退款\"为由要求共享屏幕。",
+    "options": [
+      "共享屏幕办理退款",
+      "提供银行卡和验证码",
+      "拒绝，退款走原支付渠道，验证码绝不外报，走平台客服介入",
+      "先提供卡号不报码"
+    ],
+    "answer": 2,
+    "cues": [
+      "假货退款",
+      "共享屏幕",
+      "索要验证码",
+      "绕过平台"
+    ],
+    "explain": "退款走原支付渠道原路返回，无需验证码和共享屏幕。绕过平台私下退款是二次诈骗，走平台客服介入维权。",
+    "psychology": [
+      "trust",
+      "urgency",
+      "sunkCost"
+    ],
+    "knowledgePoints": [
+      "KP-CROSS-BORDER-FX"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "假货退款二次诈骗案",
+      "date": "2026-05",
+      "source": "市场监管总局通报",
+      "takeaway": "退款走原支付渠道，验证码绝不外报，走平台客服介入。"
+    },
+    "tags": [
+      "奢侈品",
+      "假货退款",
+      "二次诈骗"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F126-023",
+    "typeId": "F126",
+    "type": "跨境代购诈骗",
+    "cardType": "secondhand",
+    "difficulty": 4,
+    "kind": "single",
+    "title": "闲鱼 / \"海淘直邮手表\"",
+    "body": "卖家\"日本专柜购入精工手表，全球联保，附带专柜小票和保修卡，国内6折\"，支持\"视频看货\"，但要求先付80%货款到私人账户定金。",
+    "options": [
+      "看小票和保修卡就付80%",
+      "视频看货后付款",
+      "警惕，小票保修卡可伪造，视频看货不等于验货，走平台验货付款",
+      "先付40%试水"
+    ],
+    "answer": 2,
+    "cues": [
+      "直邮手表",
+      "伪造小票保修卡",
+      "视频看货",
+      "私人定金"
+    ],
+    "explain": "专柜小票和保修卡可伪造，视频看货无法验真伪。80%私人定金风险极高，走平台验货付款有保障。",
+    "psychology": [
+      "greed",
+      "trust",
+      "authority"
+    ],
+    "knowledgePoints": [
+      "KP-CROSS-BORDER-FX"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "海淘手表定金诈骗案",
+      "date": "2026-05",
+      "source": "市场监管总局通报",
+      "takeaway": "小票保修卡可伪造，视频看货不等于验货，走平台验货付款。"
+    },
+    "tags": [
+      "跨境代购",
+      "手表",
+      "伪造单据"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F126-024",
+    "typeId": "F126",
+    "type": "假海淘平台钓鱼",
+    "cardType": "popup",
+    "difficulty": 1,
+    "kind": "judge",
+    "title": "弹窗 / \"海外仓免费送\"",
+    "body": "弹窗\"海外仓清仓免费送大牌口红，仅付19元邮费即可，扫码填写地址收货\"。判断：付19元邮费领免费大牌口红很划算。",
+    "options": [
+      "正确：付邮费领免费大牌",
+      "错误：19元邮费换的是劣质货或收信息，大牌不免费送"
+    ],
+    "answer": 1,
+    "cues": [
+      "免费送",
+      "邮费陷阱",
+      "扫码填信息"
+    ],
+    "explain": "\"免费送大牌+付邮费\"是常见邮费陷阱，19元换劣质货或纯粹收信息。大牌不会免费送，认准正规渠道。",
+    "psychology": [
+      "greed",
+      "curiosity"
+    ],
+    "knowledgePoints": [
+      "KP-CROSS-BORDER-FX"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "海外仓免费送邮费陷阱案",
+      "date": "2026-06",
+      "source": "市场监管总局通报",
+      "takeaway": "免费送大牌+邮费是陷阱，19元换劣质货或收信息。"
+    },
+    "tags": [
+      "海淘平台",
+      "免费送",
+      "邮费陷阱"
+    ],
+    "updateDate": "2026-07",
+    "severity": 2
+  },
+  {
+    "id": "F126-025",
+    "typeId": "F126",
+    "type": "假海淘平台钓鱼",
+    "cardType": "app",
+    "difficulty": 4,
+    "kind": "single",
+    "title": "APP / \"跨境黑卡支付\"",
+    "body": "某APP推广\"跨境支付黑卡，全球消费返现5%，充值USDT享8%返现，预存1万送500，已与Visa/Mastercard合作\"，附合作授权书和\"用户返现\"截图。",
+    "options": [
+      "充值USDT享返现",
+      "看授权书和返现截图就充",
+      "拒绝，跨境黑卡多为洗钱工具，授权书可伪造，USDT充值难追回",
+      "先充小额试水"
+    ],
+    "answer": 2,
+    "cues": [
+      "跨境黑卡",
+      "USDT充值",
+      "高返现",
+      "伪造授权"
+    ],
+    "explain": "跨境黑卡常是洗钱工具，USDT充值不受法律保护难以追回。Visa/Mastercard授权书可伪造，高返现是诱饵。",
+    "psychology": [
+      "greed",
+      "authority",
+      "trust"
+    ],
+    "knowledgePoints": [
+      "KP-CROSS-BORDER-FX"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "跨境黑卡洗钱诈骗案",
+      "date": "2026-06",
+      "source": "公安部经侦通报",
+      "takeaway": "跨境黑卡是洗钱工具，USDT充值难追回，授权书可伪造。"
+    },
+    "tags": [
+      "跨境支付",
+      "黑卡",
+      "洗钱",
+      "USDT"
+    ],
+    "updateDate": "2026-07",
+    "severity": 5
+  },
+  {
+    "id": "F127-001",
+    "typeId": "F127",
+    "type": "AI数字人直播",
+    "cardType": "live",
+    "difficulty": 3,
+    "kind": "single",
+    "title": "直播 / \"数字人主播24小时带货\"",
+    "body": "直播间主播24小时不下播，口齿清晰反复推销\"原价1299的羽绒服现价199，限量500单\"，弹幕滚动\"已抢购\"\"真香\"，催促立刻下单。",
+    "options": [
+      "看人气高立刻下单",
+      "限量赶紧抢",
+      "谨慎，24小时不下播+滚动弹幕疑似AI数字人，先查店铺资质和真实评价",
+      "先买一单试试"
+    ],
+    "answer": 2,
+    "cues": [
+      "AI数字人",
+      "24小时不下播",
+      "滚动弹幕",
+      "限量催单"
+    ],
+    "explain": "AI数字人可24小时直播，弹幕和销量可程序伪造。下单前查店铺资质和真实评价，别被虚假人气带节奏。",
+    "psychology": [
+      "urgency",
+      "conformity",
+      "scarcity"
+    ],
+    "knowledgePoints": [
+      "KP-LIVE-COMMERCE"
+    ],
+    "season": [
+      "winter"
+    ],
+    "caseArchive": {
+      "title": "AI数字人直播带货案",
+      "date": "2026-03",
+      "source": "市场监管总局通报",
+      "takeaway": "AI数字人24小时直播造假，下单前查店铺资质和真实评价。"
+    },
+    "tags": [
+      "AI数字人",
+      "直播带货",
+      "虚假人气"
+    ],
+    "updateDate": "2026-07",
+    "severity": 3
+  },
+  {
+    "id": "F127-002",
+    "typeId": "F127",
+    "type": "虚假明星直播",
+    "cardType": "live",
+    "difficulty": 3,
+    "kind": "single",
+    "title": "直播 / \"明星代言带货\"",
+    "body": "直播间画面是某知名明星在推销保健品\"我都在吃这款鱼油，原价599现价99，粉丝专享\"，画面清晰，但明星动作重复、眼神空洞。",
+    "options": [
+      "明星代言可信立刻买",
+      "粉丝专享就买",
+      "警惕，AI换脸可伪造明星直播，保健品功效宣传违法，核实明星官方账号",
+      "先买一瓶试试"
+    ],
+    "answer": 2,
+    "cues": [
+      "AI换脸",
+      "明星直播",
+      "动作重复",
+      "眼神空洞"
+    ],
+    "explain": "AI换脸可伪造明星直播，动作重复、眼神空洞是常见破绽。保健品宣称功效违法，认准明星官方认证账号核实。",
+    "psychology": [
+      "trust",
+      "authority",
+      "greed"
+    ],
+    "knowledgePoints": [
+      "KP-LIVE-CELEBRITY"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "AI换脸伪造明星直播带货案",
+      "date": "2026-04",
+      "source": "市场监管总局通报",
+      "takeaway": "AI可伪造明星直播，动作重复眼神空洞是破绽，认准官方认证账号。"
+    },
+    "tags": [
+      "AI换脸",
+      "明星直播",
+      "保健品"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F127-003",
+    "typeId": "F127",
+    "type": "0元购陷阱",
+    "cardType": "live",
+    "difficulty": 1,
+    "kind": "single",
+    "title": "直播 / \"0元购手机\"",
+    "body": "直播间主播喊\"iPhone手机0元购，下载指定APP注册即送，名额仅剩10个\"，要求下载APP并实名认证+绑定银行卡领\"0元手机\"。",
+    "options": [
+      "下载APP实名领手机",
+      "看名额仅剩就抢",
+      "拒绝，0元购是收集身份信息盗刷，绑卡即授权扣费",
+      "先注册不绑卡"
+    ],
+    "answer": 2,
+    "cues": [
+      "0元购",
+      "实名绑卡",
+      "名额恐吓",
+      "下载APP"
+    ],
+    "explain": "\"0元购\"是收集身份信息和绑卡授权的套路，绑卡即开通免密扣费。认准官方商城购买，别贪0元便宜。",
+    "psychology": [
+      "greed",
+      "urgency",
+      "scarcity"
+    ],
+    "knowledgePoints": [
+      "KP-LIVE-REBATE"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "0元购手机诈骗案",
+      "date": "2026-05",
+      "source": "市场监管总局通报",
+      "takeaway": "0元购是收信息绑卡扣费，认准官方商城，别贪0元便宜。"
+    },
+    "tags": [
+      "0元购",
+      "直播",
+      "绑卡扣费"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F127-004",
+    "typeId": "F127",
+    "type": "1元购陷阱",
+    "cardType": "live",
+    "difficulty": 1,
+    "kind": "single",
+    "title": "直播 / \"1元购苹果电脑\"",
+    "body": "直播间\"1元抢苹果电脑，扫码进群参与，群内发红包1元即可抢购，已有人收到货\"，群内滚动晒\"收到电脑\"的开箱图。",
+    "options": [
+      "扫码进群1元抢",
+      "看开箱图真实就抢",
+      "拒绝，1元抢电脑是引流+刷单，群内开箱图是托儿",
+      "先抢一次试试"
+    ],
+    "answer": 2,
+    "cues": [
+      "1元购",
+      "扫码进群",
+      "开箱图托儿",
+      "引流"
+    ],
+    "explain": "1元抢电脑不可能，扫码进群后被诱导刷单或交\"保证金\"。群内开箱图全是托儿，认准正规电商平台。",
+    "psychology": [
+      "greed",
+      "conformity",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-LIVE-REBATE"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "1元购电脑诈骗案",
+      "date": "2026-05",
+      "source": "公安部反诈中心通报",
+      "takeaway": "1元抢电脑是引流刷单，群内开箱图是托儿，认准正规电商。"
+    },
+    "tags": [
+      "1元购",
+      "直播",
+      "刷单",
+      "托儿"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F127-005",
+    "typeId": "F127",
+    "type": "刷单返利升级版",
+    "cardType": "chat",
+    "difficulty": 2,
+    "kind": "single",
+    "title": "微信 / \"直播间刷单返利\"",
+    "body": "直播间主播称\"做任务刷单返利，关注店铺返5元，连做3单升级VIP返利翻倍\"，前两单确实返现，第三单要求垫付5000元做\"大单任务\"返10%。",
+    "options": [
+      "垫付5000做大单任务",
+      "看前两单返现就信",
+      "拒绝，刷单返利是杀猪盘，前两单返现是诱饵，大单必跑路",
+      "先做一单小任务"
+    ],
+    "answer": 2,
+    "cues": [
+      "刷单返利",
+      "垫付大单",
+      "前两单返现",
+      "杀猪盘"
+    ],
+    "explain": "刷单本身违法。前两单返现是建立信任的诱饵，垫付\"大单\"后必被拉黑。任何刷单返利都是诈骗。",
+    "psychology": [
+      "greed",
+      "trust",
+      "sunkCost"
+    ],
+    "knowledgePoints": [
+      "KP-LIVE-REBATE"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "直播间刷单返利杀猪盘案",
+      "date": "2026-04",
+      "source": "公安部反诈中心通报",
+      "takeaway": "刷单违法，前两单返现是诱饵，垫付大单必跑路，任何刷单都是诈骗。"
+    },
+    "tags": [
+      "刷单返利",
+      "直播",
+      "杀猪盘"
+    ],
+    "updateDate": "2026-07",
+    "severity": 5
+  },
+  {
+    "id": "F127-006",
+    "typeId": "F127",
+    "type": "假大牌直播间",
+    "cardType": "live",
+    "difficulty": 3,
+    "kind": "single",
+    "title": "直播 / \"大牌清仓1折\"",
+    "body": "直播间\"SK-II、海蓝之谜专柜清仓1折，专柜验货假一赔十，库存仅剩50件\"，主播展示\"专柜发票\"和\"防伪码\"，但店铺无品牌授权。",
+    "options": [
+      "看发票和防伪码就买",
+      "1折太划算赶紧抢",
+      "拒绝，1折大牌多为假货，发票防伪码可伪造，查店铺品牌授权",
+      "先买小样试水"
+    ],
+    "answer": 2,
+    "cues": [
+      "1折大牌",
+      "伪造发票",
+      "假一赔十",
+      "无授权"
+    ],
+    "explain": "1折大牌远低于成本，多为假货。专柜发票和防伪码都可伪造，认准品牌官方授权店铺和正规电商自营。",
+    "psychology": [
+      "greed",
+      "trust",
+      "scarcity",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-LIVE-COMMERCE"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "假大牌直播间清仓案",
+      "date": "2026-05",
+      "source": "市场监管总局通报",
+      "takeaway": "1折大牌多假货，发票防伪码可伪造，认准品牌授权店铺。"
+    },
+    "tags": [
+      "假大牌",
+      "直播",
+      "伪造发票"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F127-007",
+    "typeId": "F127",
+    "type": "直播间虚假中奖",
+    "cardType": "live",
+    "difficulty": 1,
+    "kind": "single",
+    "title": "直播 / \"恭喜中奖清空购物车\"",
+    "body": "直播间主播突然喊\"恭喜XX中了清空购物车大奖，加客服微信领奖\"，弹幕刷\"我也中了\"，客服称需先缴\"个税\"和\"手续费\"才能发货。",
+    "options": [
+      "缴个税手续费领奖",
+      "看弹幕有人中奖就信",
+      "拒绝，正规中奖个税由发放方代扣，不向中奖者收手续费",
+      "先缴个税不缴手续费"
+    ],
+    "answer": 2,
+    "cues": [
+      "直播中奖",
+      "缴个税手续费",
+      "弹幕托儿",
+      "加微信领奖"
+    ],
+    "explain": "正规中奖个税由发放方代扣代缴，不向中奖者收\"手续费\"。弹幕\"我也中了\"是托儿，加微信领奖是引流诈骗。",
+    "psychology": [
+      "greed",
+      "conformity",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-LIVE-REBATE"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "直播间虚假中奖案",
+      "date": "2026-05",
+      "source": "公安部反诈中心通报",
+      "takeaway": "正规中奖个税由发放方代扣，不收手续费，弹幕是托儿。"
+    },
+    "tags": [
+      "直播中奖",
+      "手续费",
+      "托儿"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F127-008",
+    "typeId": "F127",
+    "type": "榜一大哥情感骗局",
+    "cardType": "live",
+    "difficulty": 3,
+    "kind": "single",
+    "title": "直播 / \"榜一大哥\"奔现",
+    "body": "榜一大哥连刷礼物数月，私聊称\"等我离婚就娶你，先借我5万周转生意\"，并晒房产证和豪车照片，女主播已投入感情。",
+    "options": [
+      "看房产证豪车就借",
+      "感情深了就借",
+      "拒绝，榜一借钱是情感杀猪盘，房产豪车照可伪造，停止转账",
+      "先借一半试试"
+    ],
+    "answer": 2,
+    "cues": [
+      "榜一大哥",
+      "情感骗局",
+      "借钱周转",
+      "伪造资产"
+    ],
+    "explain": "榜一大哥刷礼物建立感情后借钱是典型情感杀猪盘。房产证和豪车照片都可伪造，停止转账保留证据报警。",
+    "psychology": [
+      "intimacy",
+      "trust",
+      "sunkCost"
+    ],
+    "knowledgePoints": [
+      "KP-LIVE-EMOTION"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "榜一大哥情感杀猪盘案",
+      "date": "2026-04",
+      "source": "公安部反诈中心通报",
+      "takeaway": "榜一借钱是情感杀猪盘，资产照片可伪造，停止转账报警。"
+    },
+    "tags": [
+      "榜一大哥",
+      "情感骗局",
+      "杀猪盘"
+    ],
+    "updateDate": "2026-07",
+    "severity": 5
+  },
+  {
+    "id": "F127-009",
+    "typeId": "F127",
+    "type": "直播间虚假拍卖",
+    "cardType": "live",
+    "difficulty": 4,
+    "kind": "single",
+    "title": "直播 / \"古董字画拍卖\"",
+    "body": "直播间\"名家字画1元起拍，现场鉴定师估价百万，拍下即升值\"，弹幕狂刷\"已拍50万\"，主播催促\"最后10秒出价\"。",
+    "options": [
+      "跟拍出价捡漏",
+      "看鉴定师估价就拍",
+      "拒绝，字画鉴定估价可造假，弹幕托儿烘托气氛，拍下是废纸",
+      "先拍一幅小画"
+    ],
+    "answer": 2,
+    "cues": [
+      "直播拍卖",
+      "鉴定估价",
+      "弹幕托儿",
+      "1元起拍"
+    ],
+    "explain": "直播拍卖的字画鉴定估价多为造假，弹幕\"已拍50万\"是托儿烘托。1元起拍是引流，拍下后多为低仿废纸。",
+    "psychology": [
+      "greed",
+      "conformity",
+      "urgency",
+      "scarcity"
+    ],
+    "knowledgePoints": [
+      "KP-LIVE-AUCTION"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "直播古董字画拍卖诈骗案",
+      "date": "2026-05",
+      "source": "文旅部反诈通报",
+      "takeaway": "直播拍卖鉴定估价可造假，弹幕托儿烘托，拍下是低仿废纸。"
+    },
+    "tags": [
+      "直播拍卖",
+      "字画",
+      "托儿"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F127-010",
+    "typeId": "F127",
+    "type": "直播间虚假众筹",
+    "cardType": "live",
+    "difficulty": 2,
+    "kind": "single",
+    "title": "直播 / \"患病儿童众筹\"",
+    "body": "直播间主播哭诉\"孩子患重病急需手术费，扫码捐爱心款，捐满500进群监督治疗进度\"，展示医院诊断书和孩子照片，弹幕刷\"已捐\"。",
+    "options": [
+      "扫码捐款进群监督",
+      "看诊断书真实就捐",
+      "警惕，诊断书照片可伪造，认准水滴筹/轻松筹等正规平台核实",
+      "先捐100试试"
+    ],
+    "answer": 2,
+    "cues": [
+      "直播众筹",
+      "伪造诊断书",
+      "弹幕托儿",
+      "扫码捐款"
+    ],
+    "explain": "诊断书和照片可伪造，直播众筹资金去向不明。献爱心认准水滴筹、轻松筹等正规平台核实患者真实情况。",
+    "psychology": [
+      "intimacy",
+      "conformity",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-LIVE-EMOTION"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "直播虚假众筹诈骗案",
+      "date": "2026-05",
+      "source": "民政部反诈通报",
+      "takeaway": "诊断书可伪造，直播众筹资金去向不明，献爱心认准正规平台。"
+    },
+    "tags": [
+      "直播众筹",
+      "伪造诊断书",
+      "爱心诈骗"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F127-011",
+    "typeId": "F127",
+    "type": "直播间红包返利",
+    "cardType": "chat",
+    "difficulty": 1,
+    "kind": "judge",
+    "title": "微信 / \"直播间红包返利\"",
+    "body": "群内转发\"XX直播间发红包，扫码进直播间领88元红包，截图分享再得58元，多劳多得\"。判断：扫码进直播间领红包很安全。",
+    "options": [
+      "正确：领红包分享再赚",
+      "错误：扫码进直播间后被诱导刷单或交保证金，红包是诱饵"
+    ],
+    "answer": 1,
+    "cues": [
+      "红包返利",
+      "扫码进直播间",
+      "分享再赚",
+      "多劳多得"
+    ],
+    "explain": "红包返利是引流话术，扫码进直播间后被诱导刷单或交\"保证金\"。\"分享再赚\"是裂变传播，最终目标是骗钱。",
+    "psychology": [
+      "greed",
+      "conformity",
+      "curiosity"
+    ],
+    "knowledgePoints": [
+      "KP-LIVE-REBATE"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "直播间红包返利诈骗案",
+      "date": "2026-06",
+      "source": "公安部反诈中心通报",
+      "takeaway": "红包返利是引流话术，扫码后被诱导刷单交保证金，分享再赚是裂变。"
+    },
+    "tags": [
+      "红包返利",
+      "直播",
+      "引流刷单"
+    ],
+    "updateDate": "2026-07",
+    "severity": 3
+  },
+  {
+    "id": "F127-012",
+    "typeId": "F127",
+    "type": "假大牌直播间",
+    "cardType": "live",
+    "difficulty": 3,
+    "kind": "single",
+    "title": "直播 / \"专柜撤柜假一赔十\"",
+    "body": "直播间\"某专柜撤柜，雅诗兰黛小棕瓶原价1080现价199，假一赔十，支持专柜验货\"，主播展示\"专柜授权书\"和\"批次号\"，催促\"最后30单\"。",
+    "options": [
+      "看授权书和批次号就买",
+      "假一赔十有保障就买",
+      "拒绝，专柜不撤柜清仓也不授权第三方直播，授权书可伪造",
+      "先买一瓶验货"
+    ],
+    "answer": 2,
+    "cues": [
+      "专柜撤柜",
+      "伪造授权书",
+      "假一赔十",
+      "最后30单"
+    ],
+    "explain": "专柜不会\"撤柜清仓\"授权第三方直播销售，授权书可伪造。199元的小棕瓶远低于成本，多为假货。",
+    "psychology": [
+      "greed",
+      "trust",
+      "scarcity",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-LIVE-COMMERCE"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "专柜撤柜假大牌直播案",
+      "date": "2026-06",
+      "source": "市场监管总局通报",
+      "takeaway": "专柜不撤柜清仓授权第三方，授权书可伪造，低价多为假货。"
+    },
+    "tags": [
+      "假大牌",
+      "专柜撤柜",
+      "伪造授权"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F127-013",
+    "typeId": "F127",
+    "type": "直播间限量秒杀",
+    "cardType": "live",
+    "difficulty": 1,
+    "kind": "single",
+    "title": "直播 / \"限量秒杀\"定金",
+    "body": "直播间\"限量秒杀茅台1499元，先付定金300元占位，3秒内付款有效\"，主播催促\"最后5个名额\"，弹幕刷\"已抢到付款\"。",
+    "options": [
+      "付定金抢茅台",
+      "看弹幕已抢到就付",
+      "拒绝，1499茅台秒杀是引流，定金付后被拉黑或发假货",
+      "先付定金试试"
+    ],
+    "answer": 2,
+    "cues": [
+      "限量秒杀",
+      "定金占位",
+      "弹幕托儿",
+      "茅台"
+    ],
+    "explain": "1499元茅台远低于市场价，秒杀是引流话术。定金付后被拉黑或发假货，弹幕\"已抢到\"是托儿，认准官方商城。",
+    "psychology": [
+      "greed",
+      "urgency",
+      "scarcity",
+      "conformity"
+    ],
+    "knowledgePoints": [
+      "KP-LIVE-COMMERCE"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "限量秒杀茅台诈骗案",
+      "date": "2026-05",
+      "source": "市场监管总局通报",
+      "takeaway": "1499茅台秒杀是引流，定金付后拉黑或发假货，认准官方商城。"
+    },
+    "tags": [
+      "限量秒杀",
+      "茅台",
+      "定金诈骗"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F127-014",
+    "typeId": "F127",
+    "type": "虚假明星直播",
+    "cardType": "live",
+    "difficulty": 3,
+    "kind": "single",
+    "title": "直播 / \"明星空降直播间\"",
+    "body": "直播间预告\"某顶流明星今晚8点空降直播间，专属签名照限量发售，扫码加粉丝群购买，1888元一张，明星会视频连线\"。",
+    "options": [
+      "扫码加群买签名照",
+      "看有视频连线就信",
+      "拒绝，明星空降直播走官方账号，私群卖签名照是伪造或AI合成",
+      "先买一张看看"
+    ],
+    "answer": 2,
+    "cues": [
+      "明星空降",
+      "私群签名照",
+      "视频连线",
+      "扫码加群"
+    ],
+    "explain": "明星空降直播走官方认证账号，不会在私群卖签名照。签名照可伪造，AI可合成明星视频连线，认准官方渠道。",
+    "psychology": [
+      "trust",
+      "greed",
+      "scarcity",
+      "authority"
+    ],
+    "knowledgePoints": [
+      "KP-LIVE-CELEBRITY"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "明星空降直播签名照诈骗案",
+      "date": "2026-05",
+      "source": "公安部反诈中心通报",
+      "takeaway": "明星空降走官方账号，私群卖签名照是伪造，AI可合成视频连线。"
+    },
+    "tags": [
+      "明星直播",
+      "签名照",
+      "AI合成"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F127-015",
+    "typeId": "F127",
+    "type": "直播间假货鉴定",
+    "cardType": "secondhand",
+    "difficulty": 1,
+    "kind": "single",
+    "title": "闲鱼 / \"直播间假货代办退款\"",
+    "body": "二手平台有人\"代办理直播间假货退款，收取退款金额20%手续费，提供订单号和身份信息即可\"，并晒出多张\"成功退款\"转账截图。",
+    "options": [
+      "提供信息代办退款",
+      "看转账截图真实就办",
+      "拒绝，退款应本人联系平台客服，代办涉信息泄露且多为骗手续费",
+      "先办一单试试"
+    ],
+    "answer": 2,
+    "cues": [
+      "代办退款",
+      "手续费",
+      "信息泄露",
+      "伪造截图"
+    ],
+    "explain": "退款应本人联系平台客服办理。代办退款涉身份信息泄露，\"成功截图\"可伪造，所谓手续费是骗钱。",
+    "psychology": [
+      "greed",
+      "trust",
+      "sunkCost"
+    ],
+    "knowledgePoints": [
+      "KP-LIVE-COMMERCE"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "直播间假货代办退款案",
+      "date": "2026-06",
+      "source": "市场监管总局通报",
+      "takeaway": "退款本人联系平台客服，代办涉信息泄露，手续费是骗钱。"
+    },
+    "tags": [
+      "直播假货",
+      "代办退款",
+      "信息泄露"
+    ],
+    "updateDate": "2026-07",
+    "severity": 3
+  },
+  {
+    "id": "F127-016",
+    "typeId": "F127",
+    "type": "直播间情感连麦",
+    "cardType": "live",
+    "difficulty": 3,
+    "kind": "single",
+    "title": "直播 / \"情感导师连麦\"",
+    "body": "直播间\"情感导师\"称可连麦解决婚姻问题，要求加微信私聊收取8888元\"化解费\"，并发来\"已成功化解100+案例\"的客户感谢截图。",
+    "options": [
+      "付化解费解决婚姻问题",
+      "看感谢截图真实就付",
+      "拒绝，情感导师无资质，化解费是骗钱，婚姻问题走正规咨询",
+      "先付一半试试"
+    ],
+    "answer": 2,
+    "cues": [
+      "情感导师",
+      "化解费",
+      "伪造感谢",
+      "无资质"
+    ],
+    "explain": "情感导师多无心理咨询资质，\"化解费\"是骗钱。感谢截图可伪造，婚姻情感问题应走正规心理咨询或法律途径。",
+    "psychology": [
+      "intimacy",
+      "trust",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-LIVE-EMOTION"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "情感导师连麦诈骗案",
+      "date": "2026-05",
+      "source": "公安部反诈中心通报",
+      "takeaway": "情感导师多无资质，化解费是骗钱，感谢截图可伪造，走正规途径。"
+    },
+    "tags": [
+      "情感导师",
+      "直播",
+      "化解费"
+    ],
+    "updateDate": "2026-07",
+    "severity": 3
+  },
+  {
+    "id": "F127-017",
+    "typeId": "F127",
+    "type": "直播间代运营",
+    "cardType": "chat",
+    "difficulty": 2,
+    "kind": "single",
+    "title": "微信 / \"直播代运营包涨粉\"",
+    "body": "陌生人加微信\"专业直播代运营，包涨粉10万，月费9800元，3个月打造爆款账号，已有500+成功案例\"，附前后粉丝对比截图。",
+    "options": [
+      "付月费请代运营",
+      "看对比截图就信",
+      "拒绝，涨粉靠刷粉无价值，代运营多为骗月费，认准官方运营课程",
+      "先付一个月试试"
+    ],
+    "answer": 2,
+    "cues": [
+      "直播代运营",
+      "包涨粉",
+      "月费",
+      "伪造案例"
+    ],
+    "explain": "直播涨粉靠内容质量，\"包涨粉\"多为机器刷粉无商业价值。代运营收月费后效果不达预期或跑路，认准官方运营课程。",
+    "psychology": [
+      "greed",
+      "trust",
+      "authority"
+    ],
+    "knowledgePoints": [
+      "KP-LIVE-COMMERCE"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "直播代运营诈骗案",
+      "date": "2026-05",
+      "source": "市场监管总局通报",
+      "takeaway": "包涨粉多为刷粉无价值，代运营骗月费，认准官方运营课程。"
+    },
+    "tags": [
+      "直播代运营",
+      "包涨粉",
+      "刷粉"
+    ],
+    "updateDate": "2026-07",
+    "severity": 3
+  },
+  {
+    "id": "F127-018",
+    "typeId": "F127",
+    "type": "直播间免费送",
+    "cardType": "popup",
+    "difficulty": 1,
+    "kind": "judge",
+    "title": "弹窗 / \"直播间免费送大牌\"",
+    "body": "弹窗\"XX直播间粉丝破百万，免费送SK-II神仙水，仅付29元邮费即可，扫码填写地址收货\"。判断：付29元邮费领免费大牌很划算。",
+    "options": [
+      "正确：付邮费领免费大牌",
+      "错误：29元邮费换劣质货或收信息，大牌不免费送"
+    ],
+    "answer": 1,
+    "cues": [
+      "免费送",
+      "邮费陷阱",
+      "扫码填信息"
+    ],
+    "explain": "\"免费送大牌+付邮费\"是邮费陷阱，29元换劣质货或纯粹收信息。大牌不会免费送，认准正规渠道。",
+    "psychology": [
+      "greed",
+      "curiosity"
+    ],
+    "knowledgePoints": [
+      "KP-LIVE-REBATE"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "直播间免费送邮费陷阱案",
+      "date": "2026-06",
+      "source": "市场监管总局通报",
+      "takeaway": "免费送大牌+邮费是陷阱，29元换劣质货或收信息，认准正规渠道。"
+    },
+    "tags": [
+      "免费送",
+      "邮费陷阱",
+      "直播"
+    ],
+    "updateDate": "2026-07",
+    "severity": 2
+  },
+  {
+    "id": "F127-019",
+    "typeId": "F127",
+    "type": "直播间充值返利",
+    "cardType": "transfer",
+    "difficulty": 2,
+    "kind": "single",
+    "title": "转账 / \"直播间充值返100\"",
+    "body": "直播间主播\"充值100返200，充值500返1500，秒到账，名额有限\"，前两单确实返现，第三单充值5000后称\"系统卡单需再充1万激活\"。",
+    "options": [
+      "再充1万激活提现",
+      "看前两单返现就充",
+      "拒绝，充值返利是杀猪盘，前两单返现是诱饵，系统卡单是收割",
+      "先充一半激活"
+    ],
+    "answer": 2,
+    "cues": [
+      "充值返利",
+      "系统卡单",
+      "前两单返现",
+      "激活"
+    ],
+    "explain": "充值返利是典型杀猪盘，前两单返现建立信任，\"系统卡单需激活\"是收割。立即停止充值并报警。",
+    "psychology": [
+      "greed",
+      "trust",
+      "sunkCost",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-LIVE-REBATE"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "直播间充值返利杀猪盘案",
+      "date": "2026-05",
+      "source": "公安部反诈中心通报",
+      "takeaway": "充值返利是杀猪盘，前两单返现是诱饵，系统卡单是收割，立即报警。"
+    },
+    "tags": [
+      "充值返利",
+      "直播",
+      "杀猪盘"
+    ],
+    "updateDate": "2026-07",
+    "severity": 5
+  },
+  {
+    "id": "F127-020",
+    "typeId": "F127",
+    "type": "直播间虚假竞拍",
+    "cardType": "live",
+    "difficulty": 4,
+    "kind": "single",
+    "title": "直播 / \"翡翠原石竞拍\"",
+    "body": "直播间\"缅甸翡翠原石1元起拍，现场切开即涨百倍\"，主播现场\"切开\"原石露出翠绿，弹幕刷\"涨了50万\"，催促出价，鉴定师出具\"A货证书\"。",
+    "options": [
+      "跟拍出价捡漏",
+      "看切开是翠绿就拍",
+      "拒绝，切开原石可调包造假，鉴定证书伪造，直播竞拍翡翠风险极高",
+      "先拍小额试试"
+    ],
+    "answer": 2,
+    "cues": [
+      "翡翠竞拍",
+      "切开调包",
+      "伪造证书",
+      "弹幕托儿"
+    ],
+    "explain": "直播翡翠原石切开可调包造假，鉴定证书可伪造，弹幕\"涨了50万\"是托儿。翡翠交易水深，认准正规拍卖行和复检证书。",
+    "psychology": [
+      "greed",
+      "conformity",
+      "urgency",
+      "authority"
+    ],
+    "knowledgePoints": [
+      "KP-LIVE-AUCTION"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "直播翡翠原石竞拍诈骗案",
+      "date": "2026-06",
+      "source": "市场监管总局通报",
+      "takeaway": "翡翠切开可调包，证书可伪造，弹幕是托儿，认准正规拍卖行和复检。"
+    },
+    "tags": [
+      "直播竞拍",
+      "翡翠",
+      "调包造假"
+    ],
+    "updateDate": "2026-07",
+    "severity": 5
+  },
+  {
+    "id": "F127-021",
+    "typeId": "F127",
+    "type": "直播间刷礼物",
+    "cardType": "live",
+    "difficulty": 2,
+    "kind": "single",
+    "title": "直播 / \"刷礼物返双倍\"",
+    "body": "主播称\"刷礼物返双倍现金，刷100返200，刷1000返3000，秒到账\"，前几个粉丝晒\"已返\"截图，主播催促\"最后3个名额\"。",
+    "options": [
+      "刷礼物等返双倍",
+      "看粉丝返现截图就刷",
+      "拒绝，刷礼物返现是杀猪盘，前几单返现是诱饵，大额必跑路",
+      "先刷100试试"
+    ],
+    "answer": 2,
+    "cues": [
+      "刷礼物返现",
+      "双倍返利",
+      "粉丝截图托儿",
+      "名额恐吓"
+    ],
+    "explain": "刷礼物返现是典型杀猪盘，前几单返现建立信任，刷大额后必被拉黑。平台礼物无法返现，立即停止并举报。",
+    "psychology": [
+      "greed",
+      "conformity",
+      "urgency",
+      "scarcity"
+    ],
+    "knowledgePoints": [
+      "KP-LIVE-REBATE"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "刷礼物返双倍杀猪盘案",
+      "date": "2026-05",
+      "source": "公安部反诈中心通报",
+      "takeaway": "刷礼物返现是杀猪盘，前几单返现是诱饵，大额必跑路。"
+    },
+    "tags": [
+      "刷礼物",
+      "返现",
+      "杀猪盘"
+    ],
+    "updateDate": "2026-07",
+    "severity": 5
+  },
+  {
+    "id": "F127-022",
+    "typeId": "F127",
+    "type": "假大牌直播间",
+    "cardType": "live",
+    "difficulty": 4,
+    "kind": "single",
+    "title": "直播 / \"海关扣押大牌清仓\"",
+    "body": "直播间\"海关扣押大牌正品清仓，LV、Gucci包原价1万现价899，附海关扣押证明和专柜发票，假一赔十\"，主播展示\"海关单据\"和\"物流轨迹\"，店铺有营业执照。",
+    "options": [
+      "看海关单据和发票就买",
+      "店铺有执照可信",
+      "拒绝，海关扣押品不通过直播销售，单据发票执照皆可伪造",
+      "先买一个验货"
+    ],
+    "answer": 2,
+    "cues": [
+      "海关扣押",
+      "伪造单据",
+      "假一赔十",
+      "营业执照"
+    ],
+    "explain": "海关扣押物品通过正规拍卖渠道处置，不通过直播间销售。海关单据、专柜发票、营业执照皆可伪造，认准品牌官方授权。",
+    "psychology": [
+      "greed",
+      "trust",
+      "authority",
+      "scarcity"
+    ],
+    "knowledgePoints": [
+      "KP-LIVE-COMMERCE"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "海关扣押大牌清仓诈骗案",
+      "date": "2026-06",
+      "source": "海关总署反诈通报",
+      "takeaway": "海关扣押品走正规拍卖，不通过直播，单据发票执照皆可伪造。"
+    },
+    "tags": [
+      "假大牌",
+      "海关扣押",
+      "伪造单据"
+    ],
+    "updateDate": "2026-07",
+    "severity": 5
+  },
+  {
+    "id": "F127-023",
+    "typeId": "F127",
+    "type": "直播间情感导师",
+    "cardType": "chat",
+    "difficulty": 4,
+    "kind": "single",
+    "title": "微信 / \"情感导师\"挽回感情",
+    "body": "情感导师私聊\"你伴侣出轨我能帮你挽回，需购买39800元\"挽回套餐\"，包含占卜、符咒和法事，已帮2000+家庭破镜重圆\"，附客户婚姻修复感谢信和\"结婚证\"。",
+    "options": [
+      "看感谢信和结婚证就买",
+      "感情重要花钱值得",
+      "拒绝，挽回靠占卜符咒是迷信诈骗，感谢信结婚证可伪造",
+      "先买小套餐试试"
+    ],
+    "answer": 2,
+    "cues": [
+      "情感挽回",
+      "占卜符咒",
+      "高额套餐",
+      "伪造感谢"
+    ],
+    "explain": "感情挽回靠占卜符咒法事是迷信诈骗，39800元套餐是骗钱。感谢信和结婚证可伪造，情感问题走正规心理咨询。",
+    "psychology": [
+      "intimacy",
+      "fear",
+      "trust",
+      "urgency"
+    ],
+    "knowledgePoints": [
+      "KP-LIVE-EMOTION"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "情感导师挽回套餐诈骗案",
+      "date": "2026-05",
+      "source": "公安部反诈中心通报",
+      "takeaway": "挽回靠占卜符咒是迷信诈骗，高额套餐是骗钱，感谢信可伪造。"
+    },
+    "tags": [
+      "情感导师",
+      "挽回套餐",
+      "迷信诈骗"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  },
+  {
+    "id": "F127-024",
+    "typeId": "F127",
+    "type": "直播间拼团",
+    "cardType": "live",
+    "difficulty": 1,
+    "kind": "judge",
+    "title": "直播 / \"拼团免费拿手机\"",
+    "body": "直播间\"3人拼团免费拿iPhone，拉2位好友拼团，团满发货，团长再得现金500元\"。判断：拉好友拼团免费拿手机很划算。",
+    "options": [
+      "正确：拉好友拼团免费拿",
+      "错误：拼团是裂变引流，拉好友后仍需\"补差价\"或刷单，手机不会发"
+    ],
+    "answer": 1,
+    "cues": [
+      "拼团免费",
+      "拉好友",
+      "裂变引流",
+      "补差价"
+    ],
+    "explain": "拼团免费拿手机是裂变引流话术，拉好友后会被要求\"补差价\"或刷单，手机不会发出。免费午餐不存在。",
+    "psychology": [
+      "greed",
+      "conformity",
+      "curiosity"
+    ],
+    "knowledgePoints": [
+      "KP-LIVE-REBATE"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "拼团免费拿手机诈骗案",
+      "date": "2026-06",
+      "source": "市场监管总局通报",
+      "takeaway": "拼团免费是裂变引流，拉好友后补差价刷单，手机不发。"
+    },
+    "tags": [
+      "拼团",
+      "免费拿",
+      "裂变引流"
+    ],
+    "updateDate": "2026-07",
+    "severity": 3
+  },
+  {
+    "id": "F127-025",
+    "typeId": "F127",
+    "type": "AI数字人直播",
+    "cardType": "live",
+    "difficulty": 4,
+    "kind": "single",
+    "title": "直播 / \"AI主播\"限量首发",
+    "body": "直播间\"限量首发AI智能主播课程，原价9999现价999，学完月入过万，包就业包分配，已有3000+学员月入破万\"，主播为AI数字人但未标注，弹幕刷\"已报名月入2万\"。",
+    "options": [
+      "看月入过万就报名",
+      "弹幕有人赚钱就信",
+      "拒绝，AI主播课程多无资质，包就业包分配是话术，月入过万是托儿",
+      "先报名试一节"
+    ],
+    "answer": 2,
+    "cues": [
+      "AI数字人",
+      "包就业分配",
+      "月入过万",
+      "弹幕托儿"
+    ],
+    "explain": "AI数字人直播卖课未标注违规，\"包就业包分配\"\"月入过万\"是典型话术。弹幕晒收入是托儿，培训资质和就业承诺多为虚假。",
+    "psychology": [
+      "greed",
+      "conformity",
+      "trust",
+      "authority"
+    ],
+    "knowledgePoints": [
+      "KP-LIVE-COMMERCE"
+    ],
+    "season": [
+      "all"
+    ],
+    "caseArchive": {
+      "title": "AI数字人卖课诈骗案",
+      "date": "2026-06",
+      "source": "市场监管总局通报",
+      "takeaway": "AI数字人卖课未标注违规，包就业月入过万是话术，弹幕是托儿。"
+    },
+    "tags": [
+      "AI数字人",
+      "卖课",
+      "包就业"
+    ],
+    "updateDate": "2026-07",
+    "severity": 4
+  }
+]

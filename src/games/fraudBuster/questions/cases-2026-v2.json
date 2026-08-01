@@ -1,0 +1,932 @@
+[
+  {
+    "id": "F87-001", "typeId": "F87", "type": "DeepSeek大模型仿冒客服", "cardType": "chat", "difficulty": 2,
+    "kind": "single",
+    "title": "微信 / 自称\"DeepSeek官方助手\"",
+    "body": "对方发来\"我是DeepSeek官方助手，您账户被开通会员每月扣费800元，需关闭请按指引操作\"，要求下载会议软件共享屏幕。",
+    "options": ["按指引共享屏幕关闭会员", "提供银行卡接收\"退款\"", "挂断，到DeepSeek官方渠道核实", "报验证码完成身份核验"],
+    "answer": 2, "cues": ["共享屏幕", "扣费恐吓", "DeepSeek官方"],
+    "explain": "2026年起骗子借DeepSeek等大模型热度冒充官方客服。任何\"共享屏幕关闭会员\"都是诈骗，挂断自行核实。",
+    "psychology": ["authority", "fear", "urgency"],
+    "knowledgePoints": ["KP-AI-IMPERSONATION"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "DeepSeek大模型仿冒客服诈骗案",
+      "date": "2026-03",
+      "source": "国家反诈中心通报",
+      "takeaway": "大模型官方不会要求共享屏幕，会员管理走官方APP。"
+    }
+  },
+  {
+    "id": "F87-002", "typeId": "F87", "type": "DeepSeek大模型仿冒客服", "cardType": "audio", "difficulty": 3,
+    "kind": "single",
+    "title": "语音来电 / \"DeepSeek客服\"",
+    "body": "电话里\"客服\"声音礼貌专业，称你的DeepSeek账户存在异常需核实身份，要求按提示操作。声音清晰无明显机械感。",
+    "options": ["声音专业配合操作", "按提示核实身份", "挂断拨打官方95188核实", "提供身份证号配合"],
+    "answer": 2, "cues": ["AI仿声", "核实身份", "DeepSeek异常"],
+    "explain": "AI仿声已能模拟专业客服音色。官方客服不会电话索要敏感信息，挂断回拨官方号码核实。",
+    "audioClip": {
+      "label": "DeepSeek客服来电",
+      "duration": 14,
+      "isSynthetic": true,
+      "transcript": "您好，这里是DeepSeek官方客服，检测到您的账户存在异常登录，为保障您的资金安全，请按提示进行身份核实，否则账户将被冻结。",
+      "synthTech": "AI 大模型仿声 + 客服话术"
+    },
+    "psychology": ["authority", "fear", "urgency"],
+    "knowledgePoints": ["KP-AI-VOICE"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "AI大模型仿声冒充客服案",
+      "date": "2026-04",
+      "source": "深圳反诈中心通报",
+      "takeaway": "AI可仿造专业客服音色，挂断回拨官方号码是唯一正确做法。"
+    }
+  },
+  {
+    "id": "F87-003", "typeId": "F87", "type": "DeepSeek大模型仿冒客服", "cardType": "sms", "difficulty": 1,
+    "kind": "judge",
+    "title": "短信 / DeepSeek\"取消扣费\"",
+    "body": "【DeepSeek】您已开通Pro会员每月扣费588元，如需取消请点击 http://deepsek-cancel.xyz 取消，否则24小时后生效。判断：点击链接取消即可。",
+    "options": ["正确：点击链接取消", "错误：DeepSeek官方域名不是这个，是钓鱼链接"],
+    "answer": 1, "cues": ["deepsek-cancel.xyz", "24小时生效", "陌生链接"],
+    "explain": "deepsek-cancel.xyz 是仿冒域名（拼写差一个字母），官方域名是 deepseek.com。任何陌生链接都是钓鱼。",
+    "psychology": ["urgency", "fear"],
+    "knowledgePoints": ["KP-AI-IMPERSONATION"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "仿冒DeepSeek域名钓鱼案",
+      "date": "2026-05",
+      "source": "工信部反诈通报",
+      "takeaway": "看清域名拼写，仿冒域名常差一个字母，官方链接认准 deepseek.com。"
+    }
+  },
+  {
+    "id": "F87-004", "typeId": "F87", "type": "DeepSeek大模型仿冒客服", "cardType": "popup", "difficulty": 2,
+    "kind": "multi",
+    "title": "弹窗 / \"DeepSeek Pro 免费领\"",
+    "body": "网页弹窗：\"庆祝DeepSeek用户破亿，免费领取Pro会员1年+88元红包，扫码领取\"。下列哪些行为是错误的？",
+    "options": ["扫码领取免费会员", "填写手机号领取红包", "到 deepseek.com 官方核实", "拉群好友一起领", "关闭弹窗不信\"免费送\""],
+    "answers": [0, 1, 3], "cues": ["免费送", "扫码领取", "拉群好友"],
+    "explain": "\"免费送Pro会员+红包\"是新型引流话术，扫码填手机号即被钓鱼。正确做法是关闭弹窗，官方渠道核实。",
+    "psychology": ["greed", "curiosity", "conformity"],
+    "knowledgePoints": ["KP-AI-IMPERSONATION"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "DeepSeek免费会员钓鱼案",
+      "date": "2026-06",
+      "source": "网信办联合反诈中心通报",
+      "takeaway": "大模型官方不会\"免费送会员+红包\"，扫码填信息即被钓。"
+    }
+  },
+  {
+    "id": "F87-005", "typeId": "F87", "type": "DeepSeek大模型仿冒客服", "cardType": "chat", "difficulty": 3,
+    "kind": "fill",
+    "title": "DeepSeek官方域名补全",
+    "body": "DeepSeek官方唯一域名为 ____(请填写完整域名，不含https://)。",
+    "options": [],
+    "fillAnswer": "deepseek.com",
+    "fillAccept": ["www.deepseek.com"],
+    "cues": ["官方域名", "拼写核实"],
+    "explain": "DeepSeek官方域名为 deepseek.com。仿冒域名常差一两个字母（如 deepsek.com / deepseek-cn.xyz），务必看清。",
+    "psychology": ["trust"],
+    "knowledgePoints": ["KP-AI-IMPERSONATION"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "DeepSeek域名仿冒系列案",
+      "date": "2026-Q2",
+      "source": "公安部反诈中心通报",
+      "takeaway": "官方域名 deepseek.com，仿冒常差一字母，认准拼写。"
+    }
+  },
+
+  {
+    "id": "F88-001", "typeId": "F88", "type": "USDT虚拟币代挖诈骗", "cardType": "chat", "difficulty": 3,
+    "kind": "single",
+    "title": "TG群 / \"USDT代挖稳赚\"",
+    "body": "\"专业团队代挖USDT，日化2%，保本保收益，转账USDT到指定地址即可参与，每周提现一次。\"群友晒单显示日均盈利。",
+    "options": ["转账USDT参与代挖", "先小额试水看提现", "拒绝，USDT代挖是资金盘", "借钱加大投入博高收益"],
+    "answer": 2, "cues": ["代挖USDT", "日化2%", "保本保收益"],
+    "explain": "USDT代挖是典型资金盘，前期小额提现是诱饵，加大投入后跑路。虚拟币投资不保本，更不存在\"代挖稳赚\"。",
+    "psychology": ["greed", "conformity", "sunkCost"],
+    "knowledgePoints": ["KP-CRYPTO"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "USDT代挖资金盘跑路案",
+      "date": "2026-02",
+      "source": "央行联合公安部通报",
+      "takeaway": "USDT代挖稳赚是资金盘，虚拟币投资不保本不代挖。"
+    }
+  },
+  {
+    "id": "F88-002", "typeId": "F88", "type": "USDT虚拟币代挖诈骗", "cardType": "transfer", "difficulty": 4,
+    "kind": "single",
+    "title": "OKX仿冒APP / \"提币受阻\"",
+    "body": "您在OKX账户盈利5万USDT，提币需先缴纳10%\"个人所得税\"及\"反洗钱认证金\"5000USDT，缴清后一次性提现。客服称这是\"监管要求\"。",
+    "options": ["转账5000USDT缴清后提现", "按客服指引转账", "意识到被骗，立即报警保留证据", "继续充值提升VIP等级"],
+    "answer": 2, "cues": ["提币缴税", "反洗钱认证金", "OKX仿冒"],
+    "explain": "OKX等正规交易所提币不收\"个税\"或\"认证金\"。任何提现前要交钱=100%诈骗。立即停止转账并报警。",
+    "psychology": ["sunkCost", "authority", "fear"],
+    "knowledgePoints": ["KP-CRYPTO"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "OKX仿冒APP提币缴税案",
+      "date": "2026-03",
+      "source": "国家反诈中心通报",
+      "takeaway": "交易所提币不收\"个税\"或\"认证金\"，提现前要交钱=诈骗。"
+    }
+  },
+  {
+    "id": "F88-003", "typeId": "F88", "type": "USDT虚拟币代挖诈骗", "cardType": "popup", "difficulty": 2,
+    "kind": "multi",
+    "title": "理财广告 / \"AI量化炒币\"",
+    "body": "弹窗广告：\"AI智能量化交易，跟单USDT日化5%，扫码进群，群主带单稳赚不赔\"。下列哪些行为是错误的？",
+    "options": ["扫码进群跟单", "下载群主推荐的APP入金", "拉家人一起投", "到 okx.com 官方核实", "关闭广告不信\"稳赚不赔\""],
+    "answers": [0, 1, 2], "cues": ["AI量化", "日化5%", "群主带单"],
+    "explain": "\"AI量化+稳赚不赔+群主带单\"是典型虚拟币杀猪盘三件套。任何非正规平台入金=诈骗。",
+    "psychology": ["greed", "conformity", "authority"],
+    "knowledgePoints": ["KP-CRYPTO"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "AI量化炒币杀猪盘案",
+      "date": "2026-04",
+      "source": "上海反诈中心通报",
+      "takeaway": "AI量化+稳赚不赔+群主带单=虚拟币杀猪盘，不下载不入金。"
+    }
+  },
+  {
+    "id": "F88-004", "typeId": "F88", "type": "USDT虚拟币代挖诈骗", "cardType": "chat", "difficulty": 3,
+    "kind": "link",
+    "title": "虚拟币术语配对",
+    "body": "请将下列虚拟币术语与正确含义配对（识别骗子常用话术）。",
+    "linkLeft": ["USDT", "冷钱包", "私钥", " Gas 费"],
+    "linkRight": ["与美元1:1锚定的稳定币", "离线存储数字资产的设备", "控制账户资产的密码，不可泄露", "区块链网络转账手续费"],
+    "linkPairing": [0, 1, 2, 3],
+    "options": [],
+    "cues": ["虚拟币术语", "私钥不可泄露"],
+    "explain": "掌握虚拟币基础术语是识别诈骗的前提。私钥永远不可告诉任何人，任何\"代管私钥\"都是骗局。",
+    "psychology": ["trust"],
+    "knowledgePoints": ["KP-CRYPTO"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "虚拟币基础知识普及",
+      "date": "2026",
+      "source": "央行数字货币研究所",
+      "takeaway": "私钥即资产控制权，任何\"代管私钥\"都是骗局。"
+    }
+  },
+  {
+    "id": "F88-005", "typeId": "F88", "type": "USDT虚拟币代挖诈骗", "cardType": "qrcode", "difficulty": 2,
+    "kind": "judge",
+    "title": "二维码 / \"USDT空投领取\"",
+    "body": "群里发\"USDT官方空投\"二维码，扫码后跳转非官方页面要求导入钱包助记词\"领取空投\"。判断：导入助记词即可领取空投。",
+    "options": ["正确：导入助记词领取", "错误：导入助记词=交出钱包控制权，是钓鱼"],
+    "answer": 1, "cues": ["空投领取", "助记词", "钱包密码"],
+    "explain": "助记词=私钥=资产控制权。任何要求导入助记词的\"空投\"都是钓鱼，导入后钱包秒空。",
+    "psychology": ["greed", "curiosity"],
+    "knowledgePoints": ["KP-CRYPTO"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "USDT空投钓鱼盗钱包案",
+      "date": "2026-Q1",
+      "source": "区块链安全公司通报",
+      "takeaway": "助记词=钱包密码，任何\"空投\"要求导入助记词都是钓鱼。"
+    }
+  },
+
+  {
+    "id": "F89-001", "typeId": "F89", "type": "12306候补订单加速包", "cardType": "sms", "difficulty": 2,
+    "kind": "single",
+    "title": "+86 10XXX",
+    "body": "【铁路客服】您的候补订单G888次未成功，可购买\"加速包\"提升抢票成功率，点击 http://12306-jiasu.xyz 购买，仅剩最后3个名额。",
+    "options": ["点击链接购买加速包", "按短信提示填银行卡", "登录12306官方APP核实", "拨打短信中的客服电话"],
+    "answer": 2, "cues": ["12306-jiasu.xyz", "加速包", "最后名额"],
+    "explain": "12306官方无\"加速包\"功能，候补成功率仅与订单时间和余票有关。任何\"加速包\"都是诈骗。",
+    "psychology": ["urgency", "scarcity", "greed"],
+    "knowledgePoints": ["KP-SPRING-TRAVEL"],
+    "season": ["springTravel", "springFestival"],
+    "caseArchive": {
+      "title": "12306候补加速包诈骗案",
+      "date": "2026-01",
+      "source": "铁路公安联合反诈中心通报",
+      "takeaway": "12306无加速包功能，候补仅与时间和余票有关。"
+    }
+  },
+  {
+    "id": "F89-002", "typeId": "F89", "type": "12306候补订单加速包", "cardType": "call", "difficulty": 3,
+    "kind": "single",
+    "title": "未知号码 / 自称\"12306客服\"",
+    "body": "\"我是12306客服，您候补的G888次有内部退票，需支付50元\"优先通道费\"立即锁座，否则释放给下一位。\"",
+    "options": ["支付50元锁座", "按客服指引转账", "挂断拨打12306官方核实", "提供银行卡接收退票"],
+    "answer": 2, "cues": ["内部退票", "优先通道费", "立即锁座"],
+    "explain": "12306不存在\"内部退票\"\"优先通道费\"。任何要求转账锁座都是诈骗，候补结果只在12306官方APP可见。",
+    "psychology": ["urgency", "scarcity", "authority"],
+    "knowledgePoints": ["KP-SPRING-TRAVEL"],
+    "season": ["springTravel", "springFestival"],
+    "caseArchive": {
+      "title": "12306内部退票诈骗案",
+      "date": "2026-02",
+      "source": "铁路公安通报",
+      "takeaway": "12306无\"内部退票\"\"优先通道\"，候补结果只在官方APP可见。"
+    }
+  },
+  {
+    "id": "F89-003", "typeId": "F89", "type": "12306候补订单加速包", "cardType": "app", "difficulty": 2,
+    "kind": "sort",
+    "title": "正确候补购票流程排序",
+    "body": "请按正确顺序排列在12306官方APP进行候补购票的步骤。",
+    "options": ["打开12306官方APP并登录", "查询车次选择候补", "提交候补订单并支付预付款", "系统自动抢票成功后通知", "在订单页确认支付尾款"],
+    "sortCorrect": [0, 1, 2, 3, 4],
+    "cues": ["官方流程", "尾款支付"],
+    "explain": "12306候补流程：登录→选车次候补→支付预付款→系统抢票→确认尾款。任何\"加速包\"\"内部退票\"都是诈骗。",
+    "psychology": ["trust"],
+    "knowledgePoints": ["KP-SPRING-TRAVEL"],
+    "season": ["springTravel", "springFestival"],
+    "caseArchive": {
+      "title": "12306候补正确流程",
+      "date": "2026",
+      "source": "中国铁路官方",
+      "takeaway": "认准12306官方APP，候补流程透明，无任何\"加速\"通道。"
+    }
+  },
+  {
+    "id": "F89-004", "typeId": "F89", "type": "12306候补订单加速包", "cardType": "chat", "difficulty": 1,
+    "kind": "judge",
+    "title": "微信群 / \"黄牛代抢\"",
+    "body": "群里\"黄牛\"称\"专业代抢火车票，加50元服务费100%抢到，抢不到全额退款，需提供12306账号密码\"。判断：黄牛代抢安全可靠。",
+    "options": ["正确：抢不到退款", "错误：账号密码不可外泄，黄牛代抢涉嫌违法且账号会被盗"],
+    "answer": 1, "cues": ["黄牛代抢", "账号密码", "100%抢到"],
+    "explain": "提供12306账号密码=交出身份证信息+支付密码。黄牛代抢涉嫌违法，账号被盗后可能被用于其他诈骗。",
+    "psychology": ["urgency", "trust"],
+    "knowledgePoints": ["KP-SPRING-TRAVEL"],
+    "season": ["springTravel", "springFestival"],
+    "caseArchive": {
+      "title": "黄牛代抢盗号案",
+      "date": "2026-01",
+      "source": "铁路公安通报",
+      "takeaway": "账号密码不可外泄，黄牛代抢涉嫌违法且账号会被盗。"
+    }
+  },
+  {
+    "id": "F89-005", "typeId": "F89", "type": "12306候补订单加速包", "cardType": "sms", "difficulty": 2,
+    "kind": "single",
+    "title": "短信 / \"候补失败退款\"",
+    "body": "【12306】您的候补订单已失败，退款将在3-7个工作日到账。如需立即退款请点击 http://12306-tuikuan.xyz 填写银行卡信息。",
+    "options": ["点击链接立即退款", "按提示填银行卡信息", "登录12306官方APP查看退款进度", "拨打短信中的客服电话"],
+    "answer": 2, "cues": ["12306-tuikuan.xyz", "立即退款", "陌生链接"],
+    "explain": "12306候补失败退款自动原路返回，无需任何操作。任何\"立即退款填银行卡\"都是钓鱼。",
+    "psychology": ["urgency", "greed"],
+    "knowledgePoints": ["KP-SPRING-TRAVEL"],
+    "season": ["springTravel", "springFestival"],
+    "caseArchive": {
+      "title": "12306退款钓鱼案",
+      "date": "2026-02",
+      "source": "铁路公安通报",
+      "takeaway": "12306退款自动原路返回，任何\"填银行卡退款\"都是钓鱼。"
+    }
+  },
+
+  {
+    "id": "F90-001", "typeId": "F90", "type": "航班改签钓鱼", "cardType": "sms", "difficulty": 2,
+    "kind": "single",
+    "title": "+86 10XXX",
+    "body": "【航空客服】您预订的CA1234航班因机械故障取消，请点击 http://ca-airline-refund.xyz 办理改签并领取300元补偿金，需填写银行卡信息。",
+    "options": ["点击链接改签领取补偿", "按短信提示填银行卡", "拨打航空公司官方客服核实", "提供支付密码接收补偿"],
+    "answer": 2, "cues": ["机械故障", "300元补偿", "陌生链接"],
+    "explain": "航班改签诈骗高发。航空公司官方域名不是 ca-airline-refund.xyz，任何\"改签领补偿金填银行卡\"都是诈骗。",
+    "psychology": ["urgency", "greed", "fear"],
+    "knowledgePoints": ["KP-FLIGHT-REFUND"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "航班改签领补偿金诈骗案",
+      "date": "2026-03",
+      "source": "民航局联合反诈中心通报",
+      "takeaway": "航班变动只认航空公司官方APP/客服，陌生链接不点。"
+    }
+  },
+  {
+    "id": "F90-002", "typeId": "F90", "type": "航班改签钓鱼", "cardType": "call", "difficulty": 3,
+    "kind": "single",
+    "title": "未知号码 / 自称\"国航客服\"",
+    "body": "\"我是国航客服，您CA1234航班因天气原因取消，现为您改签下一班，需缴纳\"改签差价\"200元到指定账户，否则视为放弃。\"",
+    "options": ["转账200元改签差价", "按客服指引转账", "挂断拨打国航95583核实", "提供银行卡接收\"退款\""],
+    "answer": 2, "cues": ["改签差价", "指定账户", "天气取消"],
+    "explain": "国航官方改签不收取\"差价到指定账户\"，所有费用在官方渠道支付。挂断拨打95583核实。",
+    "psychology": ["urgency", "authority", "fear"],
+    "knowledgePoints": ["KP-FLIGHT-REFUND"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "国航改签差价诈骗案",
+      "date": "2026-04",
+      "source": "民航公安通报",
+      "takeaway": "航空公司改签不收\"差价到指定账户\"，所有费用在官方渠道支付。"
+    }
+  },
+  {
+    "id": "F90-003", "typeId": "F90", "type": "航班改签钓鱼", "cardType": "popup", "difficulty": 2,
+    "kind": "multi",
+    "title": "携程弹窗 / \"航班退改险\"",
+    "body": "预订航班后弹出窗口：\"您的航班可领取300元退改险补偿，扫描二维码添加客服领取\"。下列哪些行为是错误的？",
+    "options": ["扫描二维码添加客服", "按客服指引共享屏幕", "提供银行卡接收补偿", "到携程官方APP核实订单", "关闭弹窗不轻信"],
+    "answers": [0, 1, 2], "cues": ["退改险补偿", "扫码加客服", "共享屏幕"],
+    "explain": "携程等正规平台不会弹窗要求\"扫码加客服领补偿\"。任何\"共享屏幕\"\"扫码加客服\"都是诈骗。",
+    "psychology": ["greed", "urgency", "trust"],
+    "knowledgePoints": ["KP-FLIGHT-REFUND"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "携程退改险弹窗钓鱼案",
+      "date": "2026-Q1",
+      "source": "网信办联合反诈中心通报",
+      "takeaway": "正规平台不弹窗要求\"扫码加客服\"，所有操作在APP内完成。"
+    }
+  },
+  {
+    "id": "F90-004", "typeId": "F90", "type": "航班改签钓鱼", "cardType": "chat", "difficulty": 1,
+    "kind": "judge",
+    "title": "短信 / \"航班延误险\"",
+    "body": "【民航局】您的航班延误2小时，可领取\"延误险\"3000元补偿，点击 http://minhang-bao.xyz 领取，需填写身份证与银行卡。判断：点击填信息即可领取。",
+    "options": ["正确：填信息领补偿", "错误：民航局不会发短信链接要求填银行卡"],
+    "answer": 1, "cues": ["延误险", "3000元补偿", "陌生链接"],
+    "explain": "航班延误险由保险公司按合同理赔，不会由\"民航局\"发短信链接要求填银行卡。任何\"填信息领补偿\"都是钓鱼。",
+    "psychology": ["greed", "authority"],
+    "knowledgePoints": ["KP-FLIGHT-REFUND"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "航班延误险钓鱼案",
+      "date": "2026-Q2",
+      "source": "民航局通报",
+      "takeaway": "延误险走保险合同理赔，\"民航局发链接填信息\"都是钓鱼。"
+    }
+  },
+  {
+    "id": "F90-005", "typeId": "F90", "type": "航班改签钓鱼", "cardType": "app", "difficulty": 3,
+    "kind": "sort",
+    "title": "正确航班改签流程排序",
+    "body": "请按正确顺序排列通过航空公司官方APP办理航班改签的步骤。",
+    "options": ["打开航空公司官方APP", "进入\"我的订单\"找到对应航班", "选择\"改签\"选项查看可改航班", "确认改签并支付差价（如有）", "收到改签成功短信通知"],
+    "sortCorrect": [0, 1, 2, 3, 4],
+    "cues": ["官方APP流程", "改签差价"],
+    "explain": "航班改签只在航空公司官方APP内完成，所有费用在APP内支付。任何\"短信链接\"\"客服转账\"都是诈骗。",
+    "psychology": ["trust"],
+    "knowledgePoints": ["KP-FLIGHT-REFUND"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "航班改签正确流程",
+      "date": "2026",
+      "source": "民航局",
+      "takeaway": "航班改签只在官方APP内完成，所有费用在APP内支付。"
+    }
+  },
+
+  {
+    "id": "F91-001", "typeId": "F91", "type": "数字藏品NFT发售骗局", "cardType": "chat", "difficulty": 3,
+    "kind": "single",
+    "title": "微信群 / \"数字藏品首发\"",
+    "body": "\"国内首个合规数字藏品平台首发，每份99元保本回购，3个月内涨幅可达10倍，扫码注册抢购，仅剩最后50份。\"",
+    "options": ["扫码抢购博10倍收益", "拉家人一起抢", "拒绝，保本回购+10倍收益自相矛盾", "先买一份试水"],
+    "answer": 2, "cues": ["数字藏品首发", "保本回购", "10倍收益"],
+    "explain": "数字藏品NFT发售骗局利用\"保本回购+高收益\"话术。保本与高收益不可兼得，国内数字藏品不可炒作。",
+    "psychology": ["greed", "scarcity", "conformity"],
+    "knowledgePoints": ["KP-NFT"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "数字藏品保本回购骗局",
+      "date": "2026-02",
+      "source": "文旅部联合反诈中心通报",
+      "takeaway": "国内数字藏品不可炒作，\"保本回购+10倍收益\"是骗局。"
+    }
+  },
+  {
+    "id": "F91-002", "typeId": "F91", "type": "数字藏品NFT发售骗局", "cardType": "popup", "difficulty": 2,
+    "kind": "multi",
+    "title": "广告 / \"NFT空投领取\"",
+    "body": "弹窗：\"知名NFT项目方空投，连接钱包即可领取价值2000元NFT，仅限前100名\"。下列哪些行为是错误的？",
+    "options": ["点击连接钱包", "授权NFT操作权限", "拉好友一起领", "到官方项目方Twitter核实", "关闭弹窗不轻信"],
+    "answers": [0, 1, 2], "cues": ["空投", "连接钱包", "授权"],
+    "explain": "NFT空投钓鱼是常见骗局，\"连接钱包+授权\"等于交出NFT控制权。授权后钱包内NFT会被秒转走。",
+    "psychology": ["greed", "curiosity", "conformity"],
+    "knowledgePoints": ["KP-NFT"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "NFT空投授权钓鱼案",
+      "date": "2026-03",
+      "source": "区块链安全公司通报",
+      "takeaway": "\"连接钱包+授权\"=交出NFT控制权，授权后秒被转走。"
+    }
+  },
+  {
+    "id": "F91-003", "typeId": "F91", "type": "数字藏品NFT发售骗局", "cardType": "transfer", "difficulty": 4,
+    "kind": "single",
+    "title": "NFT平台 / \"提现受阻\"",
+    "body": "您账户数字藏品估值8万元，提现需先缴纳20%\"个人所得税\"1.6万元及\"反洗钱认证金\"5000元，缴清后可一次性提现。客服称这是\"监管要求\"。",
+    "options": ["转账2.1万元提现", "按客服指引转账", "意识到被骗，立即报警保留证据", "继续充值提升会员等级"],
+    "answer": 2, "cues": ["提现缴税", "反洗钱认证金", "NFT估值"],
+    "explain": "NFT平台提现不收\"个税\"或\"认证金\"。任何提现前要交钱=100%诈骗，立即停止转账并报警。",
+    "psychology": ["sunkCost", "authority", "fear"],
+    "knowledgePoints": ["KP-NFT"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "NFT平台提现缴税案",
+      "date": "2026-Q1",
+      "source": "公安部反诈中心通报",
+      "takeaway": "NFT平台提现不收\"个税\"或\"认证金\"，提现前要交钱=诈骗。"
+    }
+  },
+  {
+    "id": "F91-004", "typeId": "F91", "type": "数字藏品NFT发售骗局", "cardType": "chat", "difficulty": 2,
+    "kind": "judge",
+    "title": "微信 / \"NFT维权群\"",
+    "body": "你购买的NFT平台跑路了，群里有人说\"专业维权团队，先收维权费2000元，成功后抽成10%\"。判断：付费维权可靠。",
+    "options": ["正确：付费维权专业", "错误：二次诈骗，正规维权不收费"],
+    "answer": 1, "cues": ["维权费", "抽成", "二次诈骗"],
+    "explain": "NFT跑路后的\"付费维权\"是二次诈骗。正规维权渠道是公安报警+法院起诉，不收\"前期费用\"。",
+    "psychology": ["sunkCost", "trust"],
+    "knowledgePoints": ["KP-NFT"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "NFT维权二次诈骗案",
+      "date": "2026-Q2",
+      "source": "公安部通报",
+      "takeaway": "跑路后的\"付费维权\"是二次诈骗，正规维权走公安+法院。"
+    }
+  },
+  {
+    "id": "F91-005", "typeId": "F91", "type": "数字藏品NFT发售骗局", "cardType": "qrcode", "difficulty": 1,
+    "kind": "judge",
+    "title": "二维码 / \"数字藏品二级市场\"",
+    "body": "群里发\"数字藏品二级交易平台\"二维码，扫码注册后可炒作你持有的数字藏品，平台抽佣10%。判断：扫码注册炒作数字藏品合规。",
+    "options": ["正确：平台抽佣合理", "错误：国内数字藏品不得二级市场炒作，平台违规"],
+    "answer": 1, "cues": ["二级市场", "炒作", "违规"],
+    "explain": "中国禁止数字藏品二级市场炒作。任何\"二级交易平台\"都是违规或诈骗，参与者可能涉嫌违法。",
+    "psychology": ["greed", "conformity"],
+    "knowledgePoints": ["KP-NFT"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "数字藏品二级市场违规案",
+      "date": "2026",
+      "source": "文旅部通报",
+      "takeaway": "国内数字藏品不得二级市场炒作，任何\"二级交易平台\"都是违规或诈骗。"
+    }
+  },
+
+  {
+    "id": "F92-001", "typeId": "F92", "type": "虚拟主播打赏返利", "cardType": "chat", "difficulty": 2,
+    "kind": "single",
+    "title": "B站私信 / \"主播返利\"",
+    "body": "\"我是XX主播助理，给主播打赏1000元返1500元，活动仅限今日，扫码进粉丝群参与，已有粉丝晒到账截图。\"",
+    "options": ["扫码进群参与返利", "打赏1000元博1500元", "拒绝，打赏返利是诈骗", "拉好友一起参与"],
+    "answer": 2, "cues": ["打赏返利", "活动仅限今日", "粉丝晒单"],
+    "explain": "虚拟主播打赏返利是新型诈骗。任何\"打赏返现\"都是诈骗，正规主播不会私下返利。",
+    "psychology": ["greed", "conformity", "intimacy"],
+    "knowledgePoints": ["KP-VTUBER"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "虚拟主播打赏返利诈骗案",
+      "date": "2026-02",
+      "source": "B站联合反诈中心通报",
+      "takeaway": "打赏返利是诈骗，正规主播不会私下返利。"
+    }
+  },
+  {
+    "id": "F92-002", "typeId": "F92", "type": "虚拟主播打赏返利", "cardType": "chat", "difficulty": 3,
+    "kind": "single",
+    "title": "粉丝群 / \"主播生日回馈\"",
+    "body": "\"今天是主播生日，给主播打赏5000元以上可获\"专属回馈\"2倍返现，已有多位粉丝到账，扫码联系助理领取。\"",
+    "options": ["打赏5000元博2倍返现", "扫码联系助理领取", "拒绝，生日回馈返现是诈骗", "借钱打赏博返现"],
+    "answer": 2, "cues": ["生日回馈", "2倍返现", "扫码联系"],
+    "explain": "\"生日回馈\"\"周年回馈\"是打赏返利变种。任何\"打赏返现\"都是诈骗，前期小额返利是诱饵。",
+    "psychology": ["greed", "intimacy", "conformity"],
+    "knowledgePoints": ["KP-VTUBER"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "主播生日回馈返利诈骗案",
+      "date": "2026-03",
+      "source": "反诈中心通报",
+      "takeaway": "\"生日回馈返现\"是打赏返利变种，任何\"打赏返现\"都是诈骗。"
+    }
+  },
+  {
+    "id": "F92-003", "typeId": "F92", "type": "虚拟主播打赏返利", "cardType": "popup", "difficulty": 2,
+    "kind": "multi",
+    "title": "弹窗 / \"主播PK返利\"",
+    "body": "弹窗广告：\"参与主播PK打赏，打赏金额2倍返还，前100名再送限量周边\"。下列哪些行为是错误的？",
+    "options": ["打赏参与PK返利", "扫码联系助理领取", "拉好友一起打赏", "到B站官方核实主播活动", "关闭弹窗不信\"返利\""],
+    "answers": [0, 1, 2], "cues": ["PK返利", "2倍返还", "限量周边"],
+    "explain": "主播PK返利是新型打赏诈骗话术。正规主播PK不返利，所有\"打赏返现\"都是诈骗。",
+    "psychology": ["greed", "conformity", "scarcity"],
+    "knowledgePoints": ["KP-VTUBER"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "主播PK返利诈骗案",
+      "date": "2026-Q1",
+      "source": "B站联合反诈中心通报",
+      "takeaway": "主播PK不返利，所有\"打赏返现\"都是诈骗。"
+    }
+  },
+  {
+    "id": "F92-004", "typeId": "F92", "type": "虚拟主播打赏返利", "cardType": "chat", "difficulty": 1,
+    "kind": "judge",
+    "title": "粉丝群 / \"助理代打赏\"",
+    "body": "群里\"助理\"说\"主播官方活动，代打赏100元返200元，先转账到助理账户\"。判断：转账给助理代打赏可靠。",
+    "options": ["正确：助理代打赏", "错误：助理代打赏是诈骗，正规打赏在平台内完成"],
+    "answer": 1, "cues": ["助理代打赏", "先转账", "返200元"],
+    "explain": "任何\"助理代打赏\"\"先转账返利\"都是诈骗。正规打赏在平台内完成，不会私下转账。",
+    "psychology": ["greed", "trust"],
+    "knowledgePoints": ["KP-VTUBER"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "助理代打赏诈骗案",
+      "date": "2026-Q2",
+      "source": "反诈中心通报",
+      "takeaway": "正规打赏在平台内完成，任何\"助理代打赏\"都是诈骗。"
+    }
+  },
+  {
+    "id": "F92-005", "typeId": "F92", "type": "虚拟主播打赏返利", "cardType": "chat", "difficulty": 3,
+    "kind": "fill",
+    "title": "正规打赏渠道补全",
+    "body": "在B站给主播打赏应通过官方\"____\"功能完成（请填写3字功能名）。",
+    "options": [],
+    "fillAnswer": "充电",
+    "fillAccept": ["哔哩哔哩充电", "B站充电"],
+    "cues": ["官方渠道", "充电"],
+    "explain": "B站正规打赏渠道是\"充电\"功能，在平台内完成。任何\"助理代打赏\"\"返利\"都是诈骗。",
+    "psychology": ["trust"],
+    "knowledgePoints": ["KP-VTUBER"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "B站充电正规渠道",
+      "date": "2026",
+      "source": "B站官方",
+      "takeaway": "B站正规打赏走\"充电\"功能，平台内完成。"
+    }
+  },
+
+  {
+    "id": "F93-001", "typeId": "F93", "type": "未成年人游戏代退款", "cardType": "chat", "difficulty": 2,
+    "kind": "single",
+    "title": "QQ群 / \"专业代退游戏充值\"",
+    "body": "\"专业代退未成年人游戏充值，成功率100%，到账后抽成30%，先提供家长微信账号密码与孩子游戏账号信息。\"",
+    "options": ["提供账号密码代退", "先付\"工本费\"200元代退", "拒绝，正规退款走官方渠道", "拉其他家长一起代退"],
+    "answer": 2, "cues": ["代退", "100%成功", "账号密码"],
+    "explain": "未成年人游戏充值退款走官方渠道（游戏厂商客服），任何\"代退\"都是诈骗或盗号。",
+    "psychology": ["greed", "trust", "sunkCost"],
+    "knowledgePoints": ["KP-MINOR-REFUND"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "未成年人游戏代退款诈骗案",
+      "date": "2026-02",
+      "source": "公安部联合游戏厂商通报",
+      "takeaway": "未成年人游戏退款走官方渠道，任何\"代退\"都是诈骗或盗号。"
+    }
+  },
+  {
+    "id": "F93-002", "typeId": "F93", "type": "未成年人游戏代退款", "cardType": "call", "difficulty": 3,
+    "kind": "single",
+    "title": "未知号码 / 自称\"腾讯客服\"",
+    "body": "\"我是腾讯客服，检测到您孩子游戏充值5000元，可为您办理全额退款，需下载会议软件共享屏幕操作，并缴纳\"工本费\"500元。\"",
+    "options": ["下载会议软件共享屏幕", "缴纳500元工本费", "挂断，到腾讯未成年人保护官方渠道申请", "提供银行卡接收退款"],
+    "answer": 2, "cues": ["共享屏幕", "工本费", "腾讯客服"],
+    "explain": "腾讯官方未成年人退款走\"腾讯未成年人保护\"专属通道，不收\"工本费\"，不要求共享屏幕。",
+    "psychology": ["authority", "urgency", "greed"],
+    "knowledgePoints": ["KP-MINOR-REFUND"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "仿冒腾讯客服未成年人退款案",
+      "date": "2026-03",
+      "source": "腾讯联合反诈中心通报",
+      "takeaway": "腾讯未成年人退款走官方专属通道，不收\"工本费\"不共享屏幕。"
+    }
+  },
+  {
+    "id": "F93-003", "typeId": "F93", "type": "未成年人游戏代退款", "cardType": "popup", "difficulty": 2,
+    "kind": "multi",
+    "title": "广告 / \"未成年人退款教程\"",
+    "body": "弹窗：\"专业教程，未成年人游戏充值100%退款，扫码加微信领取教程，仅需支付\"资料费\"99元\"。下列哪些行为是错误的？",
+    "options": ["扫码加微信领取教程", "支付99元资料费", "按教程提供账号密码", "到游戏官方客服申请退款", "关闭弹窗不信\"100%退款\""],
+    "answers": [0, 1, 2], "cues": ["100%退款", "资料费", "账号密码"],
+    "explain": "未成年人退款\"100%成功\"\"教程费\"都是诈骗话术。正规退款走游戏官方客服，不收前期费用。",
+    "psychology": ["greed", "trust", "sunkCost"],
+    "knowledgePoints": ["KP-MINOR-REFUND"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "未成年人退款教程诈骗案",
+      "date": "2026-Q1",
+      "source": "反诈中心通报",
+      "takeaway": "\"100%退款教程\"\"资料费\"都是诈骗话术，正规退款走游戏官方客服。"
+    }
+  },
+  {
+    "id": "F93-004", "typeId": "F93", "type": "未成年人游戏代退款", "cardType": "chat", "difficulty": 1,
+    "kind": "judge",
+    "title": "QQ群 / \"黑中介代退\"",
+    "body": "群里\"黑中介\"说\"走内部通道代退未成年人充值，3天到账，抽成50%，需提供家长身份证正反面照片\"。判断：提供身份证照片代退可靠。",
+    "options": ["正确：内部通道效率高", "错误：身份证照片不可外泄，黑中介涉嫌违法"],
+    "answer": 1, "cues": ["内部通道", "身份证照片", "抽成50%"],
+    "explain": "提供身份证正反面=交出个人核心信息，可能被用于网贷、洗钱等违法犯罪。正规退款不要求身份证照片。",
+    "psychology": ["greed", "trust"],
+    "knowledgePoints": ["KP-MINOR-REFUND"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "黑中介代退盗用身份案",
+      "date": "2026-Q2",
+      "source": "公安部通报",
+      "takeaway": "身份证照片不可外泄，\"黑中介代退\"涉嫌违法。"
+    }
+  },
+  {
+    "id": "F93-005", "typeId": "F93", "type": "未成年人游戏代退款", "cardType": "app", "difficulty": 2,
+    "kind": "sort",
+    "title": "腾讯未成年人退款正确流程",
+    "body": "请按正确顺序排列通过腾讯官方渠道申请未成年人游戏充值退款的步骤。",
+    "options": ["关注\"腾讯未成年人保护\"官方公众号", "进入\"家长监护工程\"提交申请", "上传家长身份证+亲子关系证明", "填写孩子游戏账号与充值记录", "客服审核通过后退款原路返回"],
+    "sortCorrect": [0, 1, 2, 3, 4],
+    "cues": ["官方流程", "亲子关系证明"],
+    "explain": "腾讯未成年人退款走\"腾讯未成年人保护\"官方公众号，不收任何费用，不要求共享屏幕。",
+    "psychology": ["trust"],
+    "knowledgePoints": ["KP-MINOR-REFUND"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "腾讯未成年人退款正确流程",
+      "date": "2026",
+      "source": "腾讯官方",
+      "takeaway": "腾讯未成年人退款走官方公众号，不收费不共享屏幕。"
+    }
+  },
+
+  {
+    "id": "F94-001", "typeId": "F94", "type": "跨境电商刷单保证金", "cardType": "chat", "difficulty": 2,
+    "kind": "single",
+    "title": "微信 / \"跨境电商代运营\"",
+    "body": "\"专业代运营亚马逊店铺，垫付3000元\"保证金\"即可参与，月入8000-15000，时间自由，扫码进群了解\"。",
+    "options": ["扫码进群垫付保证金", "先付3000元试水", "拒绝，垫付保证金是诈骗", "拉同事一起参与"],
+    "answer": 2, "cues": ["代运营", "保证金", "月入过万"],
+    "explain": "跨境电商代运营+垫付保证金是刷单诈骗变种。任何\"垫付保证金\"\"代运营高收益\"都是诈骗。",
+    "psychology": ["greed", "trust", "sunkCost"],
+    "knowledgePoints": ["KP-CROSS-BORDER"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "跨境电商代运营保证金诈骗案",
+      "date": "2026-02",
+      "source": "公安部联合海关总署通报",
+      "takeaway": "\"代运营+垫付保证金\"是刷单诈骗变种，任何\"垫付\"都是诈骗。"
+    }
+  },
+  {
+    "id": "F94-002", "typeId": "F94", "type": "跨境电商刷单保证金", "cardType": "transfer", "difficulty": 3,
+    "kind": "single",
+    "title": "代运营平台 / \"任务卡单\"",
+    "body": "您操作失误导致订单卡单，需再垫付8000元\"解冻保证金\"才能一并提现，否则前期投入的5000元无法退回。客服称\"必须配合\"。",
+    "options": ["转账8000元解冻", "按客服指引转账", "停止转账，立即报警", "再垫付1万元提升等级"],
+    "answer": 2, "cues": ["卡单", "解冻保证金", "无法退回"],
+    "explain": "\"卡单\"\"解冻保证金\"是刷单诈骗标准话术。任何继续转账都是扩大损失，立即报警。",
+    "psychology": ["sunkCost", "fear", "urgency"],
+    "knowledgePoints": ["KP-CROSS-BORDER"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "跨境电商刷单卡单案",
+      "date": "2026-Q1",
+      "source": "反诈中心通报",
+      "takeaway": "\"卡单\"\"解冻保证金\"是刷单诈骗标准话术，继续转账=扩大损失。"
+    }
+  },
+  {
+    "id": "F94-003", "typeId": "F94", "type": "跨境电商刷单保证金", "cardType": "sms", "difficulty": 1,
+    "kind": "judge",
+    "title": "+86 13XXX",
+    "body": "【亚马逊代运营】日结500-1500，手机操作下单即可，加微信xxx领任务，跨境电商蓝海项目。判断：加微信领任务可靠。",
+    "options": ["正确：跨境电商蓝海", "错误：手机操作日结500+是刷单诈骗引流"],
+    "answer": 1, "cues": ["日结500-1500", "加微信", "蓝海项目"],
+    "explain": "\"手机操作日结500+\"是刷单诈骗引流话术。任何\"代运营日结高收益\"都是诈骗。",
+    "psychology": ["greed", "conformity"],
+    "knowledgePoints": ["KP-CROSS-BORDER"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "跨境电商代运营引流案",
+      "date": "2026-Q2",
+      "source": "反诈中心通报",
+      "takeaway": "\"手机操作日结500+\"是刷单诈骗引流，任何\"代运营日结高收益\"都是诈骗。"
+    }
+  },
+  {
+    "id": "F94-004", "typeId": "F94", "type": "跨境电商刷单保证金", "cardType": "popup", "difficulty": 2,
+    "kind": "multi",
+    "title": "广告 / \"亚马逊代运营\"",
+    "body": "弹窗：\"亚马逊代运营躺赚，0经验月入1万+，免费培训，扫码注册\"。下列哪些行为是错误的？",
+    "options": ["扫码注册参与", "按培训指引垫付保证金", "拉家人一起做", "到亚马逊官方\"卖家大学\"学习", "关闭广告不信\"躺赚\""],
+    "answers": [0, 1, 2], "cues": ["躺赚", "0经验月入1万", "垫付保证金"],
+    "explain": "\"0经验躺赚月入过万\"是刷单诈骗引流话术。正规跨境电商学习走亚马逊\"卖家大学\"，免费且不垫付。",
+    "psychology": ["greed", "conformity", "authority"],
+    "knowledgePoints": ["KP-CROSS-BORDER"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "亚马逊代运营躺赚诈骗案",
+      "date": "2026-Q1",
+      "source": "亚马逊联合反诈中心通报",
+      "takeaway": "\"0经验躺赚月入过万\"是诈骗，正规学习走亚马逊\"卖家大学\"。"
+    }
+  },
+  {
+    "id": "F94-005", "typeId": "F94", "type": "跨境电商刷单保证金", "cardType": "chat", "difficulty": 3,
+    "kind": "link",
+    "title": "正规跨境电商学习渠道配对",
+    "body": "请将下列平台与正确的学习/入驻渠道配对。",
+    "linkLeft": ["亚马逊", "速卖通", "Shopee", "TikTok Shop"],
+    "linkRight": ["卖家大学 sell.amazon.com", "aliexpress 卖家大学", "Shopee 卖家学习中心", "TikTok Shop 卖家大学"],
+    "linkPairing": [0, 1, 2, 3],
+    "options": [],
+    "cues": ["官方学习渠道", "免费"],
+    "explain": "正规跨境电商平台均提供免费官方学习渠道。任何\"收费培训+垫付保证金\"都是诈骗。",
+    "psychology": ["trust"],
+    "knowledgePoints": ["KP-CROSS-BORDER"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "跨境电商官方学习渠道汇总",
+      "date": "2026",
+      "source": "海关总署联合各平台",
+      "takeaway": "正规跨境电商平台均提供免费官方学习渠道，任何\"收费培训+垫付\"都是诈骗。"
+    }
+  },
+
+  {
+    "id": "F95-001", "typeId": "F95", "type": "AI养老金资格认证钓鱼", "cardType": "sms", "difficulty": 3,
+    "kind": "single",
+    "title": "+86 10XXX",
+    "body": "【人社局】您的养老金资格认证已过期，将于本月停发养老金，请点击 http://renshe-renzheng.xyz 完成人脸识别认证，否则影响发放。",
+    "options": ["点击链接完成认证", "按提示人脸识别", "到当地社保局或官方APP核实", "提供身份证号配合"],
+    "answer": 2, "cues": ["renshe-renzheng.xyz", "停发养老金", "人脸识别"],
+    "explain": "养老金资格认证走\"电子社保卡\"\"掌上12333\"等官方APP。任何\"陌生链接人脸识别\"都是钓鱼。",
+    "psychology": ["urgency", "fear", "authority"],
+    "knowledgePoints": ["KP-PENSION"],
+    "season": ["yearEnd"],
+    "caseArchive": {
+      "title": "AI养老金资格认证钓鱼案",
+      "date": "2026-01",
+      "source": "人社部联合反诈中心通报",
+      "takeaway": "养老金认证走\"电子社保卡\"等官方APP，任何\"陌生链接人脸识别\"都是钓鱼。"
+    }
+  },
+  {
+    "id": "F95-002", "typeId": "F95", "type": "AI养老金资格认证钓鱼", "cardType": "call", "difficulty": 4,
+    "kind": "single",
+    "title": "未知号码 / 自称\"社保局\"",
+    "body": "\"我是社保局工作人员，您的养老金账户异常，需立即下载\"社保通\"APP进行人脸认证，否则本月养老金停发。案件保密不得告诉家人。\"",
+    "options": ["下载\"社保通\"按提示操作", "保密配合认证", "挂断拨打12333社保热线核实", "提供银行卡接收\"补发养老金\""],
+    "answer": 2, "cues": ["下载APP", "保密不得告诉", "停发恐吓"],
+    "explain": "社保局不会电话要求下载APP认证，更不会要求\"保密\"。挂断拨打12333核实是唯一正确做法。",
+    "psychology": ["authority", "fear", "urgency"],
+    "knowledgePoints": ["KP-PENSION"],
+    "season": ["yearEnd"],
+    "caseArchive": {
+      "title": "仿冒社保局APP钓鱼案",
+      "date": "2026-Q1",
+      "source": "人社部通报",
+      "takeaway": "社保局不电话要求下载APP，不要求保密，挂断拨打12333核实。"
+    }
+  },
+  {
+    "id": "F95-003", "typeId": "F95", "type": "AI养老金资格认证钓鱼", "cardType": "qrcode", "difficulty": 2,
+    "kind": "judge",
+    "title": "二维码 / \"养老金资格认证\"",
+    "body": "小区楼下张贴\"养老金资格认证二维码\"，扫码后跳转非官方页面要求人脸识别+身份证号+银行卡号\"完成认证\"。判断：扫码完成认证即可。",
+    "options": ["正确：扫码完成认证", "错误：官方认证走\"电子社保卡\"APP，扫码填信息是钓鱼"],
+    "answer": 1, "cues": ["小区张贴", "人脸识别+银行卡", "钓鱼"],
+    "explain": "养老金资格认证走\"电子社保卡\"\"掌上12333\"官方APP，不会张贴二维码要求人脸+银行卡。任何\"扫码填信息\"都是钓鱼。",
+    "psychology": ["trust", "authority"],
+    "knowledgePoints": ["KP-PENSION"],
+    "season": ["yearEnd"],
+    "caseArchive": {
+      "title": "小区张贴养老金认证钓鱼案",
+      "date": "2026-Q4",
+      "source": "公安部通报",
+      "takeaway": "养老金认证走官方APP，不扫楼下张贴的二维码。"
+    }
+  },
+  {
+    "id": "F95-004", "typeId": "F95", "type": "AI养老金资格认证钓鱼", "cardType": "popup", "difficulty": 3,
+    "kind": "multi",
+    "title": "广告 / \"养老金资格代办\"",
+    "body": "弹窗：\"专业代办养老金资格认证，无法出门老人也能办，扫码加微信，仅需200元代办费\"。下列哪些行为是错误的？",
+    "options": ["扫码加微信代办", "支付200元代办费", "提供老人身份证照片", "帮老人到社区或社保APP认证", "关闭广告不信\"代办\""],
+    "answers": [0, 1, 2], "cues": ["代办", "代办费", "身份证照片"],
+    "explain": "养老金资格认证不能\"代办\"，本人到社区或用\"电子社保卡\"APP认证。任何\"代办+身份证照片\"都是钓鱼。",
+    "psychology": ["trust", "greed"],
+    "knowledgePoints": ["KP-PENSION"],
+    "season": ["yearEnd"],
+    "caseArchive": {
+      "title": "养老金代办钓鱼案",
+      "date": "2026-Q4",
+      "source": "人社部通报",
+      "takeaway": "养老金认证不能\"代办\"，本人到社区或用\"电子社保卡\"APP认证。"
+    }
+  },
+  {
+    "id": "F95-005", "typeId": "F95", "type": "AI养老金资格认证钓鱼", "cardType": "app", "difficulty": 2,
+    "kind": "sort",
+    "title": "养老金资格认证正确流程",
+    "body": "请按正确顺序排列通过\"电子社保卡\"APP完成养老金资格认证的步骤。",
+    "options": ["打开\"电子社保卡\"官方APP", "登录并完成人脸识别", "进入\"待遇资格认证\"模块", "按提示完成眨眼/摇头动作", "认证成功后收到短信通知"],
+    "sortCorrect": [0, 2, 1, 3, 4],
+    "cues": ["官方APP流程", "人脸识别"],
+    "explain": "养老金资格认证走\"电子社保卡\"APP，本人人脸识别完成，不收任何费用，不要求银行卡。",
+    "psychology": ["trust"],
+    "knowledgePoints": ["KP-PENSION"],
+    "season": ["yearEnd"],
+    "caseArchive": {
+      "title": "养老金资格认证正确流程",
+      "date": "2026",
+      "source": "人社部官方",
+      "takeaway": "养老金认证走\"电子社保卡\"APP，本人人脸识别，不收费不要银行卡。"
+    }
+  },
+
+  {
+    "id": "F96-001", "typeId": "F96", "type": "答题领现金信息采集", "cardType": "popup", "difficulty": 2,
+    "kind": "single",
+    "title": "弹窗 / \"答题领现金\"",
+    "body": "弹窗：\"答5道题领50元现金红包，立即到账，仅需填写手机号+身份证号+银行卡号领取。\"题目内容涉及个人隐私。",
+    "options": ["填写信息领取50元", "先填手机号试一下", "拒绝，正规答题不要求身份证+银行卡", "拉家人一起领"],
+    "answer": 2, "cues": ["答题领现金", "身份证+银行卡", "信息采集"],
+    "explain": "\"答题领现金\"是新型信息采集钓鱼，目标是身份证+银行卡等核心信息。任何\"领现金\"要求身份证+银行卡都是钓鱼。",
+    "psychology": ["greed", "curiosity", "conformity"],
+    "knowledgePoints": ["KP-INFO-COLLECT"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "答题领现金信息采集钓鱼案",
+      "date": "2026-02",
+      "source": "网信办联合反诈中心通报",
+      "takeaway": "\"答题领现金\"是信息采集钓鱼，任何\"领现金\"要求身份证+银行卡都是钓鱼。"
+    }
+  },
+  {
+    "id": "F96-002", "typeId": "F96", "type": "答题领现金信息采集", "cardType": "chat", "difficulty": 1,
+    "kind": "judge",
+    "title": "微信群 / \"答题送话费\"",
+    "body": "群里发\"答10道生活题送30元话费，扫码即可参与\"，扫码后要求填写手机号+服务密码+身份证后6位\"激活\"。判断：填信息即可领话费。",
+    "options": ["正确：填信息领话费", "错误：服务密码+身份证后6位=交出账户控制权，是钓鱼"],
+    "answer": 1, "cues": ["送话费", "服务密码", "身份证后6位"],
+    "explain": "服务密码+身份证后6位=交出运营商账户控制权，可被用于盗刷或办理业务。任何\"领话费\"要求服务密码都是钓鱼。",
+    "psychology": ["greed", "curiosity"],
+    "knowledgePoints": ["KP-INFO-COLLECT"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "答题送话费盗账户案",
+      "date": "2026-Q1",
+      "source": "工信部联合反诈中心通报",
+      "takeaway": "\"服务密码+身份证后6位\"=交出账户控制权，任何\"领话费\"要服务密码都是钓鱼。"
+    }
+  },
+  {
+    "id": "F96-003", "typeId": "F96", "type": "答题领现金信息采集", "cardType": "qrcode", "difficulty": 2,
+    "kind": "multi",
+    "title": "二维码 / \"扫码答题领现金\"",
+    "body": "超市门口张贴\"扫码答题领20元现金\"，扫码后要求填写姓名+手机号+家庭住址+月收入\"完成调研\"。下列哪些行为是错误的？",
+    "options": ["填写全部信息领20元", "提供家庭住址", "提供月收入信息", "拒绝，正规调研不要求家庭住址+收入", "拉家人一起扫码"],
+    "answers": [0, 1, 2, 4], "cues": ["扫码答题", "家庭住址", "月收入"],
+    "explain": "\"答题领现金\"是新型信息采集钓鱼，目标是姓名+住址+收入等画像信息，可能被用于精准诈骗。",
+    "psychology": ["greed", "curiosity", "conformity"],
+    "knowledgePoints": ["KP-INFO-COLLECT"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "超市扫码答题信息采集案",
+      "date": "2026-Q2",
+      "source": "公安部通报",
+      "takeaway": "\"答题领现金\"目标是画像信息，可能被用于精准诈骗。"
+    }
+  },
+  {
+    "id": "F96-004", "typeId": "F96", "type": "答题领现金信息采集", "cardType": "chat", "difficulty": 3,
+    "kind": "single",
+    "title": "微信 / \"子女教育调研\"",
+    "body": "\"专业调研机构，答10道子女教育题领100元现金，仅需填写孩子姓名+学校+班级+家长手机号\"。对方称\"严格保密\"。",
+    "options": ["填写孩子信息领100元", "对方承诺保密可填", "拒绝，孩子信息不可泄露给陌生方", "拉家长群一起填"],
+    "answer": 2, "cues": ["子女教育调研", "孩子学校班级", "100元现金"],
+    "explain": "孩子姓名+学校+班级=精准画像，可能被用于冒充老师、绑架勒索等针对性诈骗。任何\"调研\"要求孩子信息都是钓鱼。",
+    "psychology": ["greed", "trust", "curiosity"],
+    "knowledgePoints": ["KP-INFO-COLLECT"],
+    "season": ["schoolOpen"],
+    "caseArchive": {
+      "title": "子女教育调研信息采集案",
+      "date": "2026-09",
+      "source": "教育部联合反诈中心通报",
+      "takeaway": "孩子信息=精准画像，可能被用于针对性诈骗，任何\"调研\"要求孩子信息都是钓鱼。"
+    }
+  },
+  {
+    "id": "F96-005", "typeId": "F96", "type": "答题领现金信息采集", "cardType": "popup", "difficulty": 1,
+    "kind": "judge",
+    "title": "弹窗 / \"免费WiFi答题\"",
+    "body": "公共场合\"免费WiFi\"需\"答3道题领上网密码\"，题目要求填写手机号+短信验证码\"完成验证\"。判断：填验证码即可上网。",
+    "options": ["正确：填验证码上网", "错误：验证码即密码，填写即交出账户控制权"],
+    "answer": 1, "cues": ["免费WiFi", "短信验证码", "上网密码"],
+    "explain": "短信验证码=账户密码，填写即可能被盗刷、注册恶意应用。任何\"免费WiFi要验证码\"都是钓鱼。",
+    "psychology": ["greed", "curiosity"],
+    "knowledgePoints": ["KP-INFO-COLLECT"],
+    "season": ["all"],
+    "caseArchive": {
+      "title": "免费WiFi钓鱼盗账户案",
+      "date": "2026-Q1",
+      "source": "网信办通报",
+      "takeaway": "短信验证码=账户密码，任何\"免费WiFi要验证码\"都是钓鱼。"
+    }
+  }
+]

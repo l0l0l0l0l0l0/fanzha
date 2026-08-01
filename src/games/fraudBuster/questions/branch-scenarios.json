@@ -94,5 +94,95 @@
       }
     ],
     "season": ["summerJob", "all"]
+  },
+  {
+    "id": "B04-001", "typeId": "B04", "type": "二手平台交易情景模拟", "cardType": "branch", "difficulty": 2,
+    "kind": "branch", "isBranchEntry": true,
+    "title": "第一人称情景 / 闲鱼卖手机遇到\"客服\"",
+    "body": "你在闲鱼挂售一台旧手机，很快有人询问...",
+    "options": [],
+    "explain": "二手平台交易情景模拟：客服只在APP内，任何保证金都是诈骗。",
+    "cues": ["二手平台", "解冻保证金", "脱离APP"],
+    "psychology": ["urgency", "fear", "authority"],
+    "knowledgePoints": ["KP-SECONDHAND"],
+    "branchSteps": [
+      {
+        "id": "s1", "title": "买家上门", "scene": "买家私信\"手机还在吗？我要了，付款了\"。随后你收到\"闲鱼客服\"消息：买家付款异常被冻结。",
+        "choices": [
+          { "text": "按客服指引处理", "nextStep": "s2", "safe": false, "psychology": ["urgency", "authority"] },
+          { "text": "关闭私信，登录闲鱼APP核实", "nextStep": null, "safe": true, "ending": "safe", "endingDesc": "你登录闲鱼APP发现订单正常，识破冒充客服诈骗。客服只在APP内。" },
+          { "text": "问买家怎么回事", "nextStep": "s2", "safe": false, "psychology": ["trust"] }
+        ]
+      },
+      {
+        "id": "s2", "title": "保证金陷阱", "scene": "\"客服\"称需缴纳2000元解冻保证金到指定账户，缴清后保证金与货款一并返还。买家也催\"快交保证金我才能拿到手机\"。",
+        "choices": [
+          { "text": "转账2000元解冻", "nextStep": null, "safe": false, "ending": "scammed", "endingDesc": "你转账后被拉黑，手机没卖成还亏2000。闲鱼不收保证金。" },
+          { "text": "扫客服发的\"退款链接\"填银行卡", "nextStep": null, "safe": false, "ending": "scammed", "endingDesc": "你填了银行卡+验证码，账户被洗劫。链接是钓鱼。" },
+          { "text": "拒绝，闲鱼客服只在APP内", "nextStep": null, "safe": true, "ending": "safe", "endingDesc": "你识破诈骗，闲鱼客服只在APP内沟通，不收保证金。" }
+        ]
+      }
+    ],
+    "season": ["all"]
+  },
+  {
+    "id": "B05-001", "typeId": "B05", "type": "短视频带货诈骗情景模拟", "cardType": "branch", "difficulty": 2,
+    "kind": "branch", "isBranchEntry": true,
+    "title": "第一人称情景 / 直播间\"1元秒杀\"",
+    "body": "你刷短视频时进入一个直播间，主播正在大喊\"1元秒杀苹果手机\"...",
+    "options": [],
+    "explain": "短视频带货诈骗情景模拟：脱离平台交易无担保。",
+    "cues": ["直播带货", "脱离平台", "1元秒杀"],
+    "psychology": ["greed", "urgency", "scarcity"],
+    "knowledgePoints": ["KP-LIVE-COMMERCE"],
+    "branchSteps": [
+      {
+        "id": "s1", "title": "低价诱惑", "scene": "主播大喊\"最后10单1元秒杀苹果手机，加微信付款直接发货，平台手续费太高\"。已有粉丝晒收到货截图。",
+        "choices": [
+          { "text": "加微信付款秒杀", "nextStep": "s2", "safe": false, "psychology": ["greed", "conformity"] },
+          { "text": "只在平台内下单", "nextStep": null, "safe": true, "ending": "safe", "endingDesc": "你在平台内下单，有担保交易。脱离平台交易无保障，晒单都是托。" },
+          { "text": "先付1元试一下", "nextStep": "s2", "safe": false, "psychology": ["greed"] }
+        ]
+      },
+      {
+        "id": "s2", "title": "脱离平台", "scene": "你加了微信付款后，对方说\"已发货\"但一直查不到物流。你再问，对方称\"需再付5000元关税才能放行\"，否则不发货不退款。",
+        "choices": [
+          { "text": "再付5000元关税", "nextStep": null, "safe": false, "ending": "scammed", "endingDesc": "你付关税后被拉黑，1元秒杀+关税都是诈骗话术。" },
+          { "text": "意识到被骗，报警", "nextStep": null, "safe": true, "ending": "warning", "endingDesc": "你及时报警保留证据。脱离平台交易无担保，已损失难追回。" },
+          { "text": "找主播理论", "nextStep": null, "safe": false, "ending": "scammed", "endingDesc": "主播已拉黑你，直播间已下播。脱离平台无任何保障。" }
+        ]
+      }
+    ],
+    "season": ["all"]
+  },
+  {
+    "id": "B06-001", "typeId": "B06", "type": "虚假招聘情景模拟", "cardType": "branch", "difficulty": 3,
+    "kind": "branch", "isBranchEntry": true,
+    "title": "第一人称情景 / 求职遇到\"高薪兼职\"",
+    "body": "你在招聘APP看到\"高薪兼职日结800-1500，0经验可做\"，投递简历后收到面试通知...",
+    "options": [],
+    "explain": "虚假招聘情景模拟：正规招聘不收任何费用。",
+    "cues": ["虚假招聘", "培训费", "培训贷"],
+    "psychology": ["greed", "trust", "sunkCost"],
+    "knowledgePoints": ["KP-FAKE-JOB"],
+    "branchSteps": [
+      {
+        "id": "s1", "title": "高薪诱惑", "scene": "面试官说\"0经验日结800-1500，入职需先交1980元培训费，上岗后退还\"。公司装修豪华，看起来很正规。",
+        "choices": [
+          { "text": "交1980元培训费", "nextStep": "s2", "safe": false, "psychology": ["greed", "trust"] },
+          { "text": "拒绝，正规招聘不收费", "nextStep": null, "safe": true, "ending": "safe", "endingDesc": "你拒绝交费，识破虚假招聘。正规招聘不收任何费用。" },
+          { "text": "先交一半试一下", "nextStep": "s2", "safe": false, "psychology": ["greed", "sunkCost"] }
+        ]
+      },
+      {
+        "id": "s2", "title": "培训贷陷阱", "scene": "交费后公司说\"培训需19800元，公司可协助办理培训贷，分期还款，上岗后用工资抵扣\"。合同条款复杂。",
+        "choices": [
+          { "text": "办理培训贷入职", "nextStep": null, "safe": false, "ending": "scammed", "endingDesc": "你办贷后公司跑路，贷款仍需偿还。培训贷是新型招聘诈骗。" },
+          { "text": "要求退款不办贷", "nextStep": null, "safe": false, "ending": "scammed", "endingDesc": "公司拒绝退款并威胁，培训费也要不回。先交费=诈骗。" },
+          { "text": "意识到被骗，报警+投诉", "nextStep": null, "safe": true, "ending": "warning", "endingDesc": "你报警并向劳动监察投诉。记住：正规公司不收任何费用、不办贷。" }
+        ]
+      }
+    ],
+    "season": ["summerJob", "schoolOpen", "all"]
   }
 ]

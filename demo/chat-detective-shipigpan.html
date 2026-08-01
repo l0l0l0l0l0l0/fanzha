@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>聊天鉴诈 · 杀猪盘 Demo</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --bubble-me:#2b6cff; --bubble-you:#232733;
+    --danger:#ff4d4f; --danger-bg:#3a1c1f; --ok:#22c55e; --muted:#8b93a7;
+    --line:#262b36; --warn:#ffb020; --text:#e8ebf2;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%}
+  body{
+    background:radial-gradient(1200px 600px at 50% -10%,#1b2030,var(--bg));
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    color:var(--text);display:flex;justify-content:center;align-items:center;min-height:100%;padding:16px;
+  }
+  .phone{
+    width:390px;max-width:100%;height:min(820px,94vh);background:var(--panel);
+    border:1px solid var(--line);border-radius:26px;overflow:hidden;
+    display:flex;flex-direction:column;box-shadow:0 30px 80px rgba(0,0,0,.5);position:relative;
+  }
+  .topbar{
+    background:linear-gradient(180deg,#1d2230,#171a21);padding:14px 14px 10px;
+    display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line);
+  }
+  .back{color:var(--muted);font-size:20px;width:24px;text-align:center}
+  .avatar{width:38px;height:38px;border-radius:50%;
+    background:linear-gradient(135deg,#5b6cff,#9d4edd);display:flex;align-items:center;
+    justify-content:center;font-weight:700;font-size:16px;color:#fff}
+  .who{display:flex;flex-direction:column;line-height:1.2}
+  .who b{font-size:15px}
+  .who span{font-size:11px;color:var(--muted)}
+  .mission{
+    background:linear-gradient(90deg,rgba(255,176,32,.16),rgba(255,77,79,.10));
+    border-bottom:1px solid var(--line);padding:9px 14px;font-size:12.5px;color:#ffd591;
+    display:flex;gap:8px;align-items:center
+  }
+  .mission b{color:#fff}
+  .chat{flex:1;overflow-y:auto;padding:14px 12px;display:flex;flex-direction:column;gap:10px;scroll-behavior:smooth}
+  .sys{text-align:center;font-size:11px;color:var(--muted);margin:4px 0}
+  .row{display:flex;gap:8px;align-items:flex-end;max-width:100%}
+  .row.me{flex-direction:row-reverse}
+  .mini-av{width:30px;height:30px;border-radius:50%;flex:0 0 30px;display:flex;align-items:center;
+    justify-content:center;font-size:12px;font-weight:700;color:#fff}
+  .mini-av.scam{background:linear-gradient(135deg,#ff6b6b,#c0392b)}
+  .mini-av.me{background:linear-gradient(135deg,#2b6cff,#1e90ff)}
+  .bubble{
+    max-width:74%;padding:10px 12px;border-radius:16px;font-size:14px;line-height:1.5;
+    background:var(--bubble-you);border:1px solid transparent;cursor:pointer;position:relative;
+    transition:transform .08s ease, box-shadow .15s ease, background .15s ease;word-break:break-word;
+  }
+  .row.me .bubble{background:var(--bubble-me);color:#fff}
+  .bubble:active{transform:scale(.98)}
+  .bubble .tip{
+    position:absolute;top:-9px;right:-6px;background:var(--warn);color:#1a1a1a;font-size:10px;
+    padding:1px 6px;border-radius:8px;font-weight:700;opacity:0;transition:opacity .2s
+  }
+  .bubble.hint .tip{opacity:1}
+  .bubble.found{
+    background:var(--danger-bg);border-color:var(--danger);
+    box-shadow:0 0 0 2px rgba(255,77,79,.25)
+  }
+  .bubble.found::after{
+    content:"⚑ 已识破";position:absolute;top:-9px;left:10px;background:var(--danger);color:#fff;
+    font-size:10px;padding:1px 6px;border-radius:8px;font-weight:700
+  }
+  .bubble.miss{animation:shake .4s}
+  @keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+  .explain{
+    margin-top:8px;background:#0e1116;border:1px solid var(--danger);border-radius:12px;
+    padding:9px 11px;font-size:12.5px;color:#ffd9d9;line-height:1.5
+  }
+  .explain b{color:#fff}
+  .footer{
+    border-top:1px solid var(--line);padding:10px 14px;display:flex;align-items:center;gap:10px;
+    background:#14171e
+  }
+  .progress{flex:1}
+  .progress .bar{height:7px;background:#232733;border-radius:6px;overflow:hidden}
+  .progress .fill{height:100%;width:0;background:linear-gradient(90deg,#ffb020,#ff4d4f);transition:width .3s}
+  .progress .txt{font-size:11px;color:var(--muted);margin-bottom:5px;display:flex;justify-content:space-between}
+  .btn{
+    border:1px solid var(--line);background:#1d2230;color:var(--text);padding:8px 12px;
+    border-radius:12px;font-size:13px;cursor:pointer;font-weight:600
+  }
+  .btn:active{transform:scale(.97)}
+  .btn.hint{color:var(--warn);border-color:rgba(255,176,32,.4)}
+  .toast{
+    position:absolute;left:50%;bottom:78px;transform:translateX(-50%);background:#000d;
+    color:#fff;padding:8px 14px;border-radius:20px;font-size:12.5px;opacity:0;
+    transition:opacity .25s;pointer-events:none;z-index:30;border:1px solid var(--line)
+  }
+  .toast.show{opacity:1}
+  .overlay{
+    position:absolute;inset:0;background:rgba(8,10,14,.82);display:none;align-items:center;
+    justify-content:center;padding:22px;z-index:40
+  }
+  .overlay.show{display:flex}
+  .card{
+    background:linear-gradient(180deg,#1b2030,#14171e);border:1px solid var(--line);
+    border-radius:20px;padding:22px;width:100%;max-width:330px;text-align:center;
+    box-shadow:0 20px 60px rgba(0,0,0,.6)
+  }
+  .card .score{font-size:46px;font-weight:800;background:linear-gradient(90deg,#ffb020,#ff4d4f);
+    -webkit-background-clip:text;background-clip:text;color:transparent;margin:6px 0}
+  .card h3{margin:0 0 6px;font-size:18px}
+  .card p{font-size:13px;color:var(--muted);line-height:1.6;margin:8px 0}
+  .card .save{color:#ffd591;font-weight:700}
+  .tips{text-align:left;background:#0e1116;border:1px solid var(--line);border-radius:12px;
+    padding:12px;margin:12px 0;font-size:12.5px;line-height:1.6}
+  .tips li{margin:5px 0;color:#e8ebf2}
+  .tips b{color:var(--warn)}
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="topbar">
+    <div class="back">‹</div>
+    <div class="avatar">陈</div>
+    <div class="who"><b>陈志远</b><span>部队 · 上尉（对方资料）</span></div>
+  </div>
+  <div class="mission">⚠️ <b>任务</b>：朋友小林发来这段聊天，请你圈出其中的诈骗破绽，帮她及时止损。</div>
+  <div class="chat" id="chat"></div>
+  <div class="toast" id="toast"></div>
+  <div class="footer">
+    <div class="progress">
+      <div class="txt"><span>识破进度</span><span id="cnt">0 / 0</span></div>
+      <div class="bar"><div class="fill" id="fill"></div></div>
+    </div>
+    <button class="btn hint" id="hintBtn">提示</button>
+    <button class="btn" id="resetBtn">重来</button>
+  </div>
+  <div class="overlay" id="overlay">
+    <div class="card">
+      <h3>🛡️ 反诈鉴定完成</h3>
+      <div class="score" id="score">100</div>
+      <p>你帮小林识破了全部破绽，<span class="save" id="saved">避免了约 ¥30 万损失</span>。</p>
+      <div class="tips">
+        <div style="color:var(--warn);font-weight:700;margin-bottom:4px">📌 杀猪盘锦囊</div>
+        <ul style="margin:0;padding-left:18px">
+          <li>军人<b>严禁经商</b>，网上“军官带你投资”必假。</li>
+          <li>拒视频/语音=怕露馅，不是“部队纪律”。</li>
+          <li>只走<b>官方渠道</b>，绝不下载来历不明的“专用APP”。</li>
+        </ul>
+      </div>
+      <button class="btn" id="againBtn" style="width:100%;padding:11px">再玩一次</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const MESSAGES = [
+  { id:1, who:"scam", text:`你好，我是陈志远，现役上尉军官，平时在部队负责反诈宣传工作。刷到你感觉很有缘分。`,
+    flaw:{ t:`身份自相矛盾`, d:`自称“负责反诈宣传的现役军官”，却主动拉你投资——真正的反诈人员绝不会干这个。军人有严格纪律，几乎不可能在网上私拉投资。` } },
+  { id:2, who:"me", text:`你好陈先生，很高兴认识～` },
+  { id:3, who:"scam", text:`部队管理严，不能随便视频，不过咱俩聊得来就好，慢慢你会懂我的。`,
+    flaw:{ t:`用“部队纪律”拒绝视频`, d:`这是杀猪盘经典借口。真熟人/真军人不会长期拒绝一切验证身份的方式。拒绝视频、语音 = 怕露馅。` } },
+  { id:4, who:"scam", text:`其实我偷偷掌握了部队内部一个投资平台的漏洞，稳赚不赔，想带你赚点私房钱。`,
+    flaw:{ t:`“内部漏洞·稳赚不赔”`, d:`两点都假：①现役军人严禁经商；②任何“稳赚不赔”“内部渠道”都是杀猪盘核心谎言。高收益零风险 = 诈骗。` } },
+  { id:5, who:"me", text:`真的假的？有点不敢信…` },
+  { id:6, who:"scam", text:`我把盈利截图发你看看（图），这几天已经赚了八万六，都是真实到账的。`,
+    flaw:{ t:`伪造盈利截图`, d:`盈利截图几秒就能 PS 或用模拟盘生成。看到“已赚X万”先当假，绝不据此转账。` } },
+  { id:7, who:"scam", text:`不过部队管控，微信不方便，你加我这个专用工作软件，我先教你开户。`,
+    flaw:{ t:`引流到非官方软件`, d:`以“部队管控”为由让你加微信/QQ 以外的“专用APP”，目的是脱离平台监管、切断证据。只在官方渠道交易。` } },
+  { id:8, who:"me", text:`嗯…那我先少投一点试试？` },
+  { id:9, who:"scam", text:`傻瓜，遇见你是我这辈子最幸运的事，跟着我准没错，我罩着你。`,
+    flaw:{ t:`感情升温过快`, d:`“遇见你最幸运”“这辈子就你了”——几天内过度示爱是情感操控，用来建立依赖、降低你的防备。` } },
+  { id:10, who:"scam", text:`你先充 5000 试水，明天就能提现 800 利息，放心我还能骗你？`,
+    flaw:{ t:`小额试水钓鱼`, d:`“先充5000明天返800”是钓鱼：先让你尝甜头建立信任，再诱导大额投入后拉黑。勿因小利入局。` } },
+];
+
+const chat = document.getElementById("chat");
+const cntEl = document.getElementById("cnt");
+const fillEl = document.getElementById("fill");
+const toastEl = document.getElementById("toast");
+const overlay = document.getElementById("overlay");
+const scoreEl = document.getElementById("score");
+const savedEl = document.getElementById("saved");
+
+let found, miss, totalFlaws;
+
+function totalFlawCount(){ return MESSAGES.filter(m=>m.flaw).length; }
+
+function render(){
+  chat.innerHTML = "";
+  const sys = document.createElement("div");
+  sys.className = "sys";
+  sys.textContent = "—— 以下为小林与网友「陈志远」的聊天记录 ——";
+  chat.appendChild(sys);
+
+  MESSAGES.forEach(m=>{
+    const row = document.createElement("div");
+    row.className = "row " + (m.who==="me" ? "me" : "");
+    const av = document.createElement("div");
+    av.className = "mini-av " + (m.who==="me" ? "me" : "scam");
+    av.textContent = m.who==="me" ? "林" : "陈";
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    bubble.dataset.id = m.id;
+    if(m.who==="me") bubble.style.cursor = "default";
+    bubble.innerHTML = m.text;
+    if(m.flaw){
+      const tip = document.createElement("span");
+      tip.className = "tip"; tip.textContent = "破绽?";
+      bubble.appendChild(tip);
+      bubble.addEventListener("click", ()=>onFlawClick(m, bubble));
+    }else{
+      bubble.addEventListener("click", ()=>onNormalClick(bubble));
+    }
+    row.appendChild(av);
+    row.appendChild(bubble);
+    chat.appendChild(row);
+
+    if(m.flaw && found.has(m.id)){
+      bubble.classList.add("found");
+      const ex = document.createElement("div");
+      ex.className = "explain";
+      ex.innerHTML = "<b>⚑ "+m.flaw.t+"</b><br>"+m.flaw.d;
+      row.appendChild(ex);
+    }
+  });
+  chat.scrollTop = chat.scrollHeight;
+  updateProgress();
+}
+
+function onFlawClick(m, bubble){
+  if(found.has(m.id)) return;
+  found.add(m.id);
+  bubble.classList.add("found");
+  const row = bubble.parentElement;
+  const ex = document.createElement("div");
+  ex.className = "explain";
+  ex.innerHTML = "<b>⚑ "+m.flaw.t+"</b><br>"+m.flaw.d;
+  row.appendChild(ex);
+  chat.scrollTop = chat.scrollHeight;
+  updateProgress();
+  if(found.size === totalFlaws) finish();
+}
+
+function onNormalClick(bubble){
+  bubble.classList.remove("miss");
+  void bubble.offsetWidth;
+  bubble.classList.add("miss");
+  showToast("这条是正常的，别误判～");
+}
+
+let toastTimer;
+function showToast(msg){
+  toastEl.textContent = msg;
+  toastEl.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>toastEl.classList.remove("show"), 1400);
+}
+
+function updateProgress(){
+  cntEl.textContent = found.size + " / " + totalFlaws;
+  fillEl.style.width = (found.size/totalFlaws*100) + "%";
+}
+
+function finish(){
+  const score = Math.max(60, 100 - miss*10);
+  scoreEl.textContent = score;
+  const savedMap = [[100,"避免了约 ¥30 万损失"],[90,"避免了约 ¥30 万损失"],[80,"及时止损，避免了大额损失"],[70,"虽有波折，但没让骗子得手"],[60,"惊险过关，下次要更敏锐"]];
+  savedEl.textContent = (savedMap.find(x=>x[0]===score)||savedMap[savedMap.length-1])[1];
+  setTimeout(()=>overlay.classList.add("show"), 350);
+}
+
+function reset(){
+  found = new Set();
+  miss = 0;
+  overlay.classList.remove("show");
+  render();
+}
+
+document.getElementById("resetBtn").addEventListener("click", reset);
+document.getElementById("againBtn").addEventListener("click", reset);
+document.getElementById("hintBtn").addEventListener("click", ()=>{
+  const remaining = MESSAGES.filter(m=>m.flaw && !found.has(m.id));
+  if(!remaining.length) return;
+  const target = remaining[Math.floor(Math.random()*remaining.length)];
+  const bubbles = chat.querySelectorAll(".bubble");
+  bubbles.forEach(b=>{
+    if(Number(b.dataset.id)===target.id){
+      b.classList.add("hint");
+      b.scrollIntoView({behavior:"smooth",block:"center"});
+      setTimeout(()=>b.classList.remove("hint"), 1600);
+    }
+  });
+});
+
+// init
+totalFlaws = totalFlawCount();
+reset();
+</script>
+</body>
+</html>

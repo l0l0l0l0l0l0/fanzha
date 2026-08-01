@@ -26,24 +26,62 @@ import {
   dailyModifiersForSeed, dailyScoreMul, bossPhaseIndex, applyBossPhase,
   FRAUD_TERMS,
   // v6：全面升级新增数据/函数
-  TACTICAL_DEVICES, SKILL_LINKS, ELEMENT_REACTIONS, QUIZ_BANK,
+  TACTICAL_DEVICES, ELEMENT_REACTIONS, QUIZ_BANK,
   TALENT_TREES, RELICS, EQUIPMENT, AGENT_SKINS, CHALLENGE_AFFIXES,
-  getTowerFloor, seasonRankFromScore, activeSkillLinks, pickQuiz,
+  getTowerFloor, seasonRankFromScore, pickQuiz,
   detectElementReactions, getTalentTree, getRelic, getEquipment,
   TOWER_MAX_FLOOR,
+  // v8：全面升级新增数据/函数
+  COUNTERSPELLS, TACTICAL_COMMANDS, VICTIM_RESCUE_CONFIGS,
+  VICTIM_DEMOGRAPHIC_EMOJI, VICTIM_DEMOGRAPHIC_FRAUD,
+  pickCounterspellSlots, getTacticalCommand, bossElementToCounterspellId,
 } from "./data";
 // v7：全面升级新增
 import { pickAdaptiveQuiz, getTermsForBossKill, getTermsForTowerFloor, getTermsForTotalKills, TOWER_EVENTS, getCaseById } from "./data.v7";
+// v8：全面升级新增
+import {
+  drawHand, getCaseBreakdownByEnemyId, getCaseInvestigation,
+  // v9：探员羁绊
+  AGENT_BONDS, getBondBetween,
+  // v10 P0-1c：案例微型复盘
+  pickRandomCaseMiniQuiz,
+} from "./data.v8";
+// v11：全面升级新增（敌人/BOSS/案例/受害人模拟/自定义难度）
+import {
+  getV11CaseBreakdownByEnemyId,
+  getVictimSimScenario, getVictimSimScenarioByTypeId,
+  VICTIM_SIM_SCENARIOS_V11, CUSTOM_DIFFICULTY_PRESETS, getPresetConfig,
+} from "./data";
+// v8 扩展系统：数据表 + 渲染常量（保守抽取，方法仍保留在引擎类内）
+import {
+  SPEECH_TEXTS,
+  BUBBLE_W, BUBBLE_H, BUBBLE_RADIUS, BUBBLE_ARROW_H,
+  VICTIM_RING_R, VICTIM_RING_LW, VICTIM_EMOJI_SIZE,
+  BUBBLE_FADE_THRESHOLD, BUBBLE_WARN_RATIO,
+} from "./engine-v8-extensions";
 import type {
   DeploySlot, ManagerHud, ManagerMode, BossRushDef, AgentUpgradeKind,
   CultAgentState, ComboState, DailyModifier, Element,
   EnemyDef, AgentDef, LevelTheme, UpgradeChoice,
   // v6：全面升级新增类型
-  TacticalDeviceKind, TacticalDeviceDef, SkillLink, ElementReactionDef, QuizQuestion,
+  TacticalDeviceKind, TacticalDeviceDef, ElementReactionDef, QuizQuestion,
   TalentTree, RelicDef, EquipmentDef, AgentSkin, TalentBranch,
   ElementReactionKind, ChallengeAffix,
   // v7：爬塔事件
   TowerEventDef, TowerEventOutcome,
+  // v8：全面升级新增类型
+  VictimNPC, SpeechBubble, CounterspellDef, CounterspellSlotHud,
+  TacticalCommandKind, TacticalCommandDef, TacticalCommandState,
+  CardSkillDef, CardSkillEffect, CardHandHud,
+  CaseBreakdownDef, VictimHudEntry, VictimRescueConfig,
+  // v9：全面升级新增类型
+  EnemyAIBehaviorKind, RelicShopOffer, InvestigationState, CaseInvestigation,
+  // v9：探员羁绊
+  AgentBond, BondRuntimeState, BondEffectKind,
+  // v10：系统事件通知
+  SystemEventToast,
+  // v11：地形 + 重部署 + 回放
+  TerrainKind, RedeployState, BattleReplayFrame, BattleReplayRecord,
 } from "./types";
 import { platformStore } from "@/store/platformStore";
 import {
@@ -89,6 +127,25 @@ interface DeployedAgent {
   ultChargeMul?: number;
   /** 大招威力倍率（天赋 ultPowerMul） */
   ultPowerMul?: number;
+  // ===== v8 全面升级新增 =====
+  /** reload 指令剩余穿透次数 */
+  _v8ReloadPierceLeft?: number;
+  // ===== v9 全面升级新增 =====
+  /** 受恐惧光环影响到期时间（fearAura，期间射速 -30%） */
+  _v9FearedUntil?: number;
+}
+
+/** v9：探员当前已应用的羁绊 buff 快照（用于增量重算） */
+interface BondBuffSnapshot {
+  attackPct: number;
+  fireratePct: number;
+  rangePct: number;
+  critRate: number;
+  ultChargePct: number;
+  comboBoost: number;
+  healLinkPct: number;
+  shieldLinkPct: number;
+  elementLinkMul: number;
 }
 
 interface Enemy {
@@ -131,6 +188,34 @@ interface Enemy {
   enrageStacks?: number;
   /** 冻结到期时间（freeze 大招，期间无法移动） */
   frozenUntil?: number;
+  // ===== v8 全面升级新增 =====
+  /** 口诀击破施加的易伤到期时间 */
+  _v8VulnUntil?: number;
+  /** 口诀击破施加的易伤倍率（如 1.3 = 受伤+30%） */
+  _v8VulnMul?: number;
+  /** taunt 指令吸引目标 x（敌人临时改向该坐标） */
+  _v8TauntBy?: number;
+  /** taunt 指令吸引到期时间 */
+  _v8TauntUntil?: number;
+  // ===== v9 全面升级新增：AI 行为树运行时字段 =====
+  /** 伪装到期时间（disguise 行为，期间无法被攻击且减速） */
+  _v9DisguiseUntil?: number;
+  /** AI 冷却到期时间（通用，disguise/rush/flank/teleport 触发冷却） */
+  _v9AiCooldownUntil?: number;
+  /** 当前生效行为（secondary 切换后；缺省=用 def.aiBehavior.kind） */
+  _v9ActiveKind?: EnemyAIBehaviorKind;
+  /** rush 加速到期时间（被附近同类 rush 波及） */
+  _v9RushUntil?: number;
+  /** rush 加速倍率 */
+  _v9RushMul?: number;
+  /** flank 侧向偏移（绕侧时临时偏移 y） */
+  _v9FlankOffset?: number;
+  /** flank 偏移到期时间 */
+  _v9FlankUntil?: number;
+  /** enrage 出口伤害倍率（狂暴时增加到达出口伤害） */
+  _v9EnrageDmgMul?: number;
+  /** 已触发 split（避免重复分裂） */
+  _v9SplitDone?: boolean;
 }
 
 interface Projectile {
@@ -258,6 +343,13 @@ export class ManagerEngine extends GameEngine {
   private baseShield = 0;
   /** 本局各探员击杀统计（用于持久化） */
   private killsByAgent: Record<string, number> = {};
+  // ===== v9：探员羁绊运行时状态 =====
+  /** 当前局激活的羁绊状态（仅双方均部署的羁绊） */
+  private bondStates: BondRuntimeState[] = [];
+  /** 每探员已应用的羁绊 buff 快照（用于增量重算，避免重复乘算） */
+  private bondAppliedBuffs: Map<string, BondBuffSnapshot> = new Map();
+  /** v9：最近触发的敌人 AI 事件（供 HUD 警报展示） */
+  private lastEnemyAIEvent: { kind: EnemyAIBehaviorKind; enemyUid: number; at: number } | null = null;
   /** 本局击杀 BOSS 次数（用于持久化） */
   private bossKillsThisGame = 0;
   /** v7：本局最后击破的 BOSS id（用于结算页真实案例展示） */
@@ -281,9 +373,7 @@ export class ManagerEngine extends GameEngine {
   /** 已激活的元素反应列表 */
   private elementReactions: { def: ElementReactionDef; activatedAt: number; x: number; y: number }[] = [];
 
-  // ===== v6 全面升级：Phase 2.2 技能链 + 战间答题 =====
-  /** 当前激活的技能链状态（部署探员组合满足时初始化） */
-  private activeSkillLinkStates: { link: SkillLink; lastTriggeredAt: number }[] = [];
+  // ===== v6 全面升级：Phase 2.2 战间答题 =====
   /** 待答的战间答题（null 表示无） */
   private pendingQuiz: QuizQuestion | null = null;
   /** v7：当前待答题目是否为错题重练（用于 UI 高亮） */
@@ -333,12 +423,84 @@ export class ManagerEngine extends GameEngine {
   private challengeAffixes: ChallengeAffix[] = [];
   /** 额外升级次数上限（由遗物 extraUpgrade 提供） */
   private upgradeMaxCountBonus = 0;
+  // ===== v9 全面升级：遗物商店 + 合成系统 =====
+  /** 当前商店待选 offer（非空表示商店激活） */
+  private pendingRelicShopOffers: RelicShopOffer[] = [];
+  /** 下次触发遗物商店的波数（每 5 波触发） */
+  private relicShopWaveTrigger = 5;
+  // ===== v9 全面升级：案例分支式调查 =====
+  /** 当前调查运行时状态（非空表示调查激活，phase==="investigation"） */
+  private pendingInvestigation: InvestigationState | null = null;
+
+  // ===== v10 升级：系统事件通知队列（让玩家感知已实现的元素反应/技能链/敌人AI/羁绊）=====
+  /** 最近的系统高光事件（最多保留 3 条，超时自动剔除） */
+  private recentSystemEvents: SystemEventToast[] = [];
+
+  // ===== v10 升级：本局学到的反诈知识点（按击破敌人的 fraudType 收集）=====
+  /** 本局击破的敌人 fraudType 集合（去重，结算页展示用） */
+  private learnedFraudTipsThisRun: string[] = [];
+
+  /** v11：本局已解锁图鉴的敌人 typeId 集合（避免重复解锁） */
+  private releasedEnemyCodexIds: Set<string> = new Set();
+
+  // ===== v8 全面升级：受害人营救 / 话术气泡 / 战术指令 / 卡牌大招 / 案例复盘 =====
+  /** 受害人 NPC 列表（地图随机出现，敌人接触触发洗脑） */
+  private victims: VictimNPC[] = [];
+  /** 受害人 id 自增序列 */
+  private victimSeq = 1;
+  /** 受害人营救配置（按当前关卡读取） */
+  private victimRescueConfig: VictimRescueConfig | null = null;
+  /** 本局累计营救数（用于结算） */
+  private victimsRescued = 0;
+  /** 本局累计沦陷数（用于结算） */
+  private victimsLost = 0;
+  /** 话术气泡列表（敌人头顶，玩家点击口诀击破） */
+  private speechBubbles: SpeechBubble[] = [];
+  /** 气泡 id 自增序列 */
+  private bubbleSeq = 1;
+  /** 反诈口诀槽（2 个，按当前敌人类型动态抽取；仅 BOSS 战激活） */
+  private counterspellSlots: CounterspellDef[] = [];
+  /** 各口诀槽冷却剩余时间（秒，与 slots 索引对齐） */
+  private counterspellCooldowns: number[] = [0, 0];
+  /** 当前选中的探员索引（部署列表下标，null = 未选中） */
+  private selectedAgentIdx: number | null = null;
+  /** 各探员的战术指令状态（与 agents 数组对齐） */
+  private tacticalCommandStates: TacticalCommandState[] = [];
+  /** v11：重部署状态（null=未启用；选中探员后进入选目标格模式） */
+  private redeployState: RedeployState | null = null;
+  /** v11：重部署能量消耗 */
+  private readonly redeployCost = 30;
+  /** v11：本局激活的弱点情报列表（受害人模拟解锁，对该类型敌人 +20% 伤害） */
+  private activeWeaknessIntel: { enemyTypeId: string; damageBonus: number; desc: string }[] = [];
+  /** v11：自定义难度配置（仅 custom 预设生效，null=用默认/关卡倍率） */
+  private customDifficultyCfg: import("./types").CustomDifficultyConfig | null = null;
+  /** v11：战斗回放帧序列（每 2 秒采样 + 关键事件追加） */
+  private replayFrames: BattleReplayFrame[] = [];
+  /** v11：上次采样回放帧的时间（秒） */
+  private lastReplayFrameT = -10;
+  /** v11：诈骗类型击杀/泄漏统计（fraudType → {kills, leaked}） */
+  private fraudTypeStats: Record<string, { kills: number; leaked: number }> = {};
+  /** 当前手牌（每探员 1 张，最多 3 张） */
+  private cardHand: CardSkillDef[] = [];
+  /** 手牌抽牌种子（每波结束重新抽牌） */
+  private cardHandSeed = "";
+  /** 待展示的案例五步复盘（仅 win 后输出到 HUD） */
+  private pendingCaseBreakdown: CaseBreakdownDef | null = null;
+  /** 上次案例复盘答题是否答对 */
+  private lastBreakdownCorrect: boolean | null = null;
+  /** 本局泡泡击破数（用于结算） */
+  private speechBubblesBroken = 0;
+  /** 本局卡牌释放次数（用于结算） */
+  private cardSkillsUsed = 0;
+  /** 本局战术指令使用次数（用于结算） */
+  private tacticalCommandsUsed = 0;
 
   constructor(
     canvas: GameCanvas,
     deployment: DeploySlot[],
     mode: ManagerMode = "classic",
     maze?: MazeDef,
+    startLevel?: number,
   ) {
     super(canvas);
     canvas.width = W;
@@ -346,6 +508,10 @@ export class ManagerEngine extends GameEngine {
     this.startedAt = performance.now();
     this.mode = mode;
     this.modeLabel = MODE_META[mode].label;
+    // v8：支持指定起始关卡（classic 模式下由部署场景选择已解锁关卡）
+    if (startLevel && startLevel >= 1 && startLevel <= MAX_LEVEL) {
+      this.level = startLevel;
+    }
 
     // v4：初始化迷宫（按模式/关卡选取）
     const seed = `${Date.now()}-${Math.random()}`;
@@ -353,8 +519,16 @@ export class ManagerEngine extends GameEngine {
 
     // v6：读取跨局元进度（天赋/遗物/装备/皮肤），在 placeAgents 前完成以便应用加成
     this.initMetaProgression();
+    // v11：从存档加载已解锁的弱点情报（受害人模拟解锁的 +20% 伤害）
+    this.loadWeaknessIntelFromStore();
+    // v11：从存档加载自定义难度配置（独立于 challenge 词缀）
+    this.loadCustomDifficultyFromStore();
 
     this.placeAgents(deployment);
+    // v8：初始化战术指令状态（与 agents 对齐）
+    this.initTacticalCommandStates();
+    // v8：初始化口诀槽 + 受害人营救配置 + 抽手牌
+    this.initV8Systems();
     startBGM("battle");
 
     if (mode === "bossRush") {
@@ -386,6 +560,16 @@ export class ManagerEngine extends GameEngine {
       this.startWave(0, 2);
     } else {
       this.startWave(0, 1.5);
+    }
+
+    // v11：应用自定义难度（独立于 challenge 词缀，作用于所有模式）
+    // - baseHpMul：在模式专属 base.max 之上叠加（bossRush 150 / tower 200 / 默认 100）
+    // - startEnergy：作为初始能量下限（受 [0,100] 夹取，与遗物/修饰符叠加取最大）
+    if (this.customDifficultyCfg) {
+      const cfg = this.customDifficultyCfg;
+      this.base.max = Math.max(1, Math.round(this.base.max * cfg.baseHpMul));
+      this.base.hp = this.base.max;
+      this.energy = Math.max(this.energy, clamp(cfg.startEnergy, 0, 100));
     }
   }
 
@@ -434,6 +618,486 @@ export class ManagerEngine extends GameEngine {
     // 连击衰减延长
     if (this.comboDecayExtend > 0) {
       this.combo.decaySec = COMBO_CONFIG.decaySec + this.comboDecayExtend;
+    }
+  }
+
+  // ====================================================================
+  // v8：全面升级系统初始化（受害人 / 话术气泡 / 战术指令 / 卡牌大招）
+  // ====================================================================
+
+  /** 初始化战术指令状态（每探员一份，与 agents 数组对齐） */
+  private initTacticalCommandStates(): void {
+    this.tacticalCommandStates = this.agents.map(() => ({
+      activeKind: null,
+      activeRemaining: 0,
+      cooldowns: {
+        focusFire: 0, retreat: 0, reload: 0, taunt: 0, overdrive: 0,
+      },
+    }));
+  }
+
+  /** 初始化 v8 系统：口诀槽 + 受害人配置 + 手牌 */
+  private initV8Systems(): void {
+    // 受害人营救配置：classic/daily 按当前关卡读取；bossRush/endlessRush/tower 用 level=3
+    const cfgLevel = (this.mode === "classic" || this.mode === "daily")
+      ? this.level
+      : (this.mode === "bossRush" || this.mode === "endlessRush" || this.mode === "tower") ? 3 : 1;
+    this.victimRescueConfig = VICTIM_RESCUE_CONFIGS[cfgLevel] ?? VICTIM_RESCUE_CONFIGS[1];
+    // 口诀槽：根据当前敌人诈骗类型池动态抽取 4 个
+    this.refreshCounterspellSlots();
+    // 手牌：从已部署探员每人 3 张中随机抽 1 张
+    this.redrawCardHand();
+  }
+
+  /** 根据当前场上敌人类型刷新口诀槽（每波结束调用一次；BOSS 在场时确保 BOSS 口诀在槽位中） */
+  private refreshCounterspellSlots(): void {
+    const activeFraudTypes = new Set<string>();
+    for (const e of this.enemies) {
+      activeFraudTypes.add(e.def.fraudType);
+    }
+    // 没有敌人时，按当前关卡的敌人类型池抽取
+    if (activeFraudTypes.size === 0) {
+      const lv = LEVELS[this.level - 1];
+      const typeIds = lv?.enemyTypes ?? [];
+      for (const tid of typeIds) {
+        const def = ENEMIES[tid];
+        if (def) activeFraudTypes.add(def.fraudType);
+      }
+    }
+    // v8 简化：BOSS 在场时，按 BOSS element 兜底映射口诀，确保 BOSS 口诀在槽位中
+    const bossOnField = this.enemies.find((e) => e.bossRef);
+    if (bossOnField && bossOnField.bossRef) {
+      const csId = bossElementToCounterspellId(bossOnField.bossRef.element);
+      const bossCs = COUNTERSPELLS.find((c) => c.id === csId);
+      if (bossCs) {
+        for (const ft of bossCs.fraudTypeIds) activeFraudTypes.add(ft);
+      }
+    }
+    this.counterspellSlots = pickCounterspellSlots(
+      Array.from(activeFraudTypes),
+      `${this.mode}-${this.level}-${this.wave}-${this.cardHandSeed}`,
+    );
+    this.counterspellCooldowns = [0, 0];
+  }
+
+  /** 重新抽手牌（每波结束 + 卡牌释放后调用） */
+  private redrawCardHand(): void {
+    const deployedIds = this.agents.filter((a) => a.alive).map((a) => a.id);
+    if (deployedIds.length === 0) {
+      this.cardHand = [];
+      return;
+    }
+    this.cardHandSeed = `${this.mode}-${this.level}-${this.wave}-${this.t.toFixed(2)}`;
+    this.cardHand = drawHand(deployedIds, this.cardHandSeed);
+  }
+
+  /**
+   * v8：波次开始时触发 —— 生成受害人 + 刷新口诀槽 + 重抽手牌
+   * 由各 startXxxWave 方法在设置完 spawnQueue 后调用
+   */
+  private onV8WaveStart(): void {
+    // 1) 生成受害人 NPC（仅 classic/daily/tower/endlessRush 模式，bossRush 不生成以避免干扰 BOSS 战）
+    if (this.mode !== "bossRush" && this.victimRescueConfig) {
+      this.spawnVictimsForWave();
+    }
+    // 2) 刷新口诀槽（按当前敌人诈骗类型池）
+    this.refreshCounterspellSlots();
+    // 3) 重抽手牌
+    this.redrawCardHand();
+  }
+
+  /** 为当前波生成受害人 NPC（数量由 victimRescueConfig.perWave 决定） */
+  private spawnVictimsForWave(): void {
+    const cfg = this.victimRescueConfig;
+    if (!cfg) return;
+    for (let i = 0; i < cfg.perWave; i++) {
+      // 在迷宫路径中段随机选一个航点附近放置受害人
+      const wps = this.maze.waypoints;
+      if (wps.length < 2) continue;
+      const idx = Math.floor(wps.length * (0.3 + Math.random() * 0.4));
+      const wp = wps[idx];
+      if (!wp) continue;
+      // 在航点附近偏移 30-50px（避开路径中心，模拟"路人"）
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 30 + Math.random() * 20;
+      const demographic = cfg.demographics[Math.floor(Math.random() * cfg.demographics.length)] ?? "路人";
+      const fraudTypeId = VICTIM_DEMOGRAPHIC_FRAUD[demographic] ?? "钓鱼网站盗刷";
+      const emoji = VICTIM_DEMOGRAPHIC_EMOJI[demographic] ?? "👤";
+      this.victims.push({
+        id: this.victimSeq++,
+        x: wp.x + Math.cos(angle) * dist,
+        y: wp.y + Math.sin(angle) * dist,
+        waypointIdx: idx,
+        emoji,
+        demographic,
+        fraudTypeId,
+        brainwashProgress: 0,
+        brainwashRate: 0.15 + Math.random() * 0.05, // 15-20%/秒
+        brainwashingBy: null,
+        rescued: false,
+        lost: false,
+        rewardScore: 200,
+        rewardAntiFraudPoints: 20,
+        spawnedAt: this.t,
+        lifeSpan: cfg.lifeSpan,
+      });
+    }
+  }
+
+  // ====================================================================
+  // v8：受害人营救 / 话术气泡 / 战术指令 / 卡牌大招 —— 更新逻辑
+  // ====================================================================
+
+  /** v8：更新受害人状态（洗脑进度 / 营救 / 沦陷 / 超时撤离） */
+  private updateVictims(dt: number): void {
+    const cfg = this.victimRescueConfig;
+    if (!cfg) return;
+    for (let i = this.victims.length - 1; i >= 0; i--) {
+      const v = this.victims[i];
+      if (v.rescued || v.lost) {
+        // 营救/沦陷后短暂保留 0.8s 再移除（供 HUD 动画收尾）
+        if (this.t - v.spawnedAt > v.lifeSpan + 0.8 || (v.rescued && this.t - v.spawnedAt > v.lifeSpan)) {
+          this.victims.splice(i, 1);
+        }
+        continue;
+      }
+      // 超时自动撤离（未被洗脑也未被营救）
+      if (this.t - v.spawnedAt > v.lifeSpan) {
+        this.victims.splice(i, 1);
+        continue;
+      }
+      // 检查是否有敌人在洗脑范围内
+      let brainwashing = false;
+      let nearestEnemyD = Infinity;
+      for (const e of this.enemies) {
+        if (e.frozenUntil && this.t < e.frozenUntil) continue;
+        const d = Math.hypot(e.x - v.x, e.y - v.y);
+        if (d < cfg.triggerRange && d < nearestEnemyD) {
+          nearestEnemyD = d;
+          v.brainwashingBy = e.uid;
+          v.brainwashProgress += v.brainwashRate * dt;
+          brainwashing = true;
+        }
+      }
+      if (!brainwashing) v.brainwashingBy = null;
+      // 检查是否有探员在营救范围内
+      let rescuing = false;
+      for (const a of this.agents) {
+        if (!a.alive) continue;
+        const d = Math.hypot(a.x - v.x, a.y - v.y);
+        if (d < cfg.rescueRange) {
+          v.brainwashProgress = Math.max(0, v.brainwashProgress - cfg.rescueRate * dt);
+          rescuing = true;
+          break;
+        }
+      }
+      // 洗脑进度满 → 沦陷
+      if (v.brainwashProgress >= 1) {
+        v.lost = true;
+        this.victimsLost++;
+        this.floats.push({ x: v.x, y: v.y - 16, text: "洗脑成功", color: "#E5353B", life: 1.2, maxLife: 1.2, size: 14 });
+        this.particles.spawnBurst(v.x, v.y, "#E5353B", { sparks: 8, dots: 6, speed: 120, life: 0.5, size: 2 });
+        playSfx("lose");
+      }
+      // 洗脑进度归零且曾被洗脑 → 营救成功
+      if (rescuing && v.brainwashProgress <= 0 && (v.brainwashingBy !== null || v.spawnedAt < this.t)) {
+        v.rescued = true;
+        this.victimsRescued++;
+        this.score += v.rewardScore;
+        this.energy = clamp(this.energy + 8, 0, 100);
+        this.floats.push({ x: v.x, y: v.y - 16, text: `营救+${v.rewardScore}`, color: "#52C41A", life: 1.2, maxLife: 1.2, size: 14 });
+        this.particles.spawnBurst(v.x, v.y, "#52C41A", { ring: true, sparks: 12, dots: 10, speed: 160, life: 0.7, size: 3 });
+        playSfx("good");
+      }
+    }
+  }
+
+  /** v8：更新话术气泡 —— 为行走中的敌人周期性生成话术气泡，超时未击破则强化敌人 */
+  private updateSpeechBubbles(dt: number): void {
+    // 移除已击破/超时/关联敌人已死的气泡
+    for (let i = this.speechBubbles.length - 1; i >= 0; i--) {
+      const b = this.speechBubbles[i];
+      const enemy = this.enemies.find((e) => e.uid === b.enemyUid);
+      if (b.broken || !enemy) {
+        this.speechBubbles.splice(i, 1);
+        continue;
+      }
+      // 跟随敌人位置
+      b.x = enemy.x;
+      b.y = enemy.y - enemy.radius - 18;
+      // 超时未击破 → 强化敌人（加速 + 回血），然后移除气泡
+      if (this.t - b.appearedAt > b.duration) {
+        enemy.slowUntil = 0; // 解除减速
+        enemy.hp = Math.min(enemy.maxHp, enemy.hp + enemy.maxHp * 0.05);
+        this.speechBubbles.splice(i, 1);
+        this.floats.push({ x: enemy.x, y: enemy.y - 14, text: "话术得逞", color: "#E5353B", life: 1.0, maxLife: 1.0, size: 12 });
+      }
+    }
+    // v8 简化：只为 BOSS 敌人周期性生成气泡（普通波次无口诀交互，专注塔防+答题）
+    for (const e of this.enemies) {
+      if (!e.bossRef) continue;
+      const hasBubble = this.speechBubbles.some((b) => b.enemyUid === e.uid && !b.broken);
+      if (hasBubble) continue;
+      // 概率生成：基于 dt 的累积，约每 5-8 秒一个
+      if (Math.random() < dt * 0.18) {
+        this.spawnSpeechBubble(e);
+      }
+    }
+  }
+
+  /** 为敌人生成一条话术气泡（BOSS 战时按 element 兜底匹配口诀） */
+  private spawnSpeechBubble(e: Enemy): void {
+    let cs = COUNTERSPELLS.find((c) => c.fraudTypeIds.includes(e.def.fraudType));
+    // BOSS 的 fraudType 通常是自定义首脑类型，不在口诀池中 → 按 element 兜底映射
+    if (!cs && e.bossRef) {
+      const csId = bossElementToCounterspellId(e.bossRef.element);
+      cs = COUNTERSPELLS.find((c) => c.id === csId);
+    }
+    if (!cs) return;
+    const text = SPEECH_TEXTS[e.def.fraudType] ?? `${e.def.fraudType}…`;
+    this.speechBubbles.push({
+      id: this.bubbleSeq++,
+      enemyUid: e.uid,
+      text,
+      counterspellId: cs.id,
+      appearedAt: this.t,
+      duration: 5,
+      x: e.x,
+      y: e.y - e.radius - 18,
+      broken: false,
+    });
+  }
+
+  /** v8：更新战术指令状态（激活剩余时间 + 冷却递减） */
+  private updateTacticalCommandStates(dt: number): void {
+    for (let i = 0; i < this.tacticalCommandStates.length; i++) {
+      const s = this.tacticalCommandStates[i];
+      if (!s) continue;
+      if (s.activeKind && s.activeRemaining > 0) {
+        s.activeRemaining = Math.max(0, s.activeRemaining - dt);
+        if (s.activeRemaining <= 0) {
+          // 指令结束：处理后撤回位等收尾
+          const a = this.agents[i];
+          if (a && s.activeKind === "retreat") {
+            // 回位由 updateAgents 中的 retreatOffset 自然衰减处理
+          }
+          s.activeKind = null;
+        }
+        // overdrive：每秒损血 8%
+        if (s.activeKind === "overdrive" && i < this.agents.length) {
+          const a = this.agents[i];
+          if (a && a.alive) {
+            a.hp -= a.maxHp * 0.08 * dt;
+            if (a.hp <= 0) {
+              a.hp = 0;
+              a.alive = false;
+              this.particles.spawnBurst(a.x, a.y, "#FF3B6B", { sparks: 14, dots: 10, speed: 180, life: 0.6, size: 3 });
+            }
+          }
+        }
+      }
+      // 冷却递减
+      (Object.keys(s.cooldowns) as TacticalCommandKind[]).forEach((k) => {
+        if (s.cooldowns[k] > 0) s.cooldowns[k] = Math.max(0, s.cooldowns[k] - dt);
+      });
+    }
+  }
+
+  /** v8：口诀冷却递减 */
+  private updateCounterspellCooldowns(dt: number): void {
+    for (let i = 0; i < this.counterspellCooldowns.length; i++) {
+      if (this.counterspellCooldowns[i] > 0) {
+        this.counterspellCooldowns[i] = Math.max(0, this.counterspellCooldowns[i] - dt);
+      }
+    }
+  }
+
+  // ====================================================================
+  // v8：玩家交互入口（由 ManagerBattleScene 调用）
+  // ====================================================================
+
+  /** v8：选中探员（用于下达战术指令）；idx 为部署列表下标 */
+  selectAgent(idx: number | null): void {
+    if (this.over) return;
+    if (idx !== null && (idx < 0 || idx >= this.agents.length)) return;
+    this.selectedAgentIdx = idx;
+    this.emitHud();
+  }
+
+  /** v8：对选中探员下达战术指令 */
+  useTacticalCommand(agentIdx: number, kind: TacticalCommandKind): boolean {
+    if (this.over) return false;
+    const agent = this.agents[agentIdx];
+    if (!agent || !agent.alive) return false;
+    const state = this.tacticalCommandStates[agentIdx];
+    if (!state) return false;
+    if (state.cooldowns[kind] > 0) return false;
+    const def = getTacticalCommand(kind);
+    if (!def) return false;
+
+    state.activeKind = kind;
+    state.activeRemaining = def.duration;
+    state.cooldowns[kind] = def.cooldown;
+    this.tacticalCommandsUsed++;
+
+    // 即时效果
+    switch (kind) {
+      case "focusFire":
+        // 射速 +20% / 下次攻击 +80% —— 在 updateAgents 中读取 activeKind 应用
+        this.particles.spawnBurst(agent.x, agent.y, "#E5353B", { ring: true, sparks: 10, dots: 8, speed: 160, life: 0.5, size: 3 });
+        break;
+      case "retreat":
+        // 后撤 60px（向基地方向 = 向出口/高 x 方向偏移）
+        agent.x += 60;
+        this.particles.spawnBurst(agent.x, agent.y, "#00E5FF", { sparks: 10, dots: 8, speed: 140, life: 0.5, size: 3 });
+        break;
+      case "reload":
+        // 立即重置冷却 + 下 3 次穿透 +1（存入 pierceLeft 临时字段）
+        agent.cooldown = 0;
+        agent._v8ReloadPierceLeft = 3;
+        this.particles.spawnBurst(agent.x, agent.y, "#FFD666", { ring: true, sparks: 10, dots: 8, speed: 160, life: 0.5, size: 3 });
+        break;
+      case "taunt":
+        // 吸引范围内敌人改向自己（简化：附近敌人路径目标临时指向该探员）
+        for (const e of this.enemies) {
+          const d = Math.hypot(e.x - agent.x, e.y - agent.y);
+          if (d < 180) {
+            e._v8TauntBy = agent.x;
+            e._v8TauntUntil = this.t + def.duration;
+          }
+        }
+        this.particles.spawnBurst(agent.x, agent.y, "#FF8A3D", { ring: true, sparks: 12, dots: 10, speed: 180, life: 0.6, size: 3 });
+        break;
+      case "overdrive":
+        // 攻击 +50% 在 updateAgents 读取；损血在 updateTacticalCommandStates 处理
+        this.particles.spawnBurst(agent.x, agent.y, "#FF3B6B", { ring: true, sparks: 12, dots: 10, speed: 180, life: 0.6, size: 3 });
+        break;
+    }
+    this.floats.push({ x: agent.x, y: agent.y - 20, text: def.name, color: def.color, life: 0.8, maxLife: 0.8, size: 12 });
+    this.emitHud();
+    return true;
+  }
+
+  /** v8：点击口诀槽击破话术气泡 */
+  popSpeechBubble(bubbleId: number, slotIdx: number): boolean {
+    if (this.over) return false;
+    const bubble = this.speechBubbles.find((b) => b.id === bubbleId && !b.broken);
+    if (!bubble) return false;
+    const slot = this.counterspellSlots[slotIdx];
+    if (!slot) return false;
+    if (this.counterspellCooldowns[slotIdx] > 0) return false;
+    if (slot.id !== bubble.counterspellId) {
+      // 口诀不匹配 —— 给予轻微负反馈（不进入冷却）
+      this.floats.push({ x: bubble.x, y: bubble.y, text: "口诀不符", color: "#FFB020", life: 0.8, maxLife: 0.8, size: 11 });
+      this.emitHud();
+      return false;
+    }
+    // 击破成功
+    bubble.broken = true;
+    this.speechBubblesBroken++;
+    this.counterspellCooldowns[slotIdx] = 2.5; // 2.5s 冷却
+    const enemy = this.enemies.find((e) => e.uid === bubble.enemyUid);
+    if (enemy) {
+      // 施加易伤（复用 vulnUntil/vulnMul，但这里改为单敌人易伤标记）
+      enemy._v8VulnUntil = this.t + slot.vulnerabilityDuration;
+      enemy._v8VulnMul = 1 + slot.vulnerabilityBonus;
+      enemy.hp -= enemy.def.hp * 0.1; // 即时扣除 10% 最大生命作为击破奖励伤害
+      this.particles.spawnBurst(enemy.x, enemy.y, slot.color, { ring: true, sparks: 14, dots: 10, speed: 200, life: 0.7, size: 3 });
+      this.floats.push({ x: enemy.x, y: enemy.y - 16, text: `识破·${slot.text}`, color: slot.color, life: 1.0, maxLife: 1.0, size: 13 });
+    }
+    this.score += 50;
+    this.energy = clamp(this.energy + 5, 0, 100);
+    playSfx("good");
+    this.emitHud();
+    return true;
+  }
+
+  /**
+   * v8：按口诀槽自动击破 —— 玩家直接点槽位时使用
+   * 优先击破 preferredBubbleId（若匹配该槽口诀），否则自动寻找第一个
+   * 匹配该槽 counterspellId 的未击破气泡。无需玩家先选气泡。
+   */
+  popSpeechBubbleBySlot(slotIdx: number, preferredBubbleId?: number): boolean {
+    if (this.over) return false;
+    const slot = this.counterspellSlots[slotIdx];
+    if (!slot) return false;
+    if (this.counterspellCooldowns[slotIdx] > 0) return false;
+    // 优先使用玩家选中的气泡（若匹配）
+    if (preferredBubbleId !== undefined && preferredBubbleId !== null) {
+      const pref = this.speechBubbles.find((b) => b.id === preferredBubbleId && !b.broken);
+      if (pref && pref.counterspellId === slot.id) {
+        return this.popSpeechBubble(pref.id, slotIdx);
+      }
+    }
+    // 自动寻找第一个匹配的未击破气泡
+    const target = this.speechBubbles.find((b) => !b.broken && b.counterspellId === slot.id);
+    if (target) {
+      return this.popSpeechBubble(target.id, slotIdx);
+    }
+    // 无匹配：若存在任意未击破气泡，提示口诀不符
+    const anyBubble = this.speechBubbles.find((b) => !b.broken);
+    if (anyBubble) {
+      this.floats.push({ x: anyBubble.x, y: anyBubble.y, text: "口诀不符", color: "#FFB020", life: 0.8, maxLife: 0.8, size: 11 });
+      this.emitHud();
+    }
+    return false;
+  }
+
+  /** v8：释放卡牌大招（保留能量基础，消耗卡牌 cost） */
+  castCardSkill(cardIdx: number): boolean {
+    if (this.over || this.upgradeReady) return false;
+    if (this.mode === "daily" && this.hasModifier("noUlt")) return false;
+    const card = this.cardHand[cardIdx];
+    if (!card) return false;
+    if (this.energy < card.cost) return false;
+    const agent = this.agents.find((a) => a.alive && a.id === card.agentId);
+    if (!agent) return false;
+
+    // 扣能量 + 移除手牌
+    this.energy -= card.cost;
+    this.cardHand.splice(cardIdx, 1);
+    this.cardSkillsUsed++;
+    this.ultCount += 1;
+    this.ultFlashUntil = this.t + 0.5;
+    this.shakeUntil = this.t + 0.3;
+
+    // 视觉
+    postFX.flash(card.color, 0.35, 1.6);
+    postFX.shake(8, 12);
+    this.particles.spawnBurst(agent.x, agent.y, card.color, { ring: true, shockwave: true, sparks: 24, dots: 30, speed: 320, life: 0.9, size: 5, color2: "#FFD666" });
+
+    // 效果（复用 ult 辅助方法，按 CardSkillEffect 派发）
+    this.applyCardSkillEffect(card.effect, agent);
+
+    platformStore.recordUltUsed();
+    this.floats.push({ x: W / 2, y: H / 2 - 8, text: card.name + "！", color: card.color, life: 1.4, maxLife: 1.4, size: 24 });
+    playSfx("bomb");
+    this.emitHud();
+    return true;
+  }
+
+  /** v8 软合并：统一卡牌效果派发（triggerUlt 和 castCardSkill 共用） */
+  private applyCardSkillEffect(eff: CardSkillEffect, agent: DeployedAgent): void {
+    switch (eff.kind) {
+      case "pierce": this.ultPierce(agent, eff.dmgMul); break;
+      case "slowAll": this.ultSlowAll(eff.slowMul, eff.duration); this.vulnMul = 1 + eff.vulnBonus; break;
+      case "aoe": this.ultAoe(agent, eff.dmgMul, eff.radius); break;
+      case "healShield": this.ultHealShield(eff.healRatio); this.baseShield = Math.max(this.baseShield, this.base.max * eff.shieldRatio); break;
+      case "critBuff": this.ultCritBuff(eff.critRate, eff.duration); this.critBuffDmgMul = eff.critDmg; break;
+      case "assassinate": this.ultAssassinate(agent, eff.dmgMul); break;
+      case "summon": this.ultSummon(agent, eff.ratio, eff.duration); break;
+      case "freeze": this.ultFreeze(eff.duration); this.vulnUntil = this.t + eff.duration; this.vulnMul = 1 + eff.vulnBonus; break;
+      case "timeWarp": this.ultTimeWarp(eff.duration); break;
+      case "shieldWall": this.ultShieldWall(eff.shieldRatio); break;
+      case "aoePlusSlow":
+        this.ultAoe(agent, eff.dmgMul, eff.radius);
+        this.slowUntil = this.t + eff.slowDuration;
+        for (const e of this.enemies) e.slowUntil = this.t + eff.slowDuration;
+        break;
+      case "healPlusCrit":
+        this.ultHealShield(eff.healRatio);
+        this.ultCritBuff(eff.critRate, eff.duration);
+        break;
     }
   }
 
@@ -496,6 +1160,9 @@ export class ManagerEngine extends GameEngine {
     // v7：BOSS 来袭 —— 保留 flash（关键事件）+ 粒子警示，移除 glitch 避免叠加
     postFX.flash("#E5353B", 0.35, 1.8);
     this.particles.spawnBurst(W / 2, H / 2, "#E5353B", { ring: true, sparks: 20, dots: 24, speed: 280, life: 0.9, size: 4 });
+    // v8：刷新口诀槽 + 重抽手牌（BOSS 战不生成受害人）
+    this.refreshCounterspellSlots();
+    this.redrawCardHand();
   }
 
   private startEndlessWave(absWave: number, prepSec: number): void {
@@ -507,12 +1174,13 @@ export class ManagerEngine extends GameEngine {
     if (!wave) return;
     this.spawnQueue = [];
     const fastWaves = this.mode === "daily" ? this.getModifierEffect<{ kind: "fastWaves"; mul: number }>("fastWaves")?.mul ?? 1 : 1;
+    const siFactor = this.spawnIntervalFactor();
     for (const entry of wave.enemies) {
       for (let i = 0; i < entry.count; i++) {
         this.spawnQueue.push({
           typeId: entry.typeId,
           lane: entry.lane,
-          at: this.prepUntil + (entry.delay + i * entry.interval) * fastWaves,
+          at: this.prepUntil + (entry.delay + i * entry.interval) * fastWaves * siFactor,
           spawned: false,
         });
       }
@@ -527,6 +1195,8 @@ export class ManagerEngine extends GameEngine {
       // v6：移除每波 flash，改为顶部粒子提示
       this.particles.spawnBurst(W / 2, 40, "#B388FF", { ring: true, sparks: 10, dots: 12, speed: 180, life: 0.6, size: 3 });
     }
+    // v8：波次开始触发（受害人 + 口诀 + 手牌）
+    this.onV8WaveStart();
   }
 
   /** v4：按迷宫岗哨位部署探员（col/row 为网格坐标） */
@@ -556,16 +1226,243 @@ export class ManagerEngine extends GameEngine {
       this.agents.push(agent);
     }
 
-    // v6：初始化技能链（基于已部署探员组合）
-    const deployedIds = this.agents.map((a) => a.id);
-    const links = activeSkillLinks(deployedIds);
-    this.activeSkillLinkStates = links.map((link) => ({ link, lastTriggeredAt: -Infinity }));
-    // onDeploy 触发：部署时立即触发一次
-    for (const state of this.activeSkillLinkStates) {
-      if (state.link.trigger.kind === "onDeploy") {
-        this.triggerSkillLink(state);
+    // v9：初始化探员羁绊（检测双方均部署的羁绊）并应用首级 buff
+    this.initBonds();
+    this.refreshBondBuffs();
+  }
+
+  // ====================================================================
+  // v11：地形系统 + 探员重部署
+  // ====================================================================
+
+  /** v11：取探员所在格子的地形类型（normal=无地形） */
+  private agentTerrainKind(a: DeployedAgent): TerrainKind {
+    const layer = this.maze.terrainLayer;
+    if (!layer) return "normal";
+    const tile = layer.tileMap.get(`${a.col},${a.row}`);
+    return tile?.kind ?? "normal";
+  }
+
+  /** v11：取敌人所在格子的地形类型（按像素坐标反查格子） */
+  private enemyTerrainKind(e: Enemy): TerrainKind {
+    const layer = this.maze.terrainLayer;
+    if (!layer) return "normal";
+    const col = Math.floor((e.x - MAZE_OFFSET_X) / MAZE_CELL);
+    const row = Math.floor((e.y - MAZE_OFFSET_Y) / MAZE_CELL);
+    const tile = layer.tileMap.get(`${col},${row}`);
+    return tile?.kind ?? "normal";
+  }
+
+  /** v11：探员是否在高地（射程 +30%、伤害 +15%） */
+  private agentOnHighland(a: DeployedAgent): boolean {
+    return this.agentTerrainKind(a) === "highland";
+  }
+
+  /** v11：探员是否在安全岛（无敌 + 每秒回血 5%） */
+  private agentOnSafeIsland(a: DeployedAgent): boolean {
+    return this.agentTerrainKind(a) === "safeIsland";
+  }
+
+  /**
+   * v11：探员重部署 —— 将已部署探员移动到新岗哨位
+   * - 消耗能量（默认 30）
+   * - 目标格必须是有效岗哨位且无其他探员占据
+   * - 返回 true=成功，false=失败（能量不足/目标无效）
+   */
+  redeployAgent(agentIdx: number, targetCol: number, targetRow: number): boolean {
+    if (agentIdx < 0 || agentIdx >= this.agents.length) return false;
+    const agent = this.agents[agentIdx];
+    if (!agent || !agent.alive) return false;
+    // 能量校验
+    if (this.energy < this.redeployCost) {
+      this.toast = { text: "能量不足，无法重部署", tone: "bad", until: this.t + 1.5 };
+      return false;
+    }
+    // 目标格必须是有效岗哨位
+    const targetKey = `${targetCol},${targetRow}`;
+    if (!this.maze.deploySet.has(targetKey)) {
+      this.toast = { text: "目标格非岗哨位", tone: "bad", until: this.t + 1.2 };
+      return false;
+    }
+    // 目标格不能被其他探员占据
+    for (const other of this.agents) {
+      if (other === agent || !other.alive) continue;
+      if (other.col === targetCol && other.row === targetRow) {
+        this.toast = { text: "目标格已有探员", tone: "bad", until: this.t + 1.2 };
+        return false;
       }
     }
+    // 执行重部署
+    this.energy = Math.max(0, this.energy - this.redeployCost);
+    agent.col = targetCol;
+    agent.row = targetRow;
+    const pt = cellCenter(targetCol, targetRow);
+    agent.x = pt.x;
+    agent.y = pt.y;
+    // 视觉反馈
+    this.particles.spawnBurst(pt.x, pt.y, "#00E5FF", { ring: true, sparks: 16, dots: 14, speed: 220, life: 0.7, size: 4, color2: "#FFD666" });
+    this.toast = { text: `${agent.def.name} 重部署完成`, tone: "good", until: this.t + 1.5 };
+    this.redeployState = null;
+    this.emitHud();
+    return true;
+  }
+
+  /** v11：进入重部署选目标模式（UI 调用：选中探员后启动） */
+  beginRedeploy(agentIdx: number): boolean {
+    if (agentIdx < 0 || agentIdx >= this.agents.length) return false;
+    const agent = this.agents[agentIdx];
+    if (!agent || !agent.alive) return false;
+    if (this.energy < this.redeployCost) {
+      this.toast = { text: `重部署需 ${this.redeployCost} 能量`, tone: "bad", until: this.t + 1.5 };
+      this.emitHud();
+      return false;
+    }
+    this.redeployState = {
+      selectedAgentIdx: agentIdx,
+      cost: this.redeployCost,
+      pickingTarget: true,
+    };
+    this.emitHud();
+    return true;
+  }
+
+  /** v11：取消重部署（UI 调用：Esc / 点击空白） */
+  cancelRedeploy(): void {
+    if (this.redeployState) {
+      this.redeployState = null;
+      this.emitHud();
+    }
+  }
+
+  // ====================================================================
+  // v11：弱点情报系统（方向 C —— 受害者模拟解锁，战斗中对该类型敌人 +20% 伤害）
+  // ====================================================================
+
+  /**
+   * v11：解锁弱点情报（受害人模拟通关后调用）
+   * - 同一敌人类型仅解锁一次，重复调用幂等
+   * - 持久化到 platformStore，并在本局立即生效
+   */
+  unlockWeaknessIntel(enemyTypeId: string, scenarioId: string, desc?: string): void {
+    if (this.activeWeaknessIntel.some((w) => w.enemyTypeId === enemyTypeId)) return;
+    const def = ENEMIES[enemyTypeId];
+    const entry = {
+      enemyTypeId,
+      damageBonus: 0.2, // +20% 伤害
+      desc: desc ?? `识破「${def?.name ?? enemyTypeId}」弱点：该类型诈骗伤害 +20%`,
+    };
+    this.activeWeaknessIntel.push(entry);
+    // 持久化到跨局存档
+    platformStore.unlockWeaknessIntel(enemyTypeId, scenarioId, entry.damageBonus);
+    this.pushSystemEvent({
+      kind: "weaknessIntel",
+      title: `弱点情报解锁 · ${def?.name ?? enemyTypeId}`,
+      desc: `该类型诈骗伤害 +${Math.round(entry.damageBonus * 100)}%`,
+      emoji: "💡",
+      color: "#FFD666",
+      at: this.t,
+      ttl: 3,
+    });
+    this.emitHud();
+  }
+
+  /** v11：从存档加载已解锁的弱点情报到本局（战斗开始时调用） */
+  private loadWeaknessIntelFromStore(): void {
+    const saved = platformStore.managerMetaRef().weaknessIntel ?? [];
+    for (const item of saved) {
+      if (!this.activeWeaknessIntel.some((w) => w.enemyTypeId === item.enemyTypeId)) {
+        const def = ENEMIES[item.enemyTypeId];
+        this.activeWeaknessIntel.push({
+          enemyTypeId: item.enemyTypeId,
+          damageBonus: item.damageBonus ?? 0.2,
+          desc: `识破「${def?.name ?? item.enemyTypeId}」弱点：该类型诈骗伤害 +${Math.round((item.damageBonus ?? 0.2) * 100)}%`,
+        });
+      }
+    }
+  }
+
+  /** v11：取目标敌人的弱点情报伤害倍率（1.0=无情报，1.2=有情报） */
+  private weaknessDmgMul(enemyTypeId: string): number {
+    const intel = this.activeWeaknessIntel.find((w) => w.enemyTypeId === enemyTypeId);
+    return intel ? (1 + intel.damageBonus) : 1;
+  }
+
+  /** v11：从存档加载自定义难度配置（normal 预设视为无加成，保持 HUD 干净） */
+  private loadCustomDifficultyFromStore(): void {
+    const meta = platformStore.managerMetaRef();
+    const preset = meta.customDifficultyPreset ?? "normal";
+    if (preset === "normal") {
+      this.customDifficultyCfg = null;
+      return;
+    }
+    if (preset === "custom") {
+      this.customDifficultyCfg = meta.customDifficulty ? { ...meta.customDifficulty } : null;
+    } else {
+      this.customDifficultyCfg = getPresetConfig(preset);
+    }
+  }
+
+  /** v11：刷怪间隔倍率（越小越密集，默认 1.0） */
+  private spawnIntervalFactor(): number {
+    return this.customDifficultyCfg?.spawnIntervalMul ?? 1;
+  }
+
+  // ====================================================================
+  // v11：战斗回放系统（方向 D —— 记录最近 3 局关键帧 + 诈骗类型统计）
+  // ====================================================================
+
+  /** v11：采样一帧回放（每 2 秒由 update 调用，或关键事件追加） */
+  private recordReplayFrame(event?: string): void {
+    const frame: BattleReplayFrame = {
+      t: Math.round(this.t * 10) / 10,
+      score: this.score,
+      baseHp: Math.ceil(this.base.hp),
+      wave: this.wave + 1,
+      combo: this.combo.count,
+      enemyCount: this.enemies.length,
+      event,
+    };
+    this.replayFrames.push(frame);
+    // 上限 120 帧（约 4 分钟），超出丢弃最早
+    if (this.replayFrames.length > 120) this.replayFrames.shift();
+  }
+
+  /** v11：累计诈骗类型击杀（killEnemy 调用） */
+  private recordFraudKill(fraudType: string): void {
+    if (!this.fraudTypeStats[fraudType]) {
+      this.fraudTypeStats[fraudType] = { kills: 0, leaked: 0 };
+    }
+    this.fraudTypeStats[fraudType].kills += 1;
+  }
+
+  /** v11：累计诈骗类型泄漏（敌人到达基地时调用） */
+  private recordFraudLeak(fraudType: string): void {
+    if (!this.fraudTypeStats[fraudType]) {
+      this.fraudTypeStats[fraudType] = { kills: 0, leaked: 0 };
+    }
+    this.fraudTypeStats[fraudType].leaked += 1;
+  }
+
+  /** v11：战斗结束时构建回放记录并持久化（win/lose 调用） */
+  private finalizeBattleReplay(win: boolean): void {
+    const record: BattleReplayRecord = {
+      runId: `${Date.now()}`,
+      mode: this.mode,
+      modeLabel: this.modeLabel,
+      finalScore: this.score,
+      win,
+      totalWaves: this.mode === "bossRush"
+        ? BOSS_RUSH_BOSSES.length
+        : this.mode === "endlessRush"
+          ? this.endlessAbsWave + 1
+          : this.wave + 1,
+      durationSec: Math.round((performance.now() - this.startedAt) / 1000),
+      agentIds: this.agents.map((a) => a.id),
+      fraudTypeStats: this.fraudTypeStats,
+      timeline: this.replayFrames.slice(),
+      createdAt: Date.now(),
+    };
+    platformStore.saveBattleReplay(record);
   }
 
   // ====================================================================
@@ -651,6 +1548,216 @@ export class ManagerEngine extends GameEngine {
     if (ultPowerMul !== 1) agent.ultPowerMul = ultPowerMul;
   }
 
+  // ====================================================================
+  // v9：探员羁绊系统 —— 初始化 / 重算 / 击杀升级 / 运行时钩子
+  // ====================================================================
+
+  /** 空快照常量（用于默认值） */
+  private static readonly EMPTY_BOND_SNAPSHOT: BondBuffSnapshot = {
+    attackPct: 0, fireratePct: 0, rangePct: 0, critRate: 0,
+    ultChargePct: 0, comboBoost: 0, healLinkPct: 0, shieldLinkPct: 0, elementLinkMul: 0,
+  };
+
+  /** 部署完成后初始化羁绊状态：仅双方均部署的羁绊激活（等待击杀解锁等级） */
+  private initBonds(): void {
+    this.bondStates = [];
+    this.bondAppliedBuffs.clear();
+    const deployedIds = this.agents.map((a) => a.id);
+    let anyActive = false;
+    for (const bond of AGENT_BONDS) {
+      const both = bond.agentIds.every((id) => deployedIds.includes(id));
+      this.bondStates.push({
+        bondId: bond.id,
+        currentLevel: 0,
+        kills: 0,
+        bothDeployed: both,
+      });
+      if (both) {
+        anyActive = true;
+        this.floats.push({
+          x: W / 2, y: H / 2 + 40,
+          text: `羁绊激活：${bond.name}`,
+          color: bond.color, life: 1.6, maxLife: 1.6, size: 14,
+        });
+      }
+    }
+    if (anyActive) playSfx("shieldBreak");
+  }
+
+  /** 聚合指定探员当前所有激活羁绊的 buff（1..currentLevel 效果叠加） */
+  private getBondBuffsForAgent(agentId: string): BondBuffSnapshot {
+    const snap: BondBuffSnapshot = {
+      attackPct: 0, fireratePct: 0, rangePct: 0, critRate: 0,
+      ultChargePct: 0, comboBoost: 0, healLinkPct: 0, shieldLinkPct: 0, elementLinkMul: 0,
+    };
+    for (const bs of this.bondStates) {
+      if (!bs.bothDeployed || bs.currentLevel <= 0) continue;
+      const bond = AGENT_BONDS.find((b) => b.id === bs.bondId);
+      if (!bond || !bond.agentIds.includes(agentId)) continue;
+      for (const lvl of bond.levels) {
+        if (lvl.level > bs.currentLevel) break;
+        switch (lvl.effect) {
+          case "attackUp": snap.attackPct += lvl.value; break;
+          case "firerateUp": snap.fireratePct += lvl.value; break;
+          case "rangeUp": snap.rangePct += lvl.value; break;
+          case "critUp": snap.critRate += lvl.value; break;
+          case "ultChargeUp": snap.ultChargePct += lvl.value; break;
+          case "comboBoost": snap.comboBoost += lvl.value; break;
+          case "healLink": snap.healLinkPct += lvl.value; break;
+          case "shieldLink": snap.shieldLinkPct += lvl.value; break;
+          case "elementLink": snap.elementLinkMul += lvl.value; break;
+        }
+      }
+    }
+    return snap;
+  }
+
+  /** 读取探员当前已应用的羁绊 buff 快照（运行时钩子用） */
+  private bondBuffOf(agentId: string): BondBuffSnapshot {
+    return this.bondAppliedBuffs.get(agentId) ?? ManagerEngine.EMPTY_BOND_SNAPSHOT;
+  }
+
+  /** 重新计算并增量应用羁绊 stat buff（部署后 / 升级时调用） */
+  private refreshBondBuffs(): void {
+    for (const a of this.agents) {
+      const desired = this.getBondBuffsForAgent(a.id);
+      const applied = this.bondAppliedBuffs.get(a.id) ?? ManagerEngine.EMPTY_BOND_SNAPSHOT;
+      const def = a.def;
+      // 乘算类：先还原已应用的比例，再乘新的
+      const rev = (cur: number, pct: number) => (pct > 0 ? cur / (1 + pct) : cur);
+      def.attack = Math.max(0, rev(def.attack, applied.attackPct) * (1 + desired.attackPct));
+      def.fireRate = Math.max(0.01, rev(def.fireRate, applied.fireratePct) * (1 + desired.fireratePct));
+      def.range = Math.max(0, rev(def.range, applied.rangePct) * (1 + desired.rangePct));
+      // 加算类（暴击率）：差值替换
+      const baseCrit = (a.bonusCritRate ?? 0) - applied.critRate;
+      a.bonusCritRate = baseCrit + desired.critRate;
+      // 乘算类（大招充能倍率）：还原再乘
+      const baseChargeMul = rev(a.ultChargeMul ?? 1, applied.ultChargePct);
+      a.ultChargeMul = baseChargeMul * (1 + desired.ultChargePct);
+      this.bondAppliedBuffs.set(a.id, desired);
+    }
+  }
+
+  /** 击杀时推进羁绊进度，达阈值则升级并飘字（由 killEnemy 调用） */
+  private onBondKill(): void {
+    for (const bs of this.bondStates) {
+      if (!bs.bothDeployed) continue;
+      bs.kills += 1;
+      if (bs.currentLevel >= 3) continue;
+      const bond = AGENT_BONDS.find((b) => b.id === bs.bondId);
+      if (!bond) continue;
+      const nextLevel = (bs.currentLevel + 1) as 1 | 2 | 3;
+      const nextLvlDef = bond.levels.find((l) => l.level === nextLevel);
+      if (!nextLvlDef || bs.kills < nextLvlDef.requiredKills) continue;
+      bs.currentLevel = nextLevel;
+      this.refreshBondBuffs();
+      this.floats.push({
+        x: W / 2, y: H / 2 - 60,
+        text: `【${bond.name}】Lv.${nextLevel} ${nextLvlDef.bondLine}`,
+        color: bond.color, life: 2.2, maxLife: 2.2, size: 16,
+      });
+      this.particles.spawnBurst(W / 2, H / 2 - 60, bond.color, { ring: true, sparks: 18, dots: 22, speed: 260, life: 0.9, size: 4 });
+      playSfx("shieldBreak");
+      // v10：羁绊升级 → push 系统事件通知
+      this.pushSystemEvent({
+        kind: "bondUpgrade",
+        title: `羁绊升级 · ${bond.name}`,
+        desc: `Lv.${nextLevel} ${nextLvlDef.bondLine}`,
+        emoji: "🤝",
+        color: bond.color,
+        at: this.t,
+        ttl: 3,
+      });
+    }
+  }
+
+  /**
+   * v10：push 一条系统事件通知到 recentSystemEvents 队列
+   * - 最多保留 3 条，超出按 FIFO 剔除
+   * - 超时（at + ttl < this.t）的条目在 emitHud 时自动剔除
+   * - 同时给 floats 留一条飘字（即时反馈）
+   */
+  private pushSystemEvent(ev: SystemEventToast): void {
+    this.recentSystemEvents.push(ev);
+    if (this.recentSystemEvents.length > 3) {
+      this.recentSystemEvents.shift();
+    }
+    this.floats.push({
+      x: W / 2, y: 90 + this.recentSystemEvents.length * 22,
+      text: `${ev.emoji} ${ev.title}`,
+      color: ev.color, life: Math.min(ev.ttl, 1.6), maxLife: 1.6, size: 14,
+    });
+  }
+
+  /** 全队羁绊连击加成总和（comboBoost） */
+  private totalBondComboBoost(): number {
+    let boost = 0;
+    for (const bs of this.bondStates) {
+      if (bs.currentLevel <= 0) continue;
+      const bond = AGENT_BONDS.find((b) => b.id === bs.bondId);
+      if (!bond) continue;
+      for (const lvl of bond.levels) {
+        if (lvl.level > bs.currentLevel) break;
+        if (lvl.effect === "comboBoost") boost += lvl.value;
+      }
+    }
+    return boost;
+  }
+
+  /** 全队羁绊元素共鸣倍率总和（elementLink） */
+  private totalBondElementLinkMul(): number {
+    let mul = 0;
+    for (const bs of this.bondStates) {
+      if (bs.currentLevel <= 0) continue;
+      const bond = AGENT_BONDS.find((b) => b.id === bs.bondId);
+      if (!bond) continue;
+      for (const lvl of bond.levels) {
+        if (lvl.level > bs.currentLevel) break;
+        if (lvl.effect === "elementLink") mul += lvl.value;
+      }
+    }
+    return mul;
+  }
+
+  /** healLink：取造成伤害探员的羁绊搭档（用于伤害转治疗） */
+  private bondHealTarget(agentId: string): { target: DeployedAgent; pct: number } | null {
+    const snap = this.bondBuffOf(agentId);
+    if (snap.healLinkPct <= 0) return null;
+    for (const bs of this.bondStates) {
+      if (bs.currentLevel <= 0) continue;
+      const bond = AGENT_BONDS.find((b) => b.id === bs.bondId);
+      if (!bond || !bond.agentIds.includes(agentId)) continue;
+      const hasHealLink = bond.levels.some((l) => l.level <= bs.currentLevel && l.effect === "healLink");
+      if (!hasHealLink) continue;
+      const partnerId = bond.agentIds.find((id) => id !== agentId);
+      if (!partnerId) continue;
+      const partner = this.agents.find((a) => a.id === partnerId && a.alive);
+      if (partner) return { target: partner, pct: snap.healLinkPct };
+    }
+    return null;
+  }
+
+  /** shieldLink：受击探员的羁绊搭档获得护盾（受击时调用） */
+  private applyBondShieldLink(damaged: DeployedAgent): void {
+    const snap = this.bondBuffOf(damaged.id);
+    if (snap.shieldLinkPct <= 0) return;
+    for (const bs of this.bondStates) {
+      if (bs.currentLevel <= 0) continue;
+      const bond = AGENT_BONDS.find((b) => b.id === bs.bondId);
+      if (!bond || !bond.agentIds.includes(damaged.id)) continue;
+      const hasShieldLink = bond.levels.some((l) => l.level <= bs.currentLevel && l.effect === "shieldLink");
+      if (!hasShieldLink) continue;
+      const partnerId = bond.agentIds.find((id) => id !== damaged.id);
+      if (!partnerId) continue;
+      const partner = this.agents.find((a) => a.id === partnerId && a.alive);
+      if (!partner) continue;
+      const shieldAmount = partner.maxHp * snap.shieldLinkPct;
+      partner.shieldValue = (partner.shieldValue ?? 0) + shieldAmount;
+      partner.shieldUntil = this.t + 4;
+      this.particles.spawnBurst(partner.x, partner.y, "#00E5FF", { sparks: 6, dots: 6, speed: 100, life: 0.5, size: 2 });
+    }
+  }
+
   /** 天赋效果分发器 */
   private applyTalentEffect(
     eff: TalentTree["branches"]["offense"][number]["effect"],
@@ -726,12 +1833,13 @@ export class ManagerEngine extends GameEngine {
     if (!wave) return;
     this.spawnQueue = [];
     const fastWaves = this.mode === "daily" ? this.getModifierEffect<{ kind: "fastWaves"; mul: number }>("fastWaves")?.mul ?? 1 : 1;
+    const siFactor = this.spawnIntervalFactor();
     for (const entry of wave.enemies) {
       for (let i = 0; i < entry.count; i++) {
         this.spawnQueue.push({
           typeId: entry.typeId,
           lane: entry.lane,
-          at: this.prepUntil + (entry.delay + i * entry.interval) * fastWaves,
+          at: this.prepUntil + (entry.delay + i * entry.interval) * fastWaves * siFactor,
           spawned: false,
         });
       }
@@ -747,6 +1855,8 @@ export class ManagerEngine extends GameEngine {
       // v6：移除每波 flash（战斗中波次密集时累积闪屏），改为边缘粒子提示
       this.particles.spawnBurst(W / 2, 40, ACCENT, { ring: true, sparks: 10, dots: 12, speed: 180, life: 0.6, size: 3 });
     }
+    // v8：波次开始触发（受害人 + 口诀 + 手牌）
+    this.onV8WaveStart();
   }
 
   /**
@@ -787,12 +1897,13 @@ export class ManagerEngine extends GameEngine {
       const waveIdx = (floor - 1) % WAVES.length;
       const wave = WAVES[waveIdx];
       if (wave) {
+        const siFactor = this.spawnIntervalFactor();
         for (const entry of wave.enemies) {
           for (let i = 0; i < entry.count; i++) {
             this.spawnQueue.push({
               typeId: entry.typeId,
               lane: entry.lane,
-              at: this.prepUntil + (entry.delay + i * entry.interval),
+              at: this.prepUntil + (entry.delay + i * entry.interval) * siFactor,
               spawned: false,
             });
           }
@@ -804,6 +1915,8 @@ export class ManagerEngine extends GameEngine {
         until: this.t + 2.5,
       };
     }
+    // v8：波次开始触发（受害人 + 口诀 + 手牌）
+    this.onV8WaveStart();
   }
 
   /** v7：爬塔模式 — 楼层推进（波次清空后调用） */
@@ -815,7 +1928,8 @@ export class ManagerEngine extends GameEngine {
     }
     const tf = getTowerFloor(nextFloor);
     // v7：每 5 层（非 BOSS 层）触发 Roguelike 事件
-    if (tf.hasReward && !tf.isBoss) {
+    // v9：解耦事件触发与 hasReward —— 任意非 BOSS 层若有事件定义即触发
+    if (!tf.isBoss) {
       const evt = TOWER_EVENTS.find((e) => e.floor === nextFloor);
       if (evt) {
         this.pendingTowerEvent = evt;
@@ -837,6 +1951,16 @@ export class ManagerEngine extends GameEngine {
     if (!evt) return;
     const option = evt.options.find((o) => o.id === optionId);
     if (!option) return;
+
+    // v9：商店购买 cost 校验 —— 分数不足则拒绝并提示，不推进楼层
+    if (option.cost !== undefined && this.score < option.cost) {
+      this.toast = { text: `分数不足！需要 ${option.cost} 分`, tone: "bad", until: this.t + 2 };
+      this.emitHud();
+      return;
+    }
+    if (option.cost !== undefined) {
+      this.score -= option.cost;
+    }
 
     // 记录选择到元进度
     platformStore.recordTowerEventChoice(evt.floor, optionId);
@@ -949,6 +2073,41 @@ export class ManagerEngine extends GameEngine {
       case "skip":
         // 无效果
         break;
+      // ===== v9 新增后果 =====
+      case "agentHp": {
+        const healPct = outcome.value;
+        let count = 0;
+        for (const a of this.agents) {
+          if (!a.alive) continue;
+          const amount = Math.round(a.maxHp * healPct);
+          a.hp = Math.min(a.maxHp, a.hp + amount);
+          count += 1;
+        }
+        if (count > 0) {
+          this.particles.spawnBurst(W / 2, H / 2, "#52C41A", { ring: true, sparks: 16, dots: 20, speed: 240, life: 0.8, size: 4 });
+        }
+        this.floats.push({ x: W / 2, y: H / 2 - 40, text: `全探员回血 ${Math.round(healPct * 100)}%`, color: "#52C41A", life: 1.5, maxLife: 1.5, size: 18 });
+        break;
+      }
+      case "freeUpgrade":
+        // 立即触发一次免费升级（不消耗 XP）
+        if (this.upgradeCount < UPGRADE_MAX_COUNT + this.upgradeMaxCountBonus) {
+          this.enterUpgrade();
+          this.toast = { text: "免费升级！", tone: "good", until: this.t + 2.5 };
+        } else {
+          // 已满级则折算成分数
+          this.score += 800;
+          this.floats.push({ x: W / 2, y: H / 2 - 40, text: `+800 分（升级已满）`, color: "#FFD666", life: 1.5, maxLife: 1.5, size: 18 });
+        }
+        break;
+      case "bondsKills": {
+        // 推进羁绊击杀进度（加速羁绊升级）
+        for (let i = 0; i < outcome.value; i++) {
+          this.onBondKill();
+        }
+        this.floats.push({ x: W / 2, y: H / 2 - 40, text: `羁绊进度 +${outcome.value}`, color: "#FF7AB8", life: 1.5, maxLife: 1.5, size: 18 });
+        break;
+      }
     }
   }
 
@@ -1183,6 +2342,14 @@ export class ManagerEngine extends GameEngine {
       }
     }
 
+    // v11：自定义难度倍率（独立于 challenge 词缀，叠加在关卡/模式 scaling 之上）
+    if (this.customDifficultyCfg) {
+      const cfg = this.customDifficultyCfg;
+      hpMul *= cfg.enemyHpMul;
+      speedMul *= cfg.enemySpeedMul;
+      dmgMul *= cfg.enemyDmgMul;
+    }
+
     const scaledDef: EnemyDef = {
       ...def,
       hp: Math.round(def.hp * hpMul),
@@ -1236,22 +2403,30 @@ export class ManagerEngine extends GameEngine {
   }
 
   // ====================================================================
-  // v3：探员独有大招（6 种）
+  // v3：探员独有大招（v8 软合并：统一为 CardSkill 释放）
   // ====================================================================
 
   triggerUlt(): void {
     if (this.over || this.energy < 100 || this.upgradeReady) return;
     if (this.mode === "daily" && this.hasModifier("noUlt")) return;
-    const ultAgent = this.agents.find((a) => a.alive);
+    // v8 软合并：大招按钮统一为 CardSkill 释放（自动选第一张可用卡牌）
+    const availableIdx = this.cardHand.findIndex((c) =>
+      this.agents.some((a) => a.alive && a.id === c.agentId),
+    );
+    if (availableIdx === -1) return;
+    const card = this.cardHand[availableIdx];
+    const ultAgent = this.agents.find((a) => a.alive && a.id === card.agentId);
     if (!ultAgent) return;
-    const ultDef = ultAgent.def.ultDef;
 
+    // 能量清零（保留大招"满 100 释放"的门槛）+ 移除手牌
     this.energy = 0;
+    this.cardHand.splice(availableIdx, 1);
+    this.cardSkillsUsed++;
     this.ultFlashUntil = this.t + 0.8;
     this.shakeUntil = this.t + 0.5;
     this.ultCount += 1;
 
-    // v7：大招视觉 —— 保留主 flash（关键事件），移除 glitch（易叠加闪屏），强化粒子
+    // v7：大招视觉 —— 保留主 flash（关键事件），强化粒子
     postFX.flash("#FFD666", 0.5, 2.2);
     postFX.shake(12, 16);
     // 中心爆点
@@ -1263,35 +2438,23 @@ export class ManagerEngine extends GameEngine {
       const angle = (i / 8) * Math.PI * 2;
       this.particles.spawn({
         x: ultAgent.x, y: ultAgent.y,
-        count: 6, speed: 500, life: 0.5, size: 4, color: ultDef.kind === "pierce" ? "#FF7A1A" : "#FFD666",
+        count: 6, speed: 500, life: 0.5, size: 4, color: card.effect.kind === "pierce" ? "#FF7A1A" : "#FFD666",
         angle,
       });
     }
 
-    switch (ultDef.kind) {
-      case "pierce": this.ultPierce(ultAgent, ultDef.value); break;
-      case "slowAll": this.ultSlowAll(ultDef.value, ultDef.duration ?? 3); break;
-      case "aoe": this.ultAoe(ultAgent, ultDef.value, ultDef.radius ?? 100); break;
-      case "healShield": this.ultHealShield(ultDef.value); break;
-      case "critBuff": this.ultCritBuff(ultDef.value, ultDef.duration ?? 5); break;
-      case "assassinate": this.ultAssassinate(ultAgent, ultDef.value); break;
-      // v6 新增大招
-      case "summon": this.ultSummon(ultAgent, ultDef.value, ultDef.duration ?? 8); break;
-      case "freeze": this.ultFreeze(ultDef.duration ?? 2); break;
-      case "timeWarp": this.ultTimeWarp(ultDef.duration ?? 4); break;
-      case "shieldWall": this.ultShieldWall(ultDef.value); break;
-    }
+    // v8 软合并：复用统一卡牌效果派发
+    this.applyCardSkillEffect(card.effect, ultAgent);
 
-    // v6：记录大招使用到 platformStore + onUlt 技能链触发
+    // v6：记录大招使用到 platformStore
     platformStore.recordUltUsed();
-    this.checkSkillLinksOnUlt(ultAgent.id);
 
     // v5：大招名称浮字 —— 双层描边效果（先画阴影层再画主层）
     this.floats.push({
       x: W / 2,
       y: H / 2 - 8,
-      text: ultDef.name + "！",
-      color: ultAgent.def.color,
+      text: card.name + "！",
+      color: card.color,
       life: 1.6,
       maxLife: 1.6,
       size: 28,
@@ -1299,7 +2462,7 @@ export class ManagerEngine extends GameEngine {
     this.floats.push({
       x: W / 2,
       y: H / 2 + 22,
-      text: ultDef.desc.slice(0, 18),
+      text: card.desc.slice(0, 18),
       color: "#FFD666",
       life: 1.4,
       maxLife: 1.4,
@@ -1613,105 +2776,71 @@ export class ManagerEngine extends GameEngine {
     }
     this.particles.spawnBurst(x, y, def.color, { ring: true, sparks: 20, dots: 24, speed: 280, life: 0.9, size: 4 });
     this.floats.push({ x, y: y - 20, text: def.name + "！", color: def.color, life: 1.0, maxLife: 1.0, size: 16 });
-  }
-
-  // ====================================================================
-  // v6 Phase 2.2：技能链触发 + 战间答题
-  // ====================================================================
-
-  /** 触发技能链（检查冷却 + 应用效果） */
-  private triggerSkillLink(state: { link: SkillLink; lastTriggeredAt: number }): void {
-    if (this.t - state.lastTriggeredAt < state.link.cooldown) return;
-    state.lastTriggeredAt = this.t;
-    this.applySkillLinkEffect(state.link);
-    this.particles.spawnBurst(W / 2, H / 2 - 40, state.link.color, { ring: true, sparks: 18, dots: 22, speed: 260, life: 0.9, size: 4 });
-    this.floats.push({
-      x: W / 2, y: H / 2 - 60, text: state.link.emoji + " " + state.link.name,
-      color: state.link.color, life: 1.4, maxLife: 1.4, size: 18,
+    // v10：元素反应 → push 系统事件通知
+    this.pushSystemEvent({
+      kind: "elementReaction",
+      title: `元素反应 · ${def.name}`,
+      desc: def.desc,
+      emoji: def.emoji,
+      color: def.color,
+      at: this.t,
+      ttl: 3,
     });
-    this.emitHud();
-  }
 
-  /** 应用技能链效果 */
-  private applySkillLinkEffect(link: SkillLink): void {
-    const eff = link.effect;
-    switch (eff.kind) {
-      case "aoe": {
-        let strongest: Enemy | null = null;
-        for (const e of this.enemies) {
-          if (!strongest || e.hp > strongest.hp) strongest = e;
+    // v9：羁绊 elementLink —— 元素反应触发时附加额外范围伤害
+    const elemLinkMul = this.totalBondElementLinkMul();
+    if (elemLinkMul > 0) {
+      const bonusDmg = Math.round(elemLinkMul * 80);
+      let hitCount = 0;
+      for (const en of this.enemies) {
+        if (Math.hypot(en.x - x, en.y - y) <= 120) {
+          en.hp -= bonusDmg;
+          hitCount += 1;
         }
-        if (!strongest) return;
-        const baseDmg = this.agents.filter((a) => a.alive).reduce((s, a) => s + a.def.attack, 0) * eff.dmgMul;
-        const cx = strongest.x, cy = strongest.y;
-        for (const e of this.enemies) {
-          if (Math.hypot(e.x - cx, e.y - cy) <= eff.radius) {
-            e.hp -= baseDmg;
-            this.particles.spawnBurst(e.x, e.y, link.color, { sparks: 8, dots: 6, speed: 160, life: 0.5, size: 3 });
-          }
-        }
-        this.particles.spawnBurst(cx, cy, link.color, { shockwave: true, ring: true, sparks: 24, dots: 30, speed: 320, life: 0.9, size: 4 });
-        break;
       }
-      case "healAll": {
-        for (const a of this.agents) {
-          if (a.alive) {
-            a.hp = Math.min(a.maxHp, a.hp + a.maxHp * eff.ratio);
-            this.particles.spawnBurst(a.x, a.y, "#52C41A", { sparks: 8, dots: 10, speed: 140, life: 0.6, size: 3 });
-          }
-        }
-        break;
-      }
-      case "buff": {
-        this.damageBoostUntil = Math.max(this.damageBoostUntil, this.t + eff.duration);
-        this.damageBoostMul = Math.max(this.damageBoostMul, 1 + eff.attackPct);
-        break;
-      }
-      case "debuff": {
-        for (const e of this.enemies) {
-          e.slowUntil = Math.max(e.slowUntil, this.t + eff.duration);
-        }
-        break;
-      }
-      case "energy": {
-        this.energy = clamp(this.energy + eff.value, 0, 100);
-        break;
+      if (hitCount > 0) {
+        this.floats.push({ x, y: y - 42, text: `羁绊共鸣 +${bonusDmg}`, color: "#FFD666", life: 1.0, maxLife: 1.0, size: 13 });
+        this.particles.spawnBurst(x, y, "#FFD666", { ring: true, sparks: 14, dots: 16, speed: 240, life: 0.7, size: 3 });
       }
     }
   }
 
-  /** 检查 onKill/onCombo 触发的技能链 */
-  private checkSkillLinksOnKill(agentId: string): void {
-    for (const state of this.activeSkillLinkStates) {
-      const trig = state.link.trigger;
-      if (trig.kind === "onKill" && trig.agentId === agentId) {
-        this.triggerSkillLink(state);
-      }
-      if (trig.kind === "onCombo" && this.combo.count >= trig.count) {
-        this.triggerSkillLink(state);
-      }
-    }
-  }
-
-  /** 检查 onUlt 触发的技能链 */
-  private checkSkillLinksOnUlt(agentId: string): void {
-    for (const state of this.activeSkillLinkStates) {
-      const trig = state.link.trigger;
-      if (trig.kind === "onUlt" && trig.agentId === agentId) {
-        this.triggerSkillLink(state);
-      }
-    }
-  }
-
-  /** 战间答题：波次结束时检查是否需要出题（每 5 波） */
+  /** 战间答题：波次结束时检查是否需要出题（每 5 波；每 10 波插入案例微型复盘） */
   private checkQuizOnWaveEnd(clearedWave: number): void {
     if (clearedWave > 0 && clearedWave % 5 === 0 && !this.pendingQuiz) {
       const seed = this.dailySeed || "default";
-      // v7：自适应答题 — 优先重练错题（连续错误 ≥ 2 次）
-      const wrongRecords = platformStore.managerMetaProgress().quizWrongRecords;
+      const wrongQuestions = platformStore.managerMetaProgress().wrongQuestions;
+      // v10 P0-1c：每 10 波（20/30/40...）插入"案例最佳拦截点"微型复盘
+      // 优先重练案例错题（如存在 wrongCount≥1 的 case 来源错题），否则生成新案例题
+      const isCaseWave = clearedWave % 10 === 0;
+      if (isCaseWave) {
+        // 先尝试重练 case 来源错题
+        const retryResult = pickAdaptiveQuiz(
+          (w, s) => pickQuiz(w, s),
+          wrongQuestions,
+          clearedWave,
+          seed,
+          "case",
+        );
+        if (retryResult.isRetry) {
+          this.pendingQuiz = retryResult.question;
+          this.pendingQuizIsRetry = true;
+          this.emitHud();
+          return;
+        }
+        // 无 case 错题可重练，生成新案例题
+        const caseQuiz = pickRandomCaseMiniQuiz();
+        if (caseQuiz) {
+          this.pendingQuiz = caseQuiz;
+          this.pendingQuizIsRetry = false;
+          this.emitHud();
+          return;
+        }
+      }
+      // v10：直接消费 v9 结构化错题本 wrongQuestions（含题面），真正还原错题重练
       const { question, isRetry } = pickAdaptiveQuiz(
         (w, s) => pickQuiz(w, s),
-        wrongRecords,
+        wrongQuestions,
         clearedWave,
         seed,
       );
@@ -1726,6 +2855,8 @@ export class ManagerEngine extends GameEngine {
     if (!this.pendingQuiz) return false;
     const quiz = this.pendingQuiz;
     const correct = optionIdx === quiz.correctIdx;
+    // v10 P0-1c：判断本题是否为案例微型复盘（id 前缀 miniCase_）
+    const isCaseQuiz = quiz.id.startsWith("miniCase_");
     this.pendingQuiz = null;
     if (correct) {
       this.quizCorrectCount += 1;
@@ -1736,13 +2867,33 @@ export class ManagerEngine extends GameEngine {
         this.quizBuffUntil = this.t + 15;
         this.quizBuff = { attackPct: 0.2 };
       }
+      // v10 P0-1c：案例复盘答对额外给反诈积分
+      if (isCaseQuiz) {
+        platformStore.state.managerMeta.antiFraudPoints += 15;
+        this.floats.push({ x: W / 2, y: H / 2, text: "✓ 案例复盘答对！+15 反诈积分", color: "#FFB020", life: 2.0, maxLife: 2.0, size: 16 });
+      }
       this.floats.push({ x: W / 2, y: H / 2, text: "✓ 答对！获得反诈 buff", color: "#52C41A", life: 1.6, maxLife: 1.6, size: 18 });
       this.particles.spawnBurst(W / 2, H / 2, "#52C41A", { ring: true, sparks: 20, dots: 24, speed: 280, life: 0.9, size: 4 });
     } else {
       this.floats.push({ x: W / 2, y: H / 2, text: "✗ 答错：" + quiz.explanation.slice(0, 24), color: "#E5353B", life: 1.8, maxLife: 1.8, size: 14 });
     }
-    // 记录到 platformStore（v7：同时维护错题记录）
+    // v10：双写错题本，保证 v7/v9 两套记录同步
+    // - recordQuizAnswerV7：维护旧版 quizWrongRecords（仅次数，向后兼容）
+    // - recordWrongQuestion：维护 v9 结构化 wrongQuestions（含题面，供错题重练还原）
+    // v10 P0-1c：案例复盘题 source 标记为 "case"，与战间知识题 "battle" 区分
     platformStore.recordQuizAnswerV7(correct, quiz.id);
+    platformStore.recordWrongQuestion({
+      questionId: quiz.id,
+      source: isCaseQuiz ? "case" : "battle",
+      questionType: "single",
+      questionText: quiz.question,
+      options: quiz.options,
+      correctAnswer: String(quiz.correctIdx),
+      userAnswer: String(optionIdx),
+      category: quiz.fraudType,
+      explanation: quiz.explanation,
+      correct,
+    });
     this.pendingQuizIsRetry = false;
     this.emitHud();
     return correct;
@@ -1858,6 +3009,13 @@ export class ManagerEngine extends GameEngine {
         } else if (this.mode === "endlessRush") {
           this.checkQuizOnWaveEnd(this.endlessAbsWave + 1);
           if (this.pendingQuiz) { this.emitHud(); return; }
+          // v9：战间遗物商店（每 5 波）
+          if (this.pendingRelicShopOffers.length > 0) { this.emitHud(); return; }
+          if (this.endlessAbsWave + 1 >= this.relicShopWaveTrigger) {
+            this.relicShopWaveTrigger += 5;
+            this.openRelicShop();
+            return;
+          }
           this.startEndlessWave(this.endlessAbsWave + 1, 2);
         } else if (this.mode === "tower") {
           // v7：爬塔模式 — 楼层推进
@@ -1869,6 +3027,13 @@ export class ManagerEngine extends GameEngine {
           // v6：战间答题
           this.checkQuizOnWaveEnd(clearedWave);
           if (this.pendingQuiz) { this.emitHud(); return; }
+          // v9：战间遗物商店（每 5 波，答题之后触发）
+          if (this.pendingRelicShopOffers.length > 0) { this.emitHud(); return; }
+          if (clearedWave >= this.relicShopWaveTrigger) {
+            this.relicShopWaveTrigger += 5;
+            this.openRelicShop();
+            return;
+          }
           const currentLevel = LEVELS[this.level - 1];
           if (this.level < this.maxLevel && clearedWave >= currentLevel.targetWave) {
             this.advanceLevel();
@@ -1895,6 +3060,11 @@ export class ManagerEngine extends GameEngine {
     this.updateAgents(gdt);
     this.updateProjectiles(gdt);
     this.updateEnergy(dt);
+    // v8：更新受害人 / 话术气泡 / 战术指令 / 口诀冷却
+    this.updateVictims(gdt);
+    this.updateSpeechBubbles(gdt);
+    this.updateTacticalCommandStates(dt);
+    this.updateCounterspellCooldowns(dt);
   }
 
   /** v5：BOSS 击杀慢动作期间的游戏 dt（其余部分用原始 dt） */
@@ -2031,6 +3201,205 @@ export class ManagerEngine extends GameEngine {
   // v5：敌人更新 —— 沿本敌人专属航点前进（分支图迷宫，多路并存）
   // ====================================================================
 
+  // ====================================================================
+  // v9：敌人 AI 行为树 —— 移动相关行为（disguise/enrage/rush/flank/teleport）
+  // 返回修正后的 speed；光环类（fearAura/healAura）由 applyV9Auras 处理
+  // reflect/split 分别在 projectile 命中和 killEnemy 中处理
+  // ====================================================================
+
+  /** v9：记录敌人 AI 事件（供 HUD 警报展示，最近一次） */
+  private recordAIEvent(kind: EnemyAIBehaviorKind, enemyUid: number): void {
+    this.lastEnemyAIEvent = { kind, enemyUid, at: this.t };
+    // v10：敌人 AI 特殊行为 → push 系统事件通知（让玩家感知敌人有 AI 而非纯走位）
+    const aiLabels: Record<EnemyAIBehaviorKind, { emoji: string; title: string }> = {
+      patrol: { emoji: "🚶", title: "敌人巡逻" },
+      flank: { emoji: "🌀", title: "敌人绕侧" },
+      rush: { emoji: "💨", title: "敌人群冲" },
+      disguise: { emoji: "🎭", title: "敌人伪装" },
+      enrage: { emoji: "🔥", title: "敌人狂暴" },
+      split: { emoji: "✂️", title: "敌人分裂" },
+      teleport: { emoji: "⚡", title: "敌人瞬移" },
+      fearAura: { emoji: "😱", title: "恐惧光环" },
+      healAura: { emoji: "💚", title: "治疗光环" },
+      reflect: { emoji: "🛡️", title: "伤害反弹" },
+    };
+    const label = aiLabels[kind];
+    if (label) {
+      this.pushSystemEvent({
+        kind: "enemyAI",
+        title: label.title,
+        desc: `敌人 #${enemyUid} 触发 ${kind} 行为`,
+        emoji: label.emoji,
+        color: "#FFB020",
+        at: this.t,
+        ttl: 2.5,
+      });
+    }
+  }
+
+  private applyV9AI(e: Enemy, baseSpeed: number): number {
+    const ai = e.def.aiBehavior;
+    if (!ai) return baseSpeed;
+
+    let speed = baseSpeed;
+    const hpRatio = e.hp / e.maxHp;
+
+    // 副行为切换：低血量时切换到 secondary（如 farmer enrage → rush）
+    if (ai.secondary && ai.trigger?.belowHpRatio && hpRatio < ai.trigger.belowHpRatio) {
+      if (e._v9ActiveKind !== ai.secondary) {
+        e._v9ActiveKind = ai.secondary;
+        this.particles.spawnBurst(e.x, e.y, "#FF3B6B", { ring: true, sparks: 10, dots: 12, speed: 180, life: 0.5, size: 3 });
+        this.floats.push({ x: e.x, y: e.y - 32, text: "狂暴!", color: "#E5353B", life: 0.8, maxLife: 0.8, size: 12 });
+      }
+    }
+
+    const activeKind = e._v9ActiveKind ?? ai.kind;
+
+    switch (activeKind) {
+      case "disguise": {
+        // 间歇伪装：触发时设置 disguiseUntil，期间无法被攻击且减速
+        if (this.t >= (e._v9AiCooldownUntil ?? 0)) {
+          const chance = ai.trigger?.chance ?? 0.3;
+          const cd = ai.trigger?.cooldown ?? 4;
+          if (Math.random() < chance) {
+            const dur = ai.params?.disguiseDuration ?? 1.5;
+            e._v9DisguiseUntil = this.t + dur;
+            e._v9AiCooldownUntil = this.t + dur + cd;
+            this.particles.spawnBurst(e.x, e.y, "#A8E6CF", { sparks: 6, dots: 8, speed: 100, life: 0.4, size: 2 });
+            this.recordAIEvent("disguise", e.uid);
+          } else {
+            e._v9AiCooldownUntil = this.t + cd;
+          }
+        }
+        if (this.t < (e._v9DisguiseUntil ?? 0)) {
+          speed *= 0.4; // 伪装期间减速
+        }
+        break;
+      }
+      case "enrage": {
+        // 低血量狂暴：speed+damage 倍率（出口伤害用 _v9EnrageDmgMul）
+        const threshold = ai.trigger?.belowHpRatio ?? 0.5;
+        if (hpRatio < threshold) {
+          const sm = ai.params?.speedMul ?? 1.3;
+          const dm = ai.params?.damageMul ?? 1.5;
+          speed *= sm;
+          e._v9EnrageDmgMul = dm;
+          this.recordAIEvent("enrage", e.uid);
+        }
+        break;
+      }
+      case "rush": {
+        // 群冲：低血量时，给附近同类加速
+        const threshold = ai.trigger?.belowHpRatio ?? 0.5;
+        if (hpRatio < threshold && this.t >= (e._v9AiCooldownUntil ?? 0)) {
+          const sm = ai.params?.speedMul ?? 1.5;
+          const cd = ai.trigger?.cooldown ?? 3;
+          e._v9AiCooldownUntil = this.t + cd;
+          for (const other of this.enemies) {
+            if (other === e) continue;
+            if (other.def.id === e.def.id && Math.hypot(other.x - e.x, other.y - e.y) < 150) {
+              other._v9RushUntil = this.t + 2;
+              other._v9RushMul = sm;
+            }
+          }
+          this.particles.spawnBurst(e.x, e.y, "#FF3B6B", { ring: true, sparks: 10, dots: 12, speed: 180, life: 0.5, size: 3 });
+          this.recordAIEvent("rush", e.uid);
+        }
+        // 自身或被波及的 rush 加速
+        if (this.t < (e._v9RushUntil ?? 0)) {
+          speed *= (e._v9RushMul ?? 1);
+        }
+        break;
+      }
+      case "flank": {
+        // 绕侧：间歇切换侧向偏移，模拟绕路到侧翼
+        if (this.t >= (e._v9AiCooldownUntil ?? 0)) {
+          const chance = ai.trigger?.chance ?? 0.4;
+          const cd = ai.trigger?.cooldown ?? 2;
+          if (Math.random() < chance) {
+            e._v9AiCooldownUntil = this.t + cd;
+            e._v9FlankOffset = (Math.random() < 0.5 ? -1 : 1) * 35;
+            e._v9FlankUntil = this.t + 1.5;
+            this.recordAIEvent("flank", e.uid);
+          } else {
+            e._v9AiCooldownUntil = this.t + cd;
+          }
+        }
+        break;
+      }
+      case "teleport": {
+        // 低血量瞬移到出口附近
+        const threshold = ai.trigger?.belowHpRatio ?? 0.3;
+        if (hpRatio < threshold && this.t >= (e._v9AiCooldownUntil ?? 0)) {
+          const cd = ai.trigger?.cooldown ?? 3;
+          e._v9AiCooldownUntil = this.t + cd;
+          const wps = e.myWaypoints.length >= 2 ? e.myWaypoints : this.maze.waypoints;
+          const dist = ai.params?.teleportToExitDist ?? 3;
+          const jump = Math.min(dist, wps.length - (e.myWaypoints.length >= 2 ? e.myPathIdx : e.pathIdx) - 1);
+          if (jump > 0) {
+            if (e.myWaypoints.length >= 2) e.myPathIdx += jump;
+            else e.pathIdx += jump;
+            const newTarget = wps[e.myWaypoints.length >= 2 ? e.myPathIdx : e.pathIdx];
+            if (newTarget) { e.x = newTarget.x; e.y = newTarget.y; }
+            this.particles.spawnBurst(e.x, e.y, "#9D6BFF", { ring: true, sparks: 12, dots: 14, speed: 200, life: 0.6, size: 3 });
+            this.recordAIEvent("teleport", e.uid);
+          }
+        }
+        break;
+      }
+      case "patrol":
+      case "fearAura":
+      case "healAura":
+      case "reflect":
+      case "split":
+        // patrol=默认移动；fearAura/healAura=applyV9Auras；reflect=projectile命中；split=killEnemy
+        break;
+    }
+
+    return speed;
+  }
+
+  // ====================================================================
+  // v9：光环类行为 —— fearAura（探员射速 -30%）+ healAura（附近敌人回血）
+  // 在 updateEnemies 循环外调用一次
+  // ====================================================================
+
+  private applyV9Auras(dt: number): void {
+    const fearSources: { x: number; y: number; r: number }[] = [];
+    const healSources: { x: number; y: number; r: number; hps: number }[] = [];
+    for (const e of this.enemies) {
+      const ai = e.def.aiBehavior;
+      if (!ai) continue;
+      const kind = e._v9ActiveKind ?? ai.kind;
+      if (kind === "fearAura") {
+        fearSources.push({ x: e.x, y: e.y, r: ai.params?.auraRadius ?? 120 });
+      } else if (kind === "healAura") {
+        healSources.push({ x: e.x, y: e.y, r: ai.params?.auraRadius ?? 100, hps: ai.params?.healPerSec ?? 6 });
+      }
+    }
+    // fearAura：标记探员受恐惧（updateAgents 读取 _v9FearedUntil 降低射速）
+    if (fearSources.length > 0) {
+      for (const a of this.agents) {
+        if (!a.alive) continue;
+        let feared = false;
+        for (const s of fearSources) {
+          if (Math.hypot(a.x - s.x, a.y - s.y) < s.r) { feared = true; break; }
+        }
+        if (feared) a._v9FearedUntil = this.t + 0.3;
+      }
+    }
+    // healAura：附近敌人每秒回血
+    if (healSources.length > 0) {
+      for (const e of this.enemies) {
+        for (const s of healSources) {
+          if (Math.hypot(e.x - s.x, e.y - s.y) < s.r) {
+            e.hp = Math.min(e.maxHp, e.hp + s.hps * dt);
+          }
+        }
+      }
+    }
+  }
+
   private updateEnemies(dt: number): void {
     const slowed = this.t < this.slowUntil;
     const patroller = this.cultAgents.find((c) => c.def.buff === "slow" && c.unlocked);
@@ -2054,6 +3423,25 @@ export class ManagerEngine extends GameEngine {
       // v3：speedBoost 技能（低血量加速）
       if (e.def.ability === "speedBoost" && e.hp / e.maxHp < 0.3) {
         speed *= 1.5;
+      }
+
+      // v9：敌人 AI 行为树 —— 应用移动相关行为（disguise/enrage/rush/flank/teleport）
+      speed = this.applyV9AI(e, speed);
+
+      // v11：地形效果 —— 瓶颈减速 20%；陷阱每秒损 8% 最大血量
+      const eTerrain = this.enemyTerrainKind(e);
+      if (eTerrain === "chokepoint") {
+        speed *= 0.8;
+      } else if (eTerrain === "trap") {
+        const trapDmg = e.maxHp * 0.08 * dt;
+        e.hp -= trapDmg;
+        if (Math.random() < 0.15) {
+          this.particles.spawn({ x: e.x, y: e.y, count: 2, speed: 50, life: 0.3, size: 2, color: "#FF4081" });
+        }
+        if (e.hp <= 0) {
+          this.killEnemy(e, "__trap__");
+          continue;
+        }
       }
 
       // v6：invisible 能力 —— 每 4 秒隐身 1.5 秒（初始化周期）
@@ -2103,10 +3491,21 @@ export class ManagerEngine extends GameEngine {
       // v5：沿本敌人专属航点前进（支持分支迷宫，多敌人走不同路）
       const wps = e.myWaypoints.length >= 2 ? e.myWaypoints : this.maze.waypoints;
       const idx = e.myWaypoints.length >= 2 ? e.myPathIdx : e.pathIdx;
-      if (idx < wps.length) {
+      // v8：taunt 指令 —— 被嘲讽时改向嘲讽探员位置
+      const tauntActive = e._v8TauntUntil !== undefined && this.t < e._v8TauntUntil && e._v8TauntBy !== undefined;
+      if (tauntActive) {
+        const dx = e._v8TauntBy! - e.x;
+        const dist = Math.abs(dx);
+        if (dist > 4) {
+          const step = Math.min(dist, speed * dt);
+          e.x += Math.sign(dx) * step;
+        }
+      } else if (idx < wps.length) {
         const target = wps[idx];
         const dx = target.x - e.x;
-        const dy = target.y - e.y;
+        // v9：flank 行为 —— 绕侧时临时偏移 y 目标，模拟绕路到侧翼
+        const flankOffset = (this.t < (e._v9FlankUntil ?? 0)) ? (e._v9FlankOffset ?? 0) : 0;
+        const dy = (target.y + flankOffset) - e.y;
         const dist = Math.hypot(dx, dy);
         if (dist < 4) {
           // 到达当前航点，前进到下一个
@@ -2140,6 +3539,10 @@ export class ManagerEngine extends GameEngine {
         if (e.enrageStacks && e.enrageStacks > 0) {
           dmg *= (1 + 0.2 * e.enrageStacks);
         }
+        // v9：AI enrage 行为 —— 低血量狂暴时到达出口伤害倍率
+        if (e._v9EnrageDmgMul && e._v9EnrageDmgMul > 1) {
+          dmg *= e._v9EnrageDmgMul;
+        }
         // v6：firstHitFree 遗物 —— 首次命中免疫（仅对基地首次受伤）
         if (!this.firstHitFreeConsumed && this.hasRelicEffect("firstHitFree")) {
           this.firstHitFreeConsumed = true;
@@ -2170,6 +3573,9 @@ export class ManagerEngine extends GameEngine {
         }
       }
     }
+
+    // v9：光环类行为 —— fearAura（标记探员）+ healAura（敌人回血），循环外调用一次
+    this.applyV9Auras(dt);
   }
 
   // ====================================================================
@@ -2204,6 +3610,14 @@ export class ManagerEngine extends GameEngine {
         a.hp = Math.min(a.maxHp, a.hp + this.agentHpRegen * dt);
       }
 
+      // v11：安全岛地形 —— 无敌 + 每秒回血 5%
+      if (this.agentOnSafeIsland(a)) {
+        a.invulnUntil = this.t + 0.2; // 滚动续期无敌
+        if (a.hp < a.maxHp) {
+          a.hp = Math.min(a.maxHp, a.hp + a.maxHp * 0.05 * dt);
+        }
+      }
+
       // v3：fear 技能（附近恐吓语音 → 射速 -30%）—— 按距离判定
       let agentFireMul = fireRateMul;
       for (const e of this.enemies) {
@@ -2212,6 +3626,20 @@ export class ManagerEngine extends GameEngine {
           break;
         }
       }
+      // v9：fearAura 行为 —— 受恐惧光环影响时射速 -30%
+      if (this.t < (a._v9FearedUntil ?? 0)) {
+        agentFireMul *= 0.7;
+      }
+
+      // v8：战术指令 buff —— focusFire 射速 +20%；retreat 期间无法攻击
+      const agentIdx = this.agents.indexOf(a);
+      const cmdState = agentIdx >= 0 ? this.tacticalCommandStates[agentIdx] : undefined;
+      if (cmdState?.activeKind === "focusFire") agentFireMul *= 1.2;
+      if (cmdState?.activeKind === "retreat") {
+        // 后撤期间无法攻击，并逐步回位（向原位反向移动）
+        a.x -= 20 * dt;
+        continue;
+      }
 
       a.cooldown -= dt * agentFireMul;
       if (a.cooldown <= 0) {
@@ -2219,7 +3647,9 @@ export class ManagerEngine extends GameEngine {
         if (target) {
           a.cooldown = 1 / a.def.fireRate;
           a.flashUntil = this.t + 0.08;
-          this.fireProjectile(a, target, noHealMul);
+          // v8：overdrive 攻击 +50%
+          const overdriveMul = cmdState?.activeKind === "overdrive" ? 1.5 : 1;
+          this.fireProjectile(a, target, noHealMul * overdriveMul);
         }
       }
     }
@@ -2228,7 +3658,9 @@ export class ManagerEngine extends GameEngine {
   /** v5：距离判定寻敌 —— 在射程内选路径进度最大（最靠近出口）的敌人 */
   private findTarget(a: DeployedAgent): Enemy | null {
     const rangeMul = this.upgradeMul("range");
-    const effectiveRange = a.def.range * rangeMul;
+    // v11：高地地形射程 +30%
+    const terrainRangeMul = this.agentOnHighland(a) ? 1.3 : 1;
+    const effectiveRange = a.def.range * rangeMul * terrainRangeMul;
     let best: Enemy | null = null;
     let bestProgress = -1;
     let bestDist = Infinity;
@@ -2282,7 +3714,12 @@ export class ManagerEngine extends GameEngine {
 
     // v5：pierce 升级 —— 每级 +1 穿透次数；v6：pierceAll 遗物穿透所有
     const pierceUpgradeCount = this.upgrades.filter((u) => u === "pierce").length;
-    const pierceLeft = this.pierceAll ? 9999 : pierceUpgradeCount * 1;
+    let pierceLeft = this.pierceAll ? 9999 : pierceUpgradeCount * 1;
+    // v8：reload 指令 —— 下 3 次攻击穿透 +1
+    if (a._v8ReloadPierceLeft && a._v8ReloadPierceLeft > 0) {
+      pierceLeft += 1;
+      a._v8ReloadPierceLeft -= 1;
+    }
 
     // v6：全队伤害加成（resonance 元素反应 / 技能链 buff / 答题 buff）
     let dmgBoost = 1;
@@ -2290,17 +3727,26 @@ export class ManagerEngine extends GameEngine {
     if (this.t < this.quizBuffUntil && this.quizBuff) dmgBoost *= (1 + this.quizBuff.attackPct);
 
     const attackMul = this.upgradeMul("attack") * noHealMul * dmgBoost;
-    this.spawnProjectile(a, target, a.def.attack * crit * attackMul, isCrit, pierceLeft, a.def.splash ?? 0);
+    // v11：高地地形伤害 +15%
+    const terrainDmgMul = this.agentOnHighland(a) ? 1.15 : 1;
+    // v11：瓶颈地形 AOE 范围 +30%（探员在瓶颈格时溅射扩大）
+    const terrainSplashMul = this.agentTerrainKind(a) === "chokepoint" ? 1.3 : 1;
+    // v11：弱点情报 —— 对该类型敌人 +20% 伤害
+    const weakMul = this.weaknessDmgMul(target.def.id);
+    this.spawnProjectile(a, target, a.def.attack * crit * attackMul * terrainDmgMul * weakMul, isCrit, pierceLeft, (a.def.splash ?? 0) * terrainSplashMul);
 
     // v5：doubleShot 升级 —— 额外发射一枚投射物（60% 伤害），目标为同一次寻敌中次近的敌人
     const doubleShotCount = this.upgrades.filter((u) => u === "doubleShot").length;
     if (doubleShotCount > 0) {
       const secondary = this.findSecondaryTarget(a, target);
+      const secWeakMul = secondary ? this.weaknessDmgMul(secondary.def.id) : weakMul;
+      const secDmg = a.def.attack * crit * attackMul * terrainDmgMul * secWeakMul * 0.6;
+      const secSplash = (a.def.splash ?? 0) * terrainSplashMul;
       if (secondary) {
-        this.spawnProjectile(a, secondary, a.def.attack * crit * attackMul * 0.6, isCrit, pierceLeft, a.def.splash ?? 0);
+        this.spawnProjectile(a, secondary, secDmg, isCrit, pierceLeft, secSplash);
       } else {
         // 没有次目标，再打一发到主目标
-        this.spawnProjectile(a, target, a.def.attack * crit * attackMul * 0.6, isCrit, pierceLeft, a.def.splash ?? 0);
+        this.spawnProjectile(a, target, secDmg, isCrit, pierceLeft, secSplash);
       }
     }
     playSfx("shoot");
@@ -2484,11 +3930,32 @@ export class ManagerEngine extends GameEngine {
     }
 
     const totalDmg = p.damage * techMul * (elemMul + elementBonusMul) * vulnMul * (1 - bossReduction) * shieldMul * chainMul;
-    e.hp -= totalDmg;
+    // v8：口诀击破施加的单敌人易伤
+    const v8VulnMul = (e._v8VulnUntil && this.t < e._v8VulnUntil) ? (e._v8VulnMul ?? 1) : 1;
+    // v9：disguise 行为 —— 伪装期间无法被攻击（伤害为 0，不触发反射）
+    const v9DisguiseActive = this.t < (e._v9DisguiseUntil ?? 0);
+    const effectiveDmg = v9DisguiseActive ? 0 : totalDmg * v8VulnMul;
+    e.hp -= effectiveDmg;
+    if (v9DisguiseActive) {
+      this.particles.spawn({ x: e.x, y: e.y, count: 4, speed: 80, life: 0.3, size: 2, color: "#A8E6CF" });
+    }
 
-    // v6：reflect 能力 —— 反射 20% 伤害给最近探员（探员护盾优先吸收）
-    if (e.def.ability === "reflect" && totalDmg > 0) {
-      const reflectDmg = totalDmg * 0.2;
+    // v9：羁绊 healLink —— 造成伤害时为羁绊搭档回血
+    if (effectiveDmg > 0) {
+      const heal = this.bondHealTarget(p.agentId);
+      if (heal) {
+        const amount = effectiveDmg * heal.pct;
+        heal.target.hp = Math.min(heal.target.maxHp, heal.target.hp + amount);
+        this.particles.spawnBurst(heal.target.x, heal.target.y, "#52C41A", { sparks: 4, dots: 4, speed: 80, life: 0.4, size: 2 });
+      }
+    }
+
+    // v6/v9：reflect 能力/AI 行为 —— 反射伤害给最近探员（探员护盾优先吸收）
+    const hasReflectAbility = e.def.ability === "reflect";
+    const v9ReflectAi = e.def.aiBehavior?.kind === "reflect";
+    if ((hasReflectAbility || v9ReflectAi) && effectiveDmg > 0) {
+      const reflectRatio = v9ReflectAi ? (e.def.aiBehavior?.params?.reflectRatio ?? 0.2) : 0.2;
+      const reflectDmg = effectiveDmg * reflectRatio;
       let nearest: DeployedAgent | null = null;
       let nd = Infinity;
       for (const a of this.agents) {
@@ -2513,6 +3980,8 @@ export class ManagerEngine extends GameEngine {
             nearest.alive = false;
           }
           this.particles.spawnBurst(nearest.x, nearest.y, "#E5353B", { sparks: 6, dots: 6, speed: 120, life: 0.4, size: 2 });
+          // v9：羁绊 shieldLink —— 受击时为羁绊搭档叠加护盾
+          this.applyBondShieldLink(nearest);
         }
       }
     }
@@ -2617,11 +4086,28 @@ export class ManagerEngine extends GameEngine {
     if (idx < 0) return;
     this.enemies.splice(idx, 1);
 
+    // v10：收集本局击破的敌人 fraudType（去重，结算页展示"本局学到的反诈知识点"）
+    if (e.def.fraudType && !this.learnedFraudTipsThisRun.includes(e.def.fraudType)) {
+      this.learnedFraudTipsThisRun.push(e.def.fraudType);
+    }
+
+    // v11：首次击杀该类型敌人时解锁对应图鉴条目（含 v11 新敌人）
+    if (e.def.codexId && !this.releasedEnemyCodexIds.has(e.def.id)) {
+      this.releasedEnemyCodexIds.add(e.def.id);
+      platformStore.unlockCodexEntry(e.def.codexId, "enemy");
+    }
+
     // v3：连击更新
     this.combo.count += 1;
     this.combo.lastKillAt = this.t;
     this.combo.maxCount = Math.max(this.combo.maxCount, this.combo.count);
     this.combo.multiplier = comboMul(this.combo.count);
+    // v9：羁绊 comboBoost —— 连击倍率额外加成
+    const bondComboBoost = this.totalBondComboBoost();
+    if (bondComboBoost > 0) this.combo.multiplier += bondComboBoost;
+
+    // v9：羁绊击杀进度推进（达阈值升级）
+    this.onBondKill();
 
     // v3：探员熟练度追踪
     this.killsByAgent[agentId] = (this.killsByAgent[agentId] ?? 0) + 1;
@@ -2645,9 +4131,6 @@ export class ManagerEngine extends GameEngine {
       const chargeMul = killer?.ultChargeMul ?? 1;
       this.energy = clamp(this.energy + 12 * chargeMul, 0, 100);
     }
-
-    // v6：技能链触发检测（onKill + onCombo）
-    this.checkSkillLinksOnKill(agentId);
 
     // v6：新敌人能力 —— split（分裂）+ enrage（附近敌人狂暴）
     this.handleEnemyDeathAbilities(e);
@@ -2813,8 +4296,46 @@ export class ManagerEngine extends GameEngine {
 
   /** 敌人死亡时触发的被动能力（split / enrage） */
   private handleEnemyDeathAbilities(e: Enemy): void {
-    // split：分裂为 2 个小怪（hp = maxHp × 0.3）
-    if (e.def.ability === "split" && !e.bossRef) {
+    // v9：AI split 行为 —— 分裂为 splitTypeId 指定的小怪（优先于 v6 ability，避免重复触发）
+    const v9SplitAi = e.def.aiBehavior?.kind === "split";
+    const v6SplitAbility = e.def.ability === "split";
+    if (v9SplitAi && !e.bossRef && !e._v9SplitDone) {
+      const splitTypeId = e.def.aiBehavior?.params?.splitTypeId ?? e.def.id;
+      const splitBaseDef = ENEMIES[splitTypeId];
+      if (splitBaseDef) {
+        for (let i = 0; i < 2; i++) {
+          const splitDef: EnemyDef = {
+            ...splitBaseDef,
+            id: `${splitBaseDef.id}_split`,
+            name: `${splitBaseDef.name}(分裂)`,
+            hp: Math.max(1, Math.round(e.maxHp * 0.3)),
+            ability: "none",
+            aiBehavior: undefined, // 分裂体不再携带 split 行为，避免无限递归
+          };
+          const { wps, startIdx } = this.pickEnemyWaypoints();
+          const ox = (Math.random() - 0.5) * 30;
+          const oy = (Math.random() - 0.5) * 30;
+          this.enemies.push({
+            uid: this.uidSeq++,
+            def: splitDef,
+            x: e.x + ox,
+            y: e.y + oy,
+            hp: splitDef.hp,
+            maxHp: splitDef.hp,
+            slowUntil: 0,
+            pathIdx: startIdx,
+            myWaypoints: wps,
+            myPathIdx: startIdx,
+            wobble: Math.random() * Math.PI * 2,
+            radius: 14,
+            shieldConsumed: false,
+            _v9SplitDone: true, // 分裂体标记，防止再次分裂
+          });
+          this.particles.spawnBurst(e.x + ox, e.y + oy, splitBaseDef.color, { sparks: 8, dots: 10, speed: 160, life: 0.5, size: 2 });
+        }
+      }
+    } else if (v6SplitAbility && !v9SplitAi && !e.bossRef) {
+      // v6：split 能力 —— 分裂为 2 个自身副本（hp = maxHp × 0.3）
       for (let i = 0; i < 2; i++) {
         const splitDef: EnemyDef = {
           ...e.def,
@@ -2858,6 +4379,187 @@ export class ManagerEngine extends GameEngine {
   // ====================================================================
   // v4：探员升级阶段（5 选 3 随机）
   // ====================================================================
+
+  // ====================================================================
+  // v9：遗物合成系统 —— 合成 / 拆解 / 战间商店
+  // ====================================================================
+
+  /** v9：合成遗物（消耗 3 个 ingredient + 金币/情报，写入 managerMeta） */
+  craftRelic(relicId: string): boolean {
+    const relic = getRelic(relicId);
+    if (!relic || !relic.recipe || relic.tier < 2) return false;
+    const meta = platformStore.state.managerMeta;
+    const unlockedRecipes = meta.unlockedRecipes ?? [];
+    if (!unlockedRecipes.includes(relicId)) return false;
+    // 检查 ingredient 是否都拥有
+    const ownedSet = new Set(meta.ownedRelics ?? []);
+    for (const ing of relic.recipe.ingredients) {
+      if (!ownedSet.has(ing)) return false;
+    }
+    // 检查金币/情报
+    if ((meta.coins ?? 0) < relic.recipe.coinCost) return false;
+    if (relic.recipe.intelCost && (meta.intel ?? 0) < relic.recipe.intelCost) return false;
+    // 扣除 ingredient（从 ownedRelics 移除）
+    const newOwned = (meta.ownedRelics ?? []).filter((id) => !relic.recipe!.ingredients.includes(id));
+    // 扣除金币/情报
+    meta.coins = (meta.coins ?? 0) - relic.recipe.coinCost;
+    if (relic.recipe.intelCost) meta.intel = (meta.intel ?? 0) - relic.recipe.intelCost;
+    // 添加合成遗物
+    newOwned.push(relicId);
+    meta.ownedRelics = newOwned;
+    // 从装备中移除被消耗的 ingredient
+    meta.equippedRelics = (meta.equippedRelics ?? []).filter((id) => !relic.recipe!.ingredients.includes(id));
+    platformStore.save();
+    this.toast = { text: `🔆 合成成功！获得 ${relic.name}`, tone: "good", until: this.t + 2.5 };
+    this.particles.spawnBurst(W / 2, H / 2, relic.color, { ring: true, shockwave: true, sparks: 24, dots: 28, speed: 320, life: 1.0, size: 4 });
+    postFX.flash(relic.color, 0.4, 1.8);
+    playSfx("good");
+    this.emitHud();
+    return true;
+  }
+
+  /** v9：拆解遗物（获得碎片，tier 1=2, tier 2=6, tier 3=18） */
+  decomposeRelic(relicId: string): boolean {
+    const relic = getRelic(relicId);
+    if (!relic) return false;
+    const meta = platformStore.state.managerMeta;
+    const owned = meta.ownedRelics ?? [];
+    if (!owned.includes(relicId)) return false;
+    const shards = relic.decomposeShards ?? (relic.tier === 3 ? 18 : relic.tier === 2 ? 6 : 2);
+    // 移除遗物
+    meta.ownedRelics = owned.filter((id) => id !== relicId);
+    meta.equippedRelics = (meta.equippedRelics ?? []).filter((id) => id !== relicId);
+    // 增加碎片
+    const shardMap = { ...(meta.relicShards ?? {}) };
+    shardMap[relicId] = (shardMap[relicId] ?? 0) + shards;
+    meta.relicShards = shardMap;
+    platformStore.save();
+    this.toast = { text: `🔧 拆解 ${relic.name}，获得 ${shards} 碎片`, tone: "info", until: this.t + 2 };
+    this.emitHud();
+    return true;
+  }
+
+  /** v9：用碎片合成遗物（集齐 N 碎片可拼出完整遗物，tier 1=5 碎片, tier 2=15, tier 3=40） */
+  craftRelicFromShards(relicId: string): boolean {
+    const relic = getRelic(relicId);
+    if (!relic) return false;
+    const meta = platformStore.state.managerMeta;
+    const shardMap = meta.relicShards ?? {};
+    const need = relic.tier === 3 ? 40 : relic.tier === 2 ? 15 : 5;
+    if ((shardMap[relicId] ?? 0) < need) return false;
+    shardMap[relicId] = (shardMap[relicId] ?? 0) - need;
+    meta.relicShards = shardMap;
+    if (!(meta.ownedRelics ?? []).includes(relicId)) {
+      meta.ownedRelics = [...(meta.ownedRelics ?? []), relicId];
+    }
+    platformStore.save();
+    this.toast = { text: `🔧 碎片拼合成功！获得 ${relic.name}`, tone: "good", until: this.t + 2.5 };
+    this.particles.spawnBurst(W / 2, H / 2, relic.color, { ring: true, sparks: 18, dots: 22, speed: 280, life: 0.9, size: 4 });
+    playSfx("good");
+    this.emitHud();
+    return true;
+  }
+
+  /** v9：开启战间遗物商店（每 5 波触发，三选一） */
+  private openRelicShop(): void {
+    const meta = platformStore.state.managerMeta;
+    const offers: RelicShopOffer[] = [];
+    const ownedRelics = new Set(meta.ownedRelics ?? []);
+    const ownedRecipes = new Set(meta.unlockedRecipes ?? []);
+    // 候选池：未拥有的 tier 1 遗物 + 未解锁的 tier 2/3 配方 + 碎片包
+    const tier1Pool = RELICS.filter((r) => r.tier === 1 && !ownedRelics.has(r.id));
+    const recipePool = RELICS.filter((r) => r.tier >= 2 && r.recipe && !ownedRecipes.has(r.id));
+    // 随机抽取 3 个 offer
+    const offerSlots: RelicShopOffer[] = [];
+    // 槽 1：tier 1 遗物（如果有未拥有的）
+    if (tier1Pool.length > 0) {
+      const r = tier1Pool[Math.floor(Math.random() * tier1Pool.length)];
+      offerSlots.push({
+        id: `offer_${r.id}`, kind: "relic", relicId: r.id,
+        name: r.name, emoji: r.emoji, desc: r.desc, color: r.color,
+        price: 150, rarity: r.rarity, tier: r.tier,
+      });
+    }
+    // 槽 2：配方（tier 2/3）或碎片包
+    if (recipePool.length > 0 && Math.random() < 0.6) {
+      const r = recipePool[Math.floor(Math.random() * recipePool.length)];
+      offerSlots.push({
+        id: `offer_recipe_${r.id}`, kind: "recipe", relicId: r.id,
+        name: `${r.name} 配方`, emoji: "📜", desc: `解锁合成：${r.name}`, color: "#9D6BFF",
+        price: r.tier === 3 ? 300 : 200, tier: r.tier,
+      });
+    } else {
+      // 碎片包：随机选一个 tier 1 遗物的碎片
+      const shardTarget = RELICS.filter((r) => r.tier === 1)[Math.floor(Math.random() * 12)];
+      offerSlots.push({
+        id: `offer_shard_${shardTarget.id}`, kind: "shardPack",
+        shardForRelicId: shardTarget.id, shardCount: 3,
+        name: `${shardTarget.name} 碎片×3`, emoji: "🔧", desc: `3 个 ${shardTarget.name} 碎片`, color: "#FFB020",
+        price: 80,
+      });
+    }
+    // 槽 3：必出碎片包或 tier 1 遗物（保底）
+    if (tier1Pool.length > 0 && Math.random() < 0.5) {
+      const r = tier1Pool[Math.floor(Math.random() * tier1Pool.length)];
+      offerSlots.push({
+        id: `offer_${r.id}_2`, kind: "relic", relicId: r.id,
+        name: r.name, emoji: r.emoji, desc: r.desc, color: r.color,
+        price: 150, rarity: r.rarity, tier: r.tier,
+      });
+    } else {
+      const shardTarget = RELICS.filter((r) => r.tier === 1)[Math.floor(Math.random() * 12)];
+      offerSlots.push({
+        id: `offer_shard_${shardTarget.id}_2`, kind: "shardPack",
+        shardForRelicId: shardTarget.id, shardCount: 5,
+        name: `${shardTarget.name} 碎片×5`, emoji: "🔧", desc: `5 个 ${shardTarget.name} 碎片`, color: "#FFB020",
+        price: 120,
+      });
+    }
+    this.pendingRelicShopOffers = offerSlots;
+    this.toast = { text: "🏪 战间商店开启！三选一购买", tone: "good", until: this.t + 3 };
+    postFX.flash("#FFB020", 0.3, 1.5);
+    this.emitHud();
+  }
+
+  /** v9：购买战间商店 offer */
+  buyRelicShopOffer(offerId: string): boolean {
+    const offer = this.pendingRelicShopOffers.find((o) => o.id === offerId);
+    if (!offer) return false;
+    const meta = platformStore.state.managerMeta;
+    if ((meta.coins ?? 0) < offer.price) {
+      this.toast = { text: "金币不足！", tone: "bad", until: this.t + 1.5 };
+      return false;
+    }
+    meta.coins = (meta.coins ?? 0) - offer.price;
+    if (offer.kind === "relic" && offer.relicId) {
+      if (!(meta.ownedRelics ?? []).includes(offer.relicId)) {
+        meta.ownedRelics = [...(meta.ownedRelics ?? []), offer.relicId];
+      }
+      this.toast = { text: `✨ 获得 ${offer.name}！`, tone: "good", until: this.t + 2.5 };
+    } else if (offer.kind === "recipe" && offer.relicId) {
+      if (!(meta.unlockedRecipes ?? []).includes(offer.relicId)) {
+        meta.unlockedRecipes = [...(meta.unlockedRecipes ?? []), offer.relicId];
+      }
+      this.toast = { text: `📜 解锁配方：${offer.name}`, tone: "good", until: this.t + 2.5 };
+    } else if (offer.kind === "shardPack" && offer.shardForRelicId) {
+      const shardMap = { ...(meta.relicShards ?? {}) };
+      shardMap[offer.shardForRelicId] = (shardMap[offer.shardForRelicId] ?? 0) + (offer.shardCount ?? 3);
+      meta.relicShards = shardMap;
+      this.toast = { text: `🔧 获得 ${offer.name}`, tone: "good", until: this.t + 2 };
+    }
+    platformStore.save();
+    this.particles.spawnBurst(W / 2, H / 2, offer.color, { ring: true, sparks: 16, dots: 20, speed: 240, life: 0.8, size: 4 });
+    playSfx("good");
+    this.pendingRelicShopOffers = [];
+    this.emitHud();
+    return true;
+  }
+
+  /** v9：跳过战间商店（不购买，继续下一波） */
+  closeRelicShop(): void {
+    this.pendingRelicShopOffers = [];
+    this.emitHud();
+  }
 
   private enterUpgrade(): void {
     this.upgradeReady = true;
@@ -2947,7 +4649,11 @@ export class ManagerEngine extends GameEngine {
         : this.mode === "bossRush" ? this.bossIdx + 1
         : this.wave + 1,
       tipId: randomTip(7).id,
+      // v10：本局学到的反诈知识点（按击破敌人 fraudType 去重）
+      stats: { learnedFraudTips: [...this.learnedFraudTipsThisRun] },
     };
+    // v10：写入跨局统计
+    this.commitLearnedFraudTips();
     const msg = this.mode === "timeTrial"
       ? `坚持到底！时间奖励 +${timeBonus}`
       : this.mode === "bossRush"
@@ -2963,7 +4669,143 @@ export class ManagerEngine extends GameEngine {
     playSfx("win");
     // v7：游戏结束时检查总击杀里程碑口诀解锁
     this.checkTermUnlocksForTotalKills();
+    // v8：案例五步复盘 —— 优先用本局最后击破的 BOSS id，否则按当前关卡取代表性案例
+    const refId = this.lastDefeatedBossId
+      ?? (this.mode === "bossRush" ? this.currentBoss?.id : undefined)
+      ?? LEVELS[this.level - 1]?.enemyTypes[0]
+      ?? "robot";
+    // v11：先查 v8 案例五步复盘，fallback 到 v11 新增案例
+    this.pendingCaseBreakdown = getCaseBreakdownByEnemyId(refId)
+      ?? getV11CaseBreakdownByEnemyId(refId)
+      ?? null;
+    // v9：启动分支式调查（与五步复盘并存，调查优先展示；caseId 用 case_ 前缀）
+    const caseId = `case_${refId}`;
+    this.startInvestigation(caseId);
     this.emit({ type: "result", payload: this.result });
+    this.emitHud();
+  }
+
+  /** v8：案例五步复盘答题 —— 玩家选择拦截点（step 索引 0..4） */
+  answerCaseBreakdown(stepIdx: number): boolean {
+    if (!this.pendingCaseBreakdown) return false;
+    const correct = stepIdx === this.pendingCaseBreakdown.correctInterceptIdx;
+    this.lastBreakdownCorrect = correct;
+    if (correct) {
+      this.score += this.pendingCaseBreakdown.reward.score;
+      platformStore.state.managerMeta.antiFraudPoints += this.pendingCaseBreakdown.reward.antiFraudPoints;
+      this.floats.push({ x: W / 2, y: H / 2, text: `复盘答对！+${this.pendingCaseBreakdown.reward.score}分`, color: "#52C41A", life: 2.0, maxLife: 2.0, size: 18 });
+      this.particles.spawnBurst(W / 2, H / 2, "#52C41A", { ring: true, sparks: 20, dots: 24, speed: 280, life: 0.9, size: 4 });
+    } else {
+      const correctStep = this.pendingCaseBreakdown.steps[this.pendingCaseBreakdown.correctInterceptIdx];
+      this.floats.push({ x: W / 2, y: H / 2, text: `正确拦截点：${correctStep?.name ?? ""}`, color: "#FFB020", life: 2.2, maxLife: 2.2, size: 14 });
+    }
+    this.emitHud();
+    return correct;
+  }
+
+  /** v8：关闭案例复盘 overlay（玩家答题后由 Scene 调用，露出底层结算页） */
+  dismissCaseBreakdown(): void {
+    this.pendingCaseBreakdown = null;
+    this.lastBreakdownCorrect = undefined;
+    this.emitHud();
+  }
+
+  // ====================================================================
+  // v9：案例分支式调查 —— 5 阶段分支选择，累计证据/损失，S/A/B/C/D 评级
+  // ====================================================================
+
+  /** v9：启动分支式调查（由 win() 触发，caseId 来自最后击破的 BOSS/敌人） */
+  private startInvestigation(caseId: string): void {
+    let investigation = getCaseInvestigation(caseId);
+    // v10：boss_xxx 形式回退到 enemyTypeId（boss_deepseek → case_deepseekFake）
+    if (!investigation && caseId.startsWith("case_boss_")) {
+      const bossToEnemyCase: Record<string, string> = {
+        "case_boss_deepseek": "case_deepseekFake",
+        "case_boss_aiface": "case_aiFaceSwap",
+      };
+      const mapped = bossToEnemyCase[caseId];
+      if (mapped) investigation = getCaseInvestigation(mapped);
+    }
+    if (!investigation) return;
+    this.pendingInvestigation = {
+      caseId,
+      investigation,
+      currentNodeId: investigation.startNodeId,
+      evidence: 0,
+      loss: 0,
+      history: [],
+      ending: null,
+    };
+    this.emitHud();
+  }
+
+  /** v9：调查选择 —— 玩家在当前节点选择一个选项，累计 evidence/loss，推进到下一节点或结算 */
+  answerInvestigation(choiceIdx: number): boolean {
+    if (!this.pendingInvestigation || this.pendingInvestigation.ending) return false;
+    const st = this.pendingInvestigation;
+    const node = st.investigation.nodes.find((n) => n.id === st.currentNodeId);
+    if (!node || choiceIdx < 0 || choiceIdx >= node.choices.length) return false;
+    const choice = node.choices[choiceIdx];
+    // 累计证据/损失
+    st.evidence += choice.evidenceDelta ?? 0;
+    st.loss += choice.lossDelta ?? 0;
+    st.history.push({ nodeId: st.currentNodeId, choiceIdx, feedback: choice.feedback });
+    st.lastFeedback = choice.feedback;
+    // 推进到下一节点或结算
+    if (choice.nextNodeId === null || choice.nextNodeId === undefined) {
+      // 进入结局判定
+      this.finishInvestigation();
+    } else {
+      st.currentNodeId = choice.nextNodeId;
+    }
+    this.emitHud();
+    return true;
+  }
+
+  /** v9：调查结算 —— 根据累计 evidence/loss 匹配最高评级结局，发放奖励 */
+  private finishInvestigation(): void {
+    if (!this.pendingInvestigation) return;
+    const st = this.pendingInvestigation;
+    // 按 minEvidence 降序、maxLoss 升序匹配最佳结局
+    const sorted = [...st.investigation.endings].sort((a, b) => {
+      // 优先匹配 minEvidence 高的，其次 maxLoss 低的
+      if (b.minEvidence !== a.minEvidence) return b.minEvidence - a.minEvidence;
+      return a.maxLoss - b.maxLoss;
+    });
+    let chosen = sorted[sorted.length - 1]; // 兜底：最低评级
+    for (const e of sorted) {
+      if (st.evidence >= e.minEvidence && st.loss <= e.maxLoss) {
+        chosen = e;
+        break;
+      }
+    }
+    st.ending = chosen;
+    // 发放奖励：基础分 × rewardMul
+    const baseReward = 500;
+    const gained = Math.round(baseReward * chosen.rewardMul);
+    this.score += gained;
+    platformStore.state.managerMeta.antiFraudPoints += Math.round(50 * chosen.rewardMul);
+    platformStore.state.managerMeta.caseBreakdownCorrectCount += chosen.rank === "S" || chosen.rank === "A" ? 1 : 0;
+    platformStore.state.managerMeta.caseBreakdownTotalCount += 1;
+    platformStore.save();
+    this.floats.push({
+      x: W / 2, y: H / 2 - 30,
+      text: `调查评级 ${chosen.rank}！+${gained} 分`,
+      color: chosen.rank === "S" ? "#FFD666" : chosen.rank === "A" ? "#52C41A" : "#FFB020",
+      life: 2.5, maxLife: 2.5, size: 22,
+    });
+    this.particles.spawnBurst(W / 2, H / 2, chosen.rank === "S" ? "#FFD666" : "#52C41A", {
+      ring: true, shockwave: true, sparks: 28, dots: 34, speed: 340, life: 1.1, size: 5,
+    });
+    postFX.flash(chosen.rank === "S" ? "#FFD666" : "#52C41A", 0.4, 2.0);
+    playSfx("win");
+    this.emitHud();
+  }
+
+  /** v9：关闭调查 overlay（玩家查看结局后由 Scene 调用） */
+  dismissInvestigation(): void {
+    this.pendingInvestigation = null;
+    this.emitHud();
   }
 
   private lose(): void {
@@ -2992,7 +4834,11 @@ export class ManagerEngine extends GameEngine {
         : (this.mode === "classic" || this.mode === "daily") ? this.wave + 1
         : undefined,
       tipId: randomTip(3).id,
+      // v10：本局学到的反诈知识点（即使失败也保留，强化"失败也是学习"教育意义）
+      stats: { learnedFraudTips: [...this.learnedFraudTipsThisRun] },
     };
+    // v10：写入跨局统计
+    this.commitLearnedFraudTips();
     // v7：失败 —— 保留 flash + shake，移除 glitch（避免失败瞬间叠加故障闪烁）
     postFX.flash("#E5353B", 0.45, 2);
     postFX.shake(10, 16);
@@ -3002,6 +4848,26 @@ export class ManagerEngine extends GameEngine {
     this.emit({ type: "result", payload: this.result });
   }
 
+  /**
+   * v10：把本局学到的反诈知识点写入跨局统计
+   * - 累加 learnedFraudTipsTotal
+   * - 合并到 learnedFraudTipsThisRun（持久化，供 Hub/Progression 展示）
+   * - 清空本局临时集合（避免下次开局污染）
+   */
+  private commitLearnedFraudTips(): void {
+    const tips = this.learnedFraudTipsThisRun;
+    if (tips.length === 0) return;
+    const meta = platformStore.state.managerMeta;
+    // 累计计数（按知识点种类数累加，避免同一知识点重复计数）
+    meta.learnedFraudTipsTotal += tips.length;
+    // 合并到持久化本局列表（供 Hub 展示最近一次学习记录；上限 50 条防膨胀）
+    const merged = Array.from(new Set([...(meta.learnedFraudTipsThisRun ?? []), ...tips]));
+    meta.learnedFraudTipsThisRun = merged.slice(-50);
+    platformStore.save();
+    // 清空本局临时集合（下次开局从 0 开始）
+    this.learnedFraudTipsThisRun = [];
+  }
+
   // ====================================================================
   // HUD 发射
   // ====================================================================
@@ -3009,10 +4875,16 @@ export class ManagerEngine extends GameEngine {
   private emitHud(): void {
     const bossEnemy = this.enemies.find((e) => e.bossRef);
     const endlessTier = this.mode === "endlessRush" ? endlessScaling(this.endlessAbsWave).tier : undefined;
-    const ultAgent = this.agents.find((a) => a.alive);
+    // v8 软合并：大招名称/描述从第一张可用手牌取（不再用 UltDef）
+    const ultCard = this.cardHand.find((c) =>
+      this.agents.some((a) => a.alive && a.id === c.agentId),
+    );
 
     const hud: ManagerHud = {
-      phase: this.over ? (this.result?.win ? "won" : "lost") : this.upgradeReady ? "upgrade" : "battle",
+      phase: this.over ? (this.result?.win ? "won" : "lost")
+        : this.pendingInvestigation ? "investigation"
+        : this.pendingRelicShopOffers.length > 0 ? "shop"
+        : this.upgradeReady ? "upgrade" : "battle",
       baseHp: Math.ceil(this.base.hp),
       baseMax: this.base.max,
       wave: this.wave + 1,
@@ -3089,11 +4961,17 @@ export class ManagerEngine extends GameEngine {
       dailySeed: this.dailySeed || undefined,
       bossPhaseIdx: bossEnemy?.bossPhaseIdx,
       bossPhaseName: this.bossPhaseName || undefined,
-      ultName: ultAgent?.def.ultDef.name,
-      ultDesc: ultAgent?.def.ultDef.desc,
-      ultEmoji: ultAgent?.def.emoji,
+      ultName: ultCard?.name,
+      ultDesc: ultCard?.desc,
+      ultEmoji: ultCard?.emoji,
       lastElementalHint: this.lastElementalHint && this.t - this.lastElementalHint.at < 1
         ? this.lastElementalHint : undefined,
+      // v10：系统事件通知（剔除超时后输出，最多 3 条）
+      recentSystemEvents: (() => {
+        const fresh = this.recentSystemEvents.filter((e) => e.at + e.ttl >= this.t);
+        this.recentSystemEvents = fresh;
+        return fresh.length > 0 ? fresh : undefined;
+      })(),
 
       // ===== v4 迷宫版新增 =====
       mazeName: this.maze.name,
@@ -3112,10 +4990,7 @@ export class ManagerEngine extends GameEngine {
         .filter((r) => this.t - r.activatedAt < r.def.duration)
         .map((r) => ({ kind: r.def.kind as ElementReactionKind, remaining: Math.max(0, r.def.duration - (this.t - r.activatedAt)) })),
 
-      // Phase 2.2：技能链 / 战间答题
-      activeSkillLinks: this.activeSkillLinkStates
-        .filter((s) => this.t - s.lastTriggeredAt < 3)
-        .map((s) => ({ id: s.link.id, name: s.link.name, remaining: Math.max(0, 3 - (this.t - s.lastTriggeredAt)) })),
+      // Phase 2.2：战间答题
       pendingQuiz: this.pendingQuiz ?? undefined,
       pendingQuizIsRetry: this.pendingQuiz ? this.pendingQuizIsRetry : undefined,
       // v7：爬塔事件
@@ -3128,6 +5003,81 @@ export class ManagerEngine extends GameEngine {
       equippedRelics: this.equippedRelics,
       agentEquipment: this.agentEquipmentMap,
       agentSkins: this.agentSkinsMap,
+      // ===== v9 全面升级新增 =====
+      pendingRelicShop: this.pendingRelicShopOffers.length > 0 ? this.pendingRelicShopOffers : undefined,
+      pendingInvestigation: this.pendingInvestigation ?? undefined,
+      lastEnemyAIEvent: this.lastEnemyAIEvent ?? undefined,
+      // v9：探员羁绊运行时状态
+      bonds: this.bondStates.length > 0
+        ? this.bondStates.map((bs) => {
+            const bond = AGENT_BONDS.find((b) => b.id === bs.bondId);
+            const nextLvl = bond?.levels.find((l) => l.level === bs.currentLevel + 1);
+            return {
+              id: bs.bondId,
+              name: bond?.name ?? bs.bondId,
+              color: bond?.color ?? "#FFD666",
+              level: bs.currentLevel,
+              kills: bs.kills,
+              nextKills: nextLvl?.requiredKills ?? 0,
+              bothDeployed: bs.bothDeployed,
+            };
+          })
+        : undefined,
+
+      // ===== v8 全面升级新增 =====
+      // 受害人营救
+      victims: this.victims.map((v) => ({
+        id: v.id,
+        emoji: v.emoji,
+        demographic: v.demographic,
+        progress: v.brainwashProgress,
+        state: v.rescued ? "rescued" as const : v.lost ? "lost" as const : v.brainwashingBy !== null ? "brainwashing" as const : "idle" as const,
+        x: v.x,
+        y: v.y,
+      })),
+      victimsRescued: this.victimsRescued,
+      victimsLost: this.victimsLost,
+      // 话术气泡
+      speechBubbles: this.speechBubbles.filter((b) => !b.broken).map((b) => ({
+        id: b.id,
+        enemyUid: b.enemyUid,
+        text: b.text,
+        x: b.x,
+        y: b.y,
+        remaining: Math.max(0, b.duration - (this.t - b.appearedAt)),
+      })),
+      // 反诈口诀槽（v8 简化：仅 BOSS 在场时输出，普通波次不显示）
+      counterspellSlots: this.enemies.some((e) => e.bossRef)
+        ? { slots: this.counterspellSlots, cooldowns: this.counterspellCooldowns }
+        : undefined,
+      // 战术指令
+      selectedAgentIdx: this.selectedAgentIdx,
+      tacticalCommandState: this.selectedAgentIdx !== null && this.selectedAgentIdx >= 0
+        ? this.tacticalCommandStates[this.selectedAgentIdx] ?? null
+        : null,
+      // 卡牌大招手牌
+      cardHand: {
+        cards: this.cardHand,
+        playable: this.cardHand.map((c) => this.energy >= c.cost),
+        energy: Math.floor(this.energy),
+      },
+      // 案例五步复盘（仅胜利时输出）
+      pendingCaseBreakdown: this.pendingCaseBreakdown ?? undefined,
+      lastBreakdownCorrect: this.lastBreakdownCorrect ?? undefined,
+
+      // ===== v11 升级新增 =====
+      // 地形图层（null=该迷宫无地形）
+      terrainLayer: this.maze.terrainLayer ?? null,
+      // 重部署状态
+      redeployState: this.redeployState,
+      redeployCost: this.redeployCost,
+      redeployReady: this.energy >= this.redeployCost && this.redeployState === null,
+      // 弱点情报（C4 填充，默认空）
+      activeWeaknessIntel: this.activeWeaknessIntel.length > 0
+        ? this.activeWeaknessIntel.map((w) => ({ enemyTypeId: w.enemyTypeId, damageBonus: w.damageBonus, desc: w.desc }))
+        : undefined,
+      // 自定义难度（D4 填充）
+      customDifficulty: this.customDifficultyCfg ?? undefined,
     };
     this.emit({ type: "hud", payload: hud as unknown as Record<string, string | number> });
     if (this.toast && this.t < this.toast.until) {
@@ -3170,6 +5120,12 @@ export class ManagerEngine extends GameEngine {
     for (const e of this.enemies) {
       this.drawEnemy(ctx, e);
     }
+
+    // v8：话术气泡（敌人头顶）
+    this.drawSpeechBubbles(ctx);
+
+    // v8：受害人 NPC（emoji + 洗脑进度条）
+    this.drawVictims(ctx);
 
     // 投射物（v3：拖尾）
     this.drawProjectiles(ctx);
@@ -3372,6 +5328,35 @@ export class ManagerEngine extends GameEngine {
       ctx.fillText(term, x + MAZE_CELL / 2, y + MAZE_CELL / 2);
     }
     ctx.restore();
+
+    // 1b) v11：地形图层（叠加在路径格之上，半透明色块 + emoji 标识）
+    if (this.maze.terrainLayer) {
+      ctx.save();
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      for (const tile of this.maze.terrainLayer.tiles) {
+        const x = MAZE_OFFSET_X + tile.col * MAZE_CELL;
+        const y = MAZE_OFFSET_Y + tile.row * MAZE_CELL;
+        // 地形色块（脉动呼吸）
+        const breathe = 0.5 + 0.5 * Math.sin(t * 2 + tile.col * 0.7 + tile.row * 0.5);
+        ctx.globalAlpha = 0.55 + 0.25 * breathe;
+        ctx.fillStyle = tile.color;
+        ctx.fillRect(x, y, MAZE_CELL, MAZE_CELL);
+        ctx.globalAlpha = 1;
+        // 边框（地形类型色）
+        ctx.strokeStyle = tile.color;
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(x + 0.5, y + 0.5, MAZE_CELL - 1, MAZE_CELL - 1);
+        // emoji 标识
+        if (tile.emoji) {
+          ctx.font = `${Math.max(10, Math.floor(MAZE_CELL * 0.4))}px sans-serif`;
+          ctx.globalAlpha = 0.85;
+          ctx.fillText(tile.emoji, x + MAZE_CELL / 2, y + MAZE_CELL / 2);
+          ctx.globalAlpha = 1;
+        }
+      }
+      ctx.restore();
+    }
 
     // 2) 路径三层描边：底层发光 + 中层流动虚线 + 顶层能量粒子流
     ctx.save();
@@ -4191,6 +6176,90 @@ export class ManagerEngine extends GameEngine {
     };
     drawShape();
     ctx.restore();
+  }
+
+  /** v8：话术气泡绘制 —— 敌人头顶气泡 + 剩余时间环 */
+  private drawSpeechBubbles(ctx: CanvasRenderingContext2D): void {
+    for (const b of this.speechBubbles) {
+      if (b.broken) continue;
+      const remaining = Math.max(0, b.duration - (this.t - b.appearedAt));
+      const alpha = Math.min(1, remaining / BUBBLE_FADE_THRESHOLD);
+      ctx.globalAlpha = alpha;
+      // 气泡背景
+      const bx = b.x - BUBBLE_W / 2;
+      const by = b.y - BUBBLE_H;
+      ctx.fillStyle = "rgba(255,255,255,0.95)";
+      ctx.strokeStyle = "#E5353B";
+      ctx.lineWidth = 1.5;
+      roundRect(ctx, bx, by, BUBBLE_W, BUBBLE_H, BUBBLE_RADIUS);
+      ctx.fill();
+      ctx.stroke();
+      // 小三角指向敌人
+      ctx.beginPath();
+      ctx.moveTo(b.x - 5, by + BUBBLE_H);
+      ctx.lineTo(b.x + 5, by + BUBBLE_H);
+      ctx.lineTo(b.x, by + BUBBLE_H + BUBBLE_ARROW_H);
+      ctx.closePath();
+      ctx.fillStyle = "rgba(255,255,255,0.95)";
+      ctx.fill();
+      // 话术文本
+      drawText(ctx, b.text, b.x, by + 16, { size: 10, color: "#333", weight: "600", align: "center" });
+      // 剩余时间进度条
+      const ratio = remaining / b.duration;
+      ctx.fillStyle = "rgba(229,53,59,0.25)";
+      ctx.fillRect(bx + 4, by + BUBBLE_H - 4, BUBBLE_W - 8, 3);
+      ctx.fillStyle = ratio > BUBBLE_WARN_RATIO ? "#52C41A" : "#E5353B";
+      ctx.fillRect(bx + 4, by + BUBBLE_H - 4, (BUBBLE_W - 8) * ratio, 3);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  /** v8：受害人 NPC 绘制 —— emoji + 洗脑进度环 */
+  private drawVictims(ctx: CanvasRenderingContext2D): void {
+    for (const v of this.victims) {
+      const cfg = this.victimRescueConfig;
+      // 受害人 emoji
+      drawText(ctx, v.emoji, v.x, v.y, { size: VICTIM_EMOJI_SIZE, color: "#FFFFFF", align: "center" });
+      // 状态标识
+      if (v.rescued) {
+        drawText(ctx, "✓", v.x + 12, v.y - 8, { size: 12, color: "#52C41A", weight: "900" });
+        continue;
+      }
+      if (v.lost) {
+        drawText(ctx, "✗", v.x + 12, v.y - 8, { size: 12, color: "#E5353B", weight: "900" });
+        continue;
+      }
+      // 洗脑进度环（仅在被洗脑时显示）
+      if (v.brainwashProgress > 0.01) {
+        ctx.beginPath();
+        ctx.arc(v.x, v.y, VICTIM_RING_R, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * v.brainwashProgress);
+        ctx.strokeStyle = v.brainwashProgress > 0.6 ? "#E5353B" : "#FFB020";
+        ctx.lineWidth = VICTIM_RING_LW;
+        ctx.stroke();
+        // 背景环
+        ctx.beginPath();
+        ctx.arc(v.x, v.y, VICTIM_RING_R, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(255,255,255,0.2)";
+        ctx.lineWidth = VICTIM_RING_LW;
+        ctx.stroke();
+      }
+      // 营救范围提示（仅当探员靠近时）
+      if (cfg) {
+        for (const a of this.agents) {
+          if (!a.alive) continue;
+          if (Math.hypot(a.x - v.x, a.y - v.y) < cfg.rescueRange) {
+            ctx.beginPath();
+            ctx.arc(v.x, v.y, cfg.rescueRange, 0, Math.PI * 2);
+            ctx.strokeStyle = "rgba(82,196,26,0.3)";
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 4]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            break;
+          }
+        }
+      }
+    }
   }
 
   /** v3：投射物绘制（含拖尾） */

@@ -1,4 +1,4 @@
-export type GameId = "fraud-buster" | "manager" | "thunder" | "bomb-island";
+export type GameId = "fraud-buster" | "manager" | "thunder" | "bomb-island" | "chat-detective";
 
 export interface GameMeta {
   id: GameId;

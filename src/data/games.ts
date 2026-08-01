@@ -94,6 +94,29 @@ export const GAMES: GameMeta[] = [
       hotline: "12308",
     },
   },
+  {
+    id: "chat-detective",
+    title: "聊天鉴诈",
+    subtitle: "CHAT DETECTIVE",
+    tagline: "圈出聊天记录里的杀猪盘破绽",
+    tags: ["解密推理", "话术鉴别", "杀猪盘"],
+    difficulty: 2,
+    accent: "#FF5A8A",
+    accentSoft: "rgba(255, 90, 138, 0.18)",
+    icon: "chat",
+    cover: "phone",
+    description:
+      "朋友小林网恋了一位“现役军官”，正准备跟他投资。翻看 10 条聊天记录，点击气泡圈出 7 处诈骗破绽，帮小林及时止损。话术取材真实杀猪盘案例。",
+    briefing: {
+      type: "冒充军人杀猪盘",
+      points: [
+        "现役军人严禁经商，“军官带你投资”必假",
+        "拒绝视频语音 = 怕露馅，不是“部队纪律”",
+        "凡网恋 + 荐投资 = 杀猪盘，立即止损",
+      ],
+      hotline: "96110",
+    },
+  },
 ];
 
 export function getGame(id: GameId): GameMeta {

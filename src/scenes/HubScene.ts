@@ -38,6 +38,8 @@ import { playSfx, startBGM } from "@/engine/Audio";
 import { ParticleSystem } from "@/engine/Particle";
 import { postFX } from "@/engine/PostFX";
 import { BriefingScene } from "./BriefingScene";
+import { ExploreScene } from "./ExploreScene";
+import { BombIslandModeScene } from "./BombIslandModeScene";
 import { LearningScene } from "./LearningScene";
 import { StoryScene } from "./StoryScene";
 import { DailyScene } from "./DailyScene";
@@ -435,7 +437,7 @@ export class HubScene extends Scene {
 
     // 扩展玩法入口
     this.renderExtraModes(ctx, pad, y2, screenW - pad * 2);
-    y2 += 14 + 36 + 88 + 16;
+    y2 += 14 + 36 + 88 + 12 + 88 + 16;
 
     // 内容来源声明
     const cardW = screenW - pad * 2;
@@ -883,6 +885,12 @@ export class HubScene extends Scene {
           this.pressedButton = "daily";
           return true;
         }
+        const exploreY = this.computeExtraModesY() + 50 + 88 + 12;
+        const exploreRect: Rect = { x: pad, y: exploreY - this.scrollY, w: screenW - pad * 2, h: 88 };
+        if (hitTest(x, y, exploreRect)) {
+          this.pressedButton = "explore";
+          return true;
+        }
       }
 
       // 否则视为纵向滚动起点
@@ -970,7 +978,13 @@ export class HubScene extends Scene {
         const startBtnRect: Rect = { x: btnX, y: btnY, w: btnW, h: btnH };
         if (hitTest(x, y, startBtnRect)) {
           playSfx("click");
-          this.director.replace(new BriefingScene(this.director), { gameId: GAMES[this.selectedGameIndex].id }, "slide");
+          const gameId = GAMES[this.selectedGameIndex].id;
+          // v9：诈园区模块升级，先进入模式选择场景
+          if (gameId === "bomb-island") {
+            this.director.push(new BombIslandModeScene(this.director), undefined, "slide");
+          } else {
+            this.director.replace(new BriefingScene(this.director), { gameId }, "slide");
+          }
         }
         this.pressedButton = null;
         return true;
@@ -1014,6 +1028,18 @@ export class HubScene extends Scene {
           playSfx("click");
           this.director.push(new DailyScene(this.director), undefined, "slide");
           postFX.flash(Theme.colors.neon.DEFAULT, 0.3);
+        }
+        this.pressedButton = null;
+        return true;
+      }
+      if (this.pressedButton === "explore") {
+        const pad = 16;
+        const extraY = this.computeExtraModesY() + 50 + 88 + 12;
+        const exploreRect: Rect = { x: pad, y: extraY - this.scrollY, w: screenW - pad * 2, h: 88 };
+        if (hitTest(x, y, exploreRect)) {
+          playSfx("click");
+          this.director.push(new ExploreScene(this.director), undefined, "slide");
+          postFX.flash(Theme.colors.warn.DEFAULT, 0.3);
         }
         this.pressedButton = null;
         return true;
@@ -1126,6 +1152,17 @@ export class HubScene extends Scene {
       title: "每日活动",
       subText: "7 日签到 · 每日任务",
       progressLabel: this.getDailyProgressLabel(),
+    });
+
+    // 第三块：探索模式（整宽，Demo）
+    const exploreY = tileY + tileH + 12;
+    this.renderExtraTile(ctx, x, exploreY, w, tileH, {
+      id: "explore",
+      icon: "brain",
+      accent: Theme.colors.warn.DEFAULT,
+      title: "探索 · 杀猪盘",
+      subText: "受害者视角 · 走完一局养成",
+      progressLabel: "DEMO",
     });
   }
 

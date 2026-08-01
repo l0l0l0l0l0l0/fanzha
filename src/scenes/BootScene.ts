@@ -9,7 +9,7 @@ import { Theme, withAlpha } from "@/ui/Theme";
 import { Ease } from "@/engine/easing";
 import { drawBackground, drawScanlineOverlay } from "@/ui/widgets";
 import { drawLogo } from "@/ui/icons";
-import { HubScene } from "./HubScene";
+import { GrowthHomeScene } from "./GrowthHomeScene";
 
 const BOOT_DURATION = 2.4;
 
@@ -22,7 +22,7 @@ export class BootScene extends Scene {
     this.t += dt;
     if (this.t >= BOOT_DURATION && !this.done) {
       this.done = true;
-      this.director.replace(new HubScene(this.director), undefined, "glitch");
+      this.director.replace(new GrowthHomeScene(this.director), undefined, "glitch");
     }
   }
 
@@ -121,7 +121,7 @@ export class BootScene extends Scene {
   handleTouch(type: "start" | "move" | "end"): boolean {
     if (type === "start" && this.t > 0.5 && !this.done) {
       this.done = true;
-      this.director.replace(new HubScene(this.director), undefined, "glitch");
+      this.director.replace(new GrowthHomeScene(this.director), undefined, "glitch");
       return true;
     }
     return true;

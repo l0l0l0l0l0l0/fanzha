@@ -15,8 +15,15 @@ import { drawIcon } from "@/ui/icons";
 import {
   AGENTS, MODE_META, dailyModifiersForSeed, ELEMENTS,
   CHALLENGE_AFFIXES, challengeScoreMul, TOWER_MAX_FLOOR, getTowerFloor,
+  LEVELS, MAX_LEVEL,
 } from "@/games/manager/data";
-import type { DeploySlot, ManagerMode, ChallengeAffix } from "@/games/manager/types";
+import {
+  REGIONS, DEFAULT_REGION_ID, currentMonthKey, getMonthlyFraudTypes,
+} from "@/games/manager/data.v8";
+import {
+  CUSTOM_DIFFICULTY_PRESETS, getPresetConfig,
+} from "@/games/manager/data.v11";
+import type { DeploySlot, ManagerMode, ChallengeAffix, CustomDifficultyConfig, CustomDifficultyPreset } from "@/games/manager/types";
 import { platformStore } from "@/store/platformStore";
 import { playSfx } from "@/engine/Audio";
 import { vibrateShort, setOrientation } from "@/platform/web";
@@ -25,6 +32,10 @@ import { ManagerCodexScene } from "./ManagerCodexScene";
 import { ManagerProgressionScene } from "./ManagerProgressionScene";
 import { ManagerSeasonScene } from "./ManagerSeasonScene";
 import { ManagerStoryScene } from "./ManagerStoryScene";
+import { ManagerSeniorScene } from "./ManagerSeniorScene";
+import { ManagerAIDialogScene } from "./ManagerAIDialogScene";
+import { ManagerQuizModeScene } from "./ManagerQuizModeScene";
+import { ManagerStatsScene } from "./ManagerStatsScene";
 import { TutorialOverlay } from "./TutorialOverlay";
 import { AccessibilityOverlay } from "./AccessibilityOverlay";
 import {
@@ -34,18 +45,21 @@ import {
 } from "@/games/manager/maze";
 import { roundRect } from "@/engine/Renderer";
 
-/** v6 Phase 3.3：顶部管理入口按钮（档案/天赋/赛季/剧情/无障碍） */
-interface EntryBtnDef { id: "codex" | "progression" | "season" | "story" | "accessibility"; label: string; icon: "book" | "award" | "trophy" | "story" | "gear"; accent: string; }
+/** v6 Phase 3.3：顶部管理入口按钮（档案/天赋/赛季/剧情/演练/闯关/无障碍） */
+interface EntryBtnDef { id: "codex" | "progression" | "season" | "story" | "dialog" | "quiz" | "accessibility" | "stats"; label: string; icon: "book" | "award" | "trophy" | "story" | "chat" | "brain" | "gear" | "info"; accent: string; }
 const ENTRY_BUTTONS: EntryBtnDef[] = [
   { id: "codex",         label: "档案", icon: "book",   accent: "#FFB020" },
   { id: "progression",   label: "天赋", icon: "award",  accent: "#00E5FF" },
   { id: "season",        label: "赛季", icon: "trophy", accent: "#9D6BFF" },
   { id: "story",         label: "剧情", icon: "story",  accent: "#FF7AB8" },
+  { id: "dialog",        label: "演练", icon: "chat",   accent: "#52C41A" },
+  { id: "quiz",          label: "闯关", icon: "brain",  accent: "#FF8A3D" },
+  { id: "stats",         label: "数据", icon: "info",   accent: "#26C6DA" },
   { id: "accessibility", label: "设置", icon: "gear",   accent: "#7DD3FC" },
 ];
 
-/** 7 种模式按 UI 顺序排列（v6：新增 tower 爬塔 / challenge 极限挑战） */
-const MODE_ORDER: ManagerMode[] = ["classic", "timeTrial", "bossRush", "endlessRush", "daily", "tower", "challenge"];
+/** 8 种模式按 UI 顺序排列（v6：新增 tower 爬塔 / challenge 极限挑战；v9：新增 senior 适老模式） */
+const MODE_ORDER: ManagerMode[] = ["classic", "timeTrial", "bossRush", "endlessRush", "daily", "tower", "challenge", "senior"];
 
 /** 6 探员中各属性的最大值，用于属性条归一化 */
 const MAX_HP = Math.max(...AGENTS.map((a) => a.hp));
@@ -79,6 +93,28 @@ export class ManagerDeployScene extends Scene {
   private pressedAffixIdx: number | null = null;
   private pressedAffixConfirm = false;
 
+  // ===== v8：关卡选择 + 地区选择 =====
+  /** classic 模式下玩家选择的起始关卡（1..MAX_LEVEL） */
+  private selectedLevel = 1;
+  /** 关卡按钮按压索引 */
+  private pressedLevelIdx: number | null = null;
+  /** 地区选择面板是否展开 */
+  private showRegionPicker = false;
+  private pressedRegionIdx: number | null = null;
+  private pressedRegionConfirm = false;
+
+  // ===== v11：自定义难度选择器（独立于 challenge 词缀） =====
+  /** 难度面板是否展开 */
+  private showDifficultyPicker = false;
+  /** 面板中按下的预设档位索引 */
+  private pressedDifficultyPreset: number | null = null;
+  /** 面板中按下的确认按钮 */
+  private pressedDifficultyConfirm = false;
+  /** 面板中正在拖动的滑块 key（null=无） */
+  private draggingSlider: string | null = null;
+  /** 自定义配置编辑副本（仅 custom 档位可编辑） */
+  private customCfgDraft: CustomDifficultyConfig = { ...CUSTOM_DIFFICULTY_PRESETS.custom };
+
   enter(params?: Record<string, unknown>): void {
     super.enter(params);
     setOrientation("landscape");
@@ -91,6 +127,11 @@ export class ManagerDeployScene extends Scene {
     }
     this.dailySeed = this.getDailySeed();
     this.maze = this.buildMazeForMode(this.mode);
+    // v8：初始化关卡选择为已解锁最高关卡（classic 模式）
+    {
+      const prog = platformStore.managerProgress();
+      this.selectedLevel = Math.min(MAX_LEVEL, Math.max(1, prog.maxLevel + 1));
+    }
     // v7 D1：首次进入展示新手引导
     this.tutorialOverlay = TutorialOverlay.maybeCreate(this.director, {
       step: "deploy",
@@ -153,6 +194,16 @@ export class ManagerDeployScene extends Scene {
     this.selectedAffixIds.clear();
     this.pressedAffixIdx = null;
     this.pressedAffixConfirm = false;
+    // v8：切换到 classic 时重置关卡选择为已解锁最高关卡
+    if (newMode === "classic") {
+      const prog = platformStore.managerProgress();
+      this.selectedLevel = Math.min(MAX_LEVEL, Math.max(1, prog.maxLevel + 1));
+    } else {
+      this.selectedLevel = 1;
+    }
+    this.pressedLevelIdx = null;
+    this.showRegionPicker = false;
+    this.pressedRegionIdx = null;
     playSfx("click");
     vibrateShort();
   }
@@ -177,7 +228,8 @@ export class ManagerDeployScene extends Scene {
 
   private getModeCardRect(idx: number, screenW: number): Rect {
     const gap = 6;
-    const cardW = (screenW - 16 * 2 - gap * 6) / 7;
+    // v9：8 模式布局（原 7 模式 → 8 模式，含 senior 适老）
+    const cardW = (screenW - 16 * 2 - gap * 7) / 8;
     const cardH = 56;
     const x = 16 + idx * (cardW + gap);
     const y = 52;
@@ -192,17 +244,88 @@ export class ManagerDeployScene extends Scene {
     return { x: screenW - 16 - 110 - 8 - 96, y: 8, w: 96, h: 32 };
   }
 
-  /** v6 Phase 3.3：顶部三个管理入口按钮矩形（在返回按钮与一键布阵之间居中） */
+  /** v11：自定义难度按钮矩形（位于一键布阵左侧） */
+  private getDifficultyButtonRect(screenW: number): Rect {
+    return { x: screenW - 16 - 110 - 8 - 96 - 8 - 76, y: 8, w: 76, h: 32 };
+  }
+
+  /** v11：当前自定义难度预设档位 */
+  private currentDifficultyPreset(): CustomDifficultyPreset {
+    return platformStore.managerMetaRef().customDifficultyPreset ?? "normal";
+  }
+
+  /** v11：预设档位中文标签 */
+  private difficultyPresetLabel(preset: CustomDifficultyPreset): string {
+    switch (preset) {
+      case "easy": return "轻松";
+      case "normal": return "标准";
+      case "hard": return "困难";
+      case "custom": return "自定义";
+    }
+  }
+
+  /** v6 Phase 3.3：顶部管理入口按钮矩形（在返回按钮与一键布阵之间居中） */
   private getEntryButtonRect(idx: number, screenW: number): Rect {
-    const btnW = 76;
-    const gap = 6;
-    const totalW = ENTRY_BUTTONS.length * btnW + (ENTRY_BUTTONS.length - 1) * gap;
-    // 可用区域：[返回按钮右侧, 一键布阵左侧]
+    // v11：8 个入口按钮（原 7 → 8，新增数据），按钮宽度自适应可用区域
+    const gap = 4;
     const leftBound = 8 + 56 + 8; // back btn + gap
-    const rightBound = screenW - 16 - 110 - 8 - 96; // auto-deploy start
+    // v11：右侧边界收缩到难度按钮起点（避免与一键布阵/难度按钮重叠）
+    const rightBound = this.getDifficultyButtonRect(screenW).x - gap;
     const availW = rightBound - leftBound;
+    const btnW = Math.min(76, Math.max(44, Math.floor((availW - (ENTRY_BUTTONS.length - 1) * gap) / ENTRY_BUTTONS.length)));
+    const totalW = ENTRY_BUTTONS.length * btnW + (ENTRY_BUTTONS.length - 1) * gap;
     const startX = leftBound + Math.max(0, (availW - totalW) / 2);
     return { x: startX + idx * (btnW + gap), y: 8, w: btnW, h: 32 };
+  }
+
+  // ===== v8：关卡选择 + 地区选择矩形 =====
+
+  /** v8：关卡按钮矩形（classic 模式下显示于模式详情行右侧，全部并排） */
+  private getLevelBtnRect(idx: number, screenW: number): Rect {
+    // 关卡按钮放在详情行右侧（历史最高分左侧）
+    const reserveRight = 120; // 留给历史最高分
+    const gap = 4;
+    // v11：按钮宽度自适应，确保 5 个按钮在窄屏也能完整显示
+    const availableW = screenW - 16 - reserveRight - 16;
+    const btnW = Math.max(40, Math.min(60, Math.floor((availableW - (MAX_LEVEL - 1) * gap) / MAX_LEVEL)));
+    const totalW = MAX_LEVEL * btnW + (MAX_LEVEL - 1) * gap;
+    const startX = screenW - 16 - reserveRight - totalW;
+    return { x: startX + idx * (btnW + gap), y: 108, w: btnW, h: 20 };
+  }
+
+  /** v8：地区按钮矩形（classic 模式下显示于模式详情行左侧） */
+  private getRegionBtnRect(_screenW: number): Rect {
+    return { x: 16, y: 104, w: 132, h: 32 };
+  }
+
+  /** v8：地区选择面板中单个地区条目矩形 */
+  private getRegionItemRect(idx: number, screenW: number, screenH: number): Rect {
+    const panelW = Math.min(440, screenW - 64);
+    const panelH = 320;
+    const panelX = (screenW - panelW) / 2;
+    const panelY = (screenH - panelH) / 2;
+    const itemH = 48;
+    const gap = 8;
+    const itemW = panelW - 48;
+    return { x: panelX + 24, y: panelY + 80 + idx * (itemH + gap), w: itemW, h: itemH };
+  }
+
+  /** v8：地区选择面板确认按钮矩形 */
+  private getRegionConfirmRect(screenW: number, screenH: number): Rect {
+    const panelW = Math.min(440, screenW - 64);
+    const panelH = 320;
+    const panelX = (screenW - panelW) / 2;
+    const panelY = (screenH - panelH) / 2;
+    return { x: panelX + panelW - 24 - 100, y: panelY + panelH - 40, w: 100, h: 28 };
+  }
+
+  /** v8：地区选择面板取消按钮矩形 */
+  private getRegionCancelRect(screenW: number, screenH: number): Rect {
+    const panelW = Math.min(440, screenW - 64);
+    const panelH = 320;
+    const panelX = (screenW - panelW) / 2;
+    const panelY = (screenH - panelH) / 2;
+    return { x: panelX + 24, y: panelY + panelH - 40, w: 100, h: 28 };
   }
 
   /** 探员卡片矩形（底部 1 行 6 列） */
@@ -217,7 +340,7 @@ export class ManagerDeployScene extends Scene {
 
   /** 迷宫渲染度量：在 (16, 124) → (screenW-16, screenH-100) 的可用区域内居中适配 */
   private getMazeMetrics(screenW: number, screenH: number): MazeMetrics {
-    const topPad = 124;
+    const topPad = 144;
     const botPad = 100;
     const availW = screenW - 32;
     const availH = screenH - topPad - botPad;
@@ -340,30 +463,55 @@ export class ManagerDeployScene extends Scene {
 
     // 顶部右侧：一键布阵 + 开战
     const meta = MODE_META[this.mode];
-    const ready = this.getPlacedCount() === 6;
+    // v9：适老模式无需部署探员，开战按钮始终可用
+    const isSenior = this.mode === "senior";
+    const ready = isSenior || this.getPlacedCount() === 6;
     const startBtn = this.getStartButtonRect(screenW);
-    // v6：challenge 模式开战按钮提示选择词缀
-    const startLabel = ready
-      ? (this.mode === "challenge" ? "▶ 选词缀" : "▶ 开战")
-      : `部署 ${this.getPlacedCount()}/6`;
+    // v6：challenge 模式开战按钮提示选择词缀；v9：适老模式显示"开始学习"
+    const startLabel = isSenior
+      ? "▶ 开始学习"
+      : ready
+        ? (this.mode === "challenge" ? "▶ 选词缀" : "▶ 开战")
+        : `部署 ${this.getPlacedCount()}/6`;
     drawButton(ctx, startBtn.x, startBtn.y, startBtn.w, startBtn.h, startLabel, {
       variant: ready ? "primary" : "ghost",
       accent: meta.accent,
       pressed: this.pressedButton === "start",
       fontSize: 13,
     });
-    const autoBtn = this.getAutoDeployButtonRect(screenW);
-    drawButton(ctx, autoBtn.x, autoBtn.y, autoBtn.w, autoBtn.h, "一键布阵", {
-      variant: "ghost", accent: "#00E5FF",
-      pressed: this.pressedButton === "auto",
-      fontSize: 12,
-    });
+    // v9：适老模式隐藏一键布阵按钮（无需部署）
+    if (!isSenior) {
+      const autoBtn = this.getAutoDeployButtonRect(screenW);
+      drawButton(ctx, autoBtn.x, autoBtn.y, autoBtn.w, autoBtn.h, "一键布阵", {
+        variant: "ghost", accent: "#00E5FF",
+        pressed: this.pressedButton === "auto",
+        fontSize: 12,
+      });
+    }
+    // v11：自定义难度按钮（显示当前档位标签）
+    {
+      const dBtn = this.getDifficultyButtonRect(screenW);
+      const curPreset = this.currentDifficultyPreset();
+      const dAccent = curPreset === "easy" ? "#52C41A" : curPreset === "hard" ? "#FF4D4F" : curPreset === "custom" ? "#FFB020" : "#7DD3FC";
+      drawButton(ctx, dBtn.x, dBtn.y, dBtn.w, dBtn.h, `难度·${this.difficultyPresetLabel(curPreset)}`, {
+        variant: curPreset === "normal" ? "ghost" : "primary",
+        accent: dAccent,
+        pressed: this.pressedButton === "difficulty",
+        fontSize: 11,
+      });
+    }
 
     // 模式选择器
     this.renderModeSelector(ctx, screenW);
 
     // 模式详情
     this.renderModeDetail(ctx, screenW);
+
+    // v8：classic 模式下渲染关卡选择器 + 地区信息
+    if (this.mode === "classic") {
+      this.renderLevelSelector(ctx, screenW);
+      this.renderRegionInfo(ctx, screenW);
+    }
 
     // 迷宫地图（含路径、岗哨位、入口/出口、已部署探员）
     if (this.maze) {
@@ -379,6 +527,16 @@ export class ManagerDeployScene extends Scene {
     // v6 Phase 3：极限挑战词缀选择面板（最上层）
     if (this.showAffixPicker) {
       this.renderAffixPicker(ctx, screenW, screenH);
+    }
+
+    // v8：地区选择面板（最上层）
+    if (this.showRegionPicker) {
+      this.renderRegionPicker(ctx, screenW, screenH);
+    }
+
+    // v11：自定义难度面板（最上层）
+    if (this.showDifficultyPicker) {
+      this.renderDifficultyPicker(ctx, screenW, screenH);
     }
 
     drawScanlineOverlay(ctx, screenW, screenH);
@@ -490,6 +648,14 @@ export class ManagerDeployScene extends Scene {
         ctx.fillText(seg, cursorX, y);
         cursorX += ctx.measureText(seg).width + 8;
       }
+    } else if (this.mode === "senior") {
+      // v9：适老模式详情：提示无需部署，直接开始学习
+      ctx.fillStyle = meta.accent;
+      ctx.textAlign = "left";
+      ctx.shadowColor = withAlpha(meta.accent, 0.4);
+      ctx.shadowBlur = 4;
+      ctx.fillText("▸ 无需部署探员，点击「开始学习」进入案例教学", 16, y);
+      ctx.shadowBlur = 0;
     } else {
       ctx.fillStyle = meta.accent;
       ctx.textAlign = "left";
@@ -505,6 +671,196 @@ export class ManagerDeployScene extends Scene {
     ctx.fillStyle = meta.accent;
     ctx.textAlign = "right";
     ctx.fillText(`🏆 最高 ${highScore}`, screenW - 16, y);
+    ctx.restore();
+  }
+
+  // ====================================================================
+  // v8：关卡选择器 + 地区信息 + 地区选择面板
+  // ====================================================================
+
+  /** v8：关卡选择器（classic 模式，显示全部关卡按钮，仅解锁的可选） */
+  private renderLevelSelector(ctx: CanvasRenderingContext2D, screenW: number): void {
+    const prog = platformStore.managerProgress();
+    const maxUnlocked = Math.min(MAX_LEVEL, prog.maxLevel + 1); // 可选 1..maxUnlocked
+    ctx.save();
+    ctx.font = `700 10px ${Theme.fonts.display}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    for (let i = 0; i < MAX_LEVEL; i++) {
+      const lv = i + 1;
+      const rect = this.getLevelBtnRect(i, screenW);
+      const unlocked = lv <= maxUnlocked;
+      const selected = this.selectedLevel === lv;
+      const pressed = this.pressedLevelIdx === i;
+      ctx.fillStyle = selected
+        ? LEVELS[i].accent
+        : pressed
+        ? withAlpha(LEVELS[i].accent, 0.3)
+        : unlocked
+        ? "rgba(30,50,80,0.8)"
+        : "rgba(20,20,30,0.6)";
+      roundRect(ctx, rect.x, rect.y, rect.w, rect.h, 4);
+      ctx.fill();
+      ctx.strokeStyle = selected ? "#FFF" : unlocked ? LEVELS[i].accent : "#444";
+      ctx.lineWidth = selected ? 1.5 : 1;
+      ctx.stroke();
+      ctx.fillStyle = selected ? "#FFF" : unlocked ? LEVELS[i].accent : "#666";
+      const label = `${LEVELS[i].name}`;
+      ctx.fillText(unlocked ? label : "🔒", rect.x + rect.w / 2, rect.y + rect.h / 2);
+    }
+    ctx.restore();
+  }
+
+  /** v10：今日高发诈骗 banner（classic 模式，醒目推送本地区本月 Top3 诈骗类型） */
+  private renderRegionInfo(ctx: CanvasRenderingContext2D, screenW: number): void {
+    const meta = platformStore.managerMetaProgress();
+    const regionId = meta.selectedRegionId ?? DEFAULT_REGION_ID;
+    const region = REGIONS.find((r) => r.id === regionId) ?? REGIONS[0];
+    const monthKey = currentMonthKey();
+    const fraudTypes = getMonthlyFraudTypes(regionId, monthKey);
+    const rect = this.getRegionBtnRect(screenW);
+    const pressed = this.pressedButton === "region";
+
+    // ===== 左侧：地区按钮（可点击切换） =====
+    ctx.save();
+    ctx.fillStyle = pressed ? withAlpha("#5BC0DE", 0.3) : "rgba(30,50,80,0.85)";
+    roundRect(ctx, rect.x, rect.y, rect.w, rect.h, 6);
+    ctx.fill();
+    ctx.strokeStyle = "#5BC0DE";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.font = `700 12px ${Theme.fonts.display}`;
+    ctx.fillStyle = "#5BC0DE";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText(`${region.emoji} ${region.name} ▾`, rect.x + 8, rect.y + rect.h / 2);
+    ctx.restore();
+
+    // ===== 右侧：今日高发诈骗 banner 卡片 =====
+    const bannerX = rect.x + rect.w + 6;
+    const bannerW = screenW - bannerX - 16;
+    const bannerY = rect.y;
+    const bannerH = rect.h;
+    ctx.save();
+    // 渐变背景（暖橙→红）暗示警示
+    const grad = ctx.createLinearGradient(bannerX, bannerY, bannerX + bannerW, bannerY);
+    grad.addColorStop(0, "rgba(255,138,61,0.18)");
+    grad.addColorStop(1, "rgba(229,53,59,0.18)");
+    ctx.fillStyle = grad;
+    roundRect(ctx, bannerX, bannerY, bannerW, bannerH, 6);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,138,61,0.5)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
+
+    // 内容：⚠️ 标签 + 3 个诈骗类型 chip
+    ctx.save();
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    let cursorX = bannerX + 8;
+    const centerY = bannerY + bannerH / 2;
+    // 警示标签
+    ctx.font = `700 11px ${Theme.fonts.display}`;
+    ctx.fillStyle = "#FF8A3D";
+    const labelText = "⚠ 本月高发";
+    ctx.fillText(labelText, cursorX, centerY);
+    cursorX += ctx.measureText(labelText).width + 8;
+    // 诈骗类型 chip
+    ctx.font = `600 10px ${Theme.fonts.body}`;
+    const chipColors = ["#E5353B", "#FFB020", "#9D6BFF"];
+    for (let i = 0; i < fraudTypes.length && i < 3; i++) {
+      const t = fraudTypes[i];
+      const chipColor = chipColors[i % chipColors.length];
+      const textW = ctx.measureText(t).width;
+      const chipW = textW + 10;
+      const chipH = 16;
+      const chipY = centerY - chipH / 2;
+      // chip 背景
+      ctx.fillStyle = withAlpha(chipColor, 0.18);
+      roundRect(ctx, cursorX, chipY, chipW, chipH, 3);
+      ctx.fill();
+      // chip 文字
+      ctx.fillStyle = chipColor;
+      ctx.fillText(t, cursorX + 5, centerY);
+      cursorX += chipW + 4;
+      // 超出宽度则截断
+      if (cursorX > bannerX + bannerW - 8) break;
+    }
+    // 右侧署名（反诈中心）
+    if (cursorX + 60 < bannerX + bannerW) {
+      ctx.font = `400 9px ${Theme.fonts.mono}`;
+      ctx.fillStyle = Theme.colors.ink.muted;
+      ctx.textAlign = "right";
+      ctx.fillText(`来源：${region.antiFraudCenter}`, bannerX + bannerW - 6, centerY);
+    }
+    ctx.restore();
+  }
+
+  /** v8：地区选择面板（4 个地区条目 + 确认/取消） */
+  private renderRegionPicker(ctx: CanvasRenderingContext2D, screenW: number, screenH: number): void {
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,0.75)";
+    ctx.fillRect(0, 0, screenW, screenH);
+    const panelW = Math.min(440, screenW - 64);
+    const panelH = 320;
+    const panelX = (screenW - panelW) / 2;
+    const panelY = (screenH - panelH) / 2;
+    ctx.fillStyle = "#1a1a2e";
+    roundRect(ctx, panelX, panelY, panelW, panelH, 10);
+    ctx.fill();
+    ctx.strokeStyle = "#5BC0DE";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    // 标题
+    ctx.font = `700 14px ${Theme.fonts.display}`;
+    ctx.fillStyle = "#5BC0DE";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.fillText("🌐 选择所在地区", screenW / 2, panelY + 16);
+    ctx.font = `400 9px ${Theme.fonts.mono}`;
+    ctx.fillStyle = Theme.colors.ink.muted;
+    ctx.fillText("按月推送该地区高发诈骗类型（基于公开报道）", screenW / 2, panelY + 38);
+    // 地区条目
+    const meta = platformStore.managerMetaProgress();
+    const currentRegionId = meta.selectedRegionId ?? DEFAULT_REGION_ID;
+    const monthKey = currentMonthKey();
+    for (let i = 0; i < REGIONS.length; i++) {
+      const r = REGIONS[i];
+      const rect = this.getRegionItemRect(i, screenW, screenH);
+      const selected = r.id === currentRegionId;
+      const pressed = this.pressedRegionIdx === i;
+      ctx.fillStyle = selected ? withAlpha("#5BC0DE", 0.25) : pressed ? "rgba(91,192,222,0.15)" : "rgba(255,255,255,0.04)";
+      roundRect(ctx, rect.x, rect.y, rect.w, rect.h, 6);
+      ctx.fill();
+      ctx.strokeStyle = selected ? "#5BC0DE" : "rgba(255,255,255,0.12)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.font = `700 12px ${Theme.fonts.display}`;
+      ctx.fillStyle = "#FFF";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(`${r.emoji} ${r.name}`, rect.x + 12, rect.y + 16);
+      ctx.font = `400 9px ${Theme.fonts.mono}`;
+      ctx.fillStyle = Theme.colors.ink.muted;
+      ctx.fillText(r.antiFraudCenter, rect.x + 12, rect.y + 32);
+      // 当月高发类型
+      const types = getMonthlyFraudTypes(r.id, monthKey);
+      ctx.font = `500 9px ${Theme.fonts.body}`;
+      ctx.fillStyle = "#5BC0DE";
+      ctx.textAlign = "right";
+      ctx.fillText(types.join(" / "), rect.x + rect.w - 12, rect.y + rect.h / 2);
+    }
+    // 取消 / 确认按钮
+    const cancelRect = this.getRegionCancelRect(screenW, screenH);
+    drawButton(ctx, cancelRect.x, cancelRect.y, cancelRect.w, cancelRect.h, "取消", {
+      variant: "ghost", accent: Theme.colors.ink.muted, pressed: this.pressedButton === "region-cancel",
+      fontSize: 12,
+    });
+    const confirmRect = this.getRegionConfirmRect(screenW, screenH);
+    drawButton(ctx, confirmRect.x, confirmRect.y, confirmRect.w, confirmRect.h, "确认", {
+      variant: "primary", accent: "#5BC0DE", pressed: this.pressedRegionConfirm, fontSize: 12,
+    });
     ctx.restore();
   }
 
@@ -661,6 +1017,194 @@ export class ManagerDeployScene extends Scene {
       variant: canConfirm ? "primary" : "ghost",
       accent: accent,
       pressed: this.pressedAffixConfirm,
+      fontSize: 12,
+    });
+    ctx.restore();
+  }
+
+  // ====================================================================
+  // v11：自定义难度面板（renderDifficultyPicker + rect helpers + touch）
+  // ====================================================================
+
+  /** 难度面板几何 */
+  private difficultyPanelGeo(screenW: number, screenH: number): { panelX: number; panelY: number; panelW: number; panelH: number } {
+    const panelW = Math.min(540, screenW - 64);
+    const panelH = 376;
+    return {
+      panelX: (screenW - panelW) / 2,
+      panelY: (screenH - panelH) / 2,
+      panelW,
+      panelH,
+    };
+  }
+
+  /** 预设档位按钮矩形（4 个横排） */
+  private getDifficultyPresetRect(idx: number, screenW: number, screenH: number): Rect {
+    const { panelX, panelY, panelW } = this.difficultyPanelGeo(screenW, screenH);
+    const gap = 8;
+    const btnW = (panelW - 48 - gap * 3) / 4;
+    const btnH = 36;
+    return { x: panelX + 24 + idx * (btnW + gap), y: panelY + 64, w: btnW, h: btnH };
+  }
+
+  /** 滑块配置：key/标签/min/max/step/单位/格式化 */
+  private readonly SLIDER_DEFS: { key: keyof CustomDifficultyConfig; label: string; min: number; max: number; step: number; unit: string }[] = [
+    { key: "enemyHpMul", label: "敌人血量", min: 0.5, max: 2.0, step: 0.1, unit: "×" },
+    { key: "enemySpeedMul", label: "敌人速度", min: 0.5, max: 2.0, step: 0.1, unit: "×" },
+    { key: "enemyDmgMul", label: "敌人伤害", min: 0.5, max: 2.0, step: 0.1, unit: "×" },
+    { key: "spawnIntervalMul", label: "刷怪间隔", min: 0.5, max: 2.0, step: 0.1, unit: "×" },
+    { key: "startEnergy", label: "初始能量", min: 50, max: 100, step: 10, unit: "" },
+    { key: "baseHpMul", label: "基地血量", min: 0.5, max: 2.0, step: 0.1, unit: "×" },
+  ];
+
+  /** 滑块行矩形（含轨道+手柄的整体命中区） */
+  private getDifficultySliderRect(rowIdx: number, screenW: number, screenH: number): Rect {
+    const { panelX, panelY, panelW } = this.difficultyPanelGeo(screenW, screenH);
+    const rowH = 32;
+    const startY = panelY + 116;
+    return { x: panelX + 24, y: startY + rowIdx * rowH, w: panelW - 48, h: rowH };
+  }
+
+  /** 确认按钮矩形 */
+  private getDifficultyConfirmRect(screenW: number, screenH: number): Rect {
+    const { panelX, panelY, panelW, panelH } = this.difficultyPanelGeo(screenW, screenH);
+    const btnW = 120, btnH = 36;
+    return { x: panelX + panelW - 24 - btnW, y: panelY + panelH - 16 - btnH, w: btnW, h: btnH };
+  }
+
+  /** 取消按钮矩形 */
+  private getDifficultyCancelRect(screenW: number, screenH: number): Rect {
+    const { panelX, panelY, panelW, panelH } = this.difficultyPanelGeo(screenW, screenH);
+    const btnW = 100, btnH = 36;
+    return { x: panelX + panelW - 24 - 120 - 8 - btnW, y: panelY + panelH - 16 - btnH, w: btnW, h: btnH };
+  }
+
+  /** v11：根据触摸 x 坐标更新滑块值（拖动时调用） */
+  private updateSliderFromX(key: string, x: number, screenW: number, screenH: number): void {
+    const idx = this.SLIDER_DEFS.findIndex((d) => d.key === key);
+    if (idx < 0) return;
+    const rect = this.getDifficultySliderRect(idx, screenW, screenH);
+    const trackX = rect.x + 90;
+    const trackW = rect.x + rect.w - 60 - trackX;
+    const def = this.SLIDER_DEFS[idx];
+    const ratio = Math.max(0, Math.min(1, (x - trackX) / trackW));
+    let val = def.min + ratio * (def.max - def.min);
+    // 按 step 量化
+    val = Math.round(val / def.step) * def.step;
+    val = Math.max(def.min, Math.min(def.max, val));
+    this.customCfgDraft = { ...this.customCfgDraft, [key]: val };
+  }
+
+  /** 渲染自定义难度面板：半透明遮罩 + 预设档位 + 自定义滑块 + 确认/取消 */
+  private renderDifficultyPicker(ctx: CanvasRenderingContext2D, screenW: number, screenH: number): void {
+    ctx.save();
+    ctx.fillStyle = "rgba(8, 16, 30, 0.82)";
+    ctx.fillRect(0, 0, screenW, screenH);
+
+    const { panelX, panelY, panelW, panelH } = this.difficultyPanelGeo(screenW, screenH);
+    const accent = "#FFB020";
+    drawPanel(ctx, panelX, panelY, panelW, panelH, {
+      bgColor: "rgba(28, 24, 16, 0.97)",
+      borderColor: accent,
+      borderWidth: 2,
+    });
+    drawNeonCorners(ctx, panelX, panelY, panelW, panelH, accent, 14, 3, 8);
+
+    // 标题
+    ctx.font = `700 16px ${Theme.fonts.display}`;
+    ctx.fillStyle = accent;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.shadowColor = accent;
+    ctx.shadowBlur = 10;
+    ctx.fillText("自定义难度 · 独立于极限词缀", screenW / 2, panelY + 18);
+    ctx.shadowBlur = 0;
+
+    ctx.font = `400 10px ${Theme.fonts.mono}`;
+    ctx.fillStyle = Theme.colors.ink.muted;
+    ctx.fillText("选择预设档位，或切到「自定义」拖动滑块微调", screenW / 2, panelY + 42);
+
+    // 4 个预设档位按钮
+    const presets: CustomDifficultyPreset[] = ["easy", "normal", "hard", "custom"];
+    const curPreset = this.currentDifficultyPreset();
+    for (let i = 0; i < presets.length; i++) {
+      const rect = this.getDifficultyPresetRect(i, screenW, screenH);
+      const p = presets[i];
+      const selected = curPreset === p;
+      const pAccent = p === "easy" ? "#52C41A" : p === "hard" ? "#FF4D4F" : p === "custom" ? "#FFB020" : "#7DD3FC";
+      drawButton(ctx, rect.x, rect.y, rect.w, rect.h, this.difficultyPresetLabel(p), {
+        variant: selected ? "primary" : "ghost",
+        accent: pAccent,
+        pressed: this.pressedDifficultyPreset === i,
+        fontSize: 13,
+      });
+    }
+
+    // 自定义滑块（仅 custom 档位可编辑，其他档位只读展示当前预设值）
+    const editable = curPreset === "custom";
+    const displayCfg: CustomDifficultyConfig = editable
+      ? this.customCfgDraft
+      : { ...getPresetConfig(curPreset) };
+
+    for (let i = 0; i < this.SLIDER_DEFS.length; i++) {
+      const def = this.SLIDER_DEFS[i];
+      const rect = this.getDifficultySliderRect(i, screenW, screenH);
+      const val = displayCfg[def.key];
+      // 标签
+      ctx.font = `400 11px ${Theme.fonts.mono}`;
+      ctx.fillStyle = editable ? Theme.colors.ink.DEFAULT : Theme.colors.ink.muted;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(def.label, rect.x, rect.y + rect.h / 2);
+      // 数值
+      const valText = def.unit === "×" ? `${val.toFixed(1)}×` : `${val}`;
+      ctx.font = `700 11px ${Theme.fonts.mono}`;
+      ctx.fillStyle = editable ? accent : Theme.colors.ink.muted;
+      ctx.textAlign = "right";
+      ctx.fillText(valText, rect.x + rect.w, rect.y + rect.h / 2);
+      // 轨道
+      const trackX = rect.x + 90;
+      const trackW = rect.x + rect.w - 60 - trackX;
+      const trackY = rect.y + rect.h / 2;
+      ctx.fillStyle = "rgba(255,255,255,0.08)";
+      ctx.fillRect(trackX, trackY - 3, trackW, 6);
+      // 填充
+      const ratio = (val - def.min) / (def.max - def.min);
+      const fillW = Math.max(0, Math.min(1, ratio)) * trackW;
+      ctx.fillStyle = editable ? accent : Theme.colors.ink.muted;
+      ctx.fillRect(trackX, trackY - 3, fillW, 6);
+      // 手柄
+      const handleX = trackX + fillW;
+      ctx.beginPath();
+      ctx.arc(handleX, trackY, 7, 0, Math.PI * 2);
+      ctx.fillStyle = editable ? "#FFFFFF" : Theme.colors.ink.muted;
+      ctx.fill();
+      ctx.strokeStyle = editable ? accent : Theme.colors.ink.muted;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    // 提示文案
+    ctx.font = `400 10px ${Theme.fonts.mono}`;
+    ctx.fillStyle = Theme.colors.ink.muted;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    const hint = curPreset === "custom"
+      ? "拖动滑块调整 · 点击「确认」保存自定义配置"
+      : `「${this.difficultyPresetLabel(curPreset)}」档位为预设值，切到「自定义」可微调`;
+    ctx.fillText(hint, screenW / 2, panelY + panelH - 56);
+
+    // 取消 / 确认
+    const cancelRect = this.getDifficultyCancelRect(screenW, screenH);
+    drawButton(ctx, cancelRect.x, cancelRect.y, cancelRect.w, cancelRect.h, "取消", {
+      variant: "ghost", accent: Theme.colors.ink.muted,
+      pressed: this.pressedButton === "diff-cancel",
+      fontSize: 12,
+    });
+    const confirmRect = this.getDifficultyConfirmRect(screenW, screenH);
+    drawButton(ctx, confirmRect.x, confirmRect.y, confirmRect.w, confirmRect.h, "▶ 确认", {
+      variant: "primary", accent,
+      pressed: this.pressedDifficultyConfirm,
       fontSize: 12,
     });
     ctx.restore();
@@ -929,6 +1473,65 @@ export class ManagerDeployScene extends Scene {
       return this.tutorialOverlay.handleTouch(type, x, y);
     }
 
+    // ===== v8：地区选择面板（最高优先级，屏蔽底层交互） =====
+    if (this.showRegionPicker) {
+      if (type === "start") {
+        if (hitTest(x, y, this.getRegionCancelRect(screenW, screenH))) {
+          this.pressedButton = "region-cancel";
+          return true;
+        }
+        if (hitTest(x, y, this.getRegionConfirmRect(screenW, screenH))) {
+          this.pressedRegionConfirm = true;
+          return true;
+        }
+        for (let i = 0; i < REGIONS.length; i++) {
+          if (hitTest(x, y, this.getRegionItemRect(i, screenW, screenH))) {
+            this.pressedRegionIdx = i;
+            return true;
+          }
+        }
+        return true;
+      } else if (type === "end") {
+        if (this.pressedButton === "region-cancel" && hitTest(x, y, this.getRegionCancelRect(screenW, screenH))) {
+          this.showRegionPicker = false;
+          this.pressedRegionIdx = null;
+          this.pressedRegionConfirm = false;
+          this.pressedButton = null;
+          playSfx("click");
+          vibrateShort();
+          return true;
+        }
+        if (this.pressedRegionConfirm && hitTest(x, y, this.getRegionConfirmRect(screenW, screenH))) {
+          // 确认：持久化当前选中地区
+          const curId = platformStore.managerMetaProgress().selectedRegionId ?? DEFAULT_REGION_ID;
+          platformStore.setSelectedRegion(curId);
+          this.showRegionPicker = false;
+          this.pressedRegionIdx = null;
+          this.pressedRegionConfirm = false;
+          playSfx("click");
+          vibrateShort();
+          return true;
+        }
+        if (this.pressedRegionIdx !== null) {
+          const idx = this.pressedRegionIdx;
+          if (hitTest(x, y, this.getRegionItemRect(idx, screenW, screenH))) {
+            // 临时选中（点击确认后持久化）
+            platformStore.state.managerMeta.selectedRegionId = REGIONS[idx].id;
+            playSfx("click");
+            vibrateShort();
+          }
+          this.pressedRegionIdx = null;
+          this.pressedButton = null;
+          return true;
+        }
+        this.pressedButton = null;
+        this.pressedRegionConfirm = false;
+        this.pressedRegionIdx = null;
+        return true;
+      }
+      return true;
+    }
+
     // ===== v6 Phase 3：词缀选择面板（最高优先级，屏蔽底层交互） =====
     if (this.showAffixPicker) {
       if (type === "start") {
@@ -1002,6 +1605,103 @@ export class ManagerDeployScene extends Scene {
       return true;
     }
 
+    if (this.showDifficultyPicker) {
+      if (type === "start") {
+        // 取消按钮
+        if (hitTest(x, y, this.getDifficultyCancelRect(screenW, screenH))) {
+          this.pressedButton = "diff-cancel";
+          return true;
+        }
+        // 确认按钮
+        if (hitTest(x, y, this.getDifficultyConfirmRect(screenW, screenH))) {
+          this.pressedDifficultyConfirm = true;
+          return true;
+        }
+        // 预设档位按钮
+        for (let i = 0; i < 4; i++) {
+          if (hitTest(x, y, this.getDifficultyPresetRect(i, screenW, screenH))) {
+            this.pressedDifficultyPreset = i;
+            return true;
+          }
+        }
+        // 滑块拖动（仅 custom 档位可拖）
+        if (this.currentDifficultyPreset() === "custom") {
+          for (let i = 0; i < this.SLIDER_DEFS.length; i++) {
+            const rect = this.getDifficultySliderRect(i, screenW, screenH);
+            // 扩大滑块命中区到轨道范围
+            const trackRect: Rect = { x: rect.x + 90, y: rect.y, w: rect.x + rect.w - 60 - (rect.x + 90), h: rect.h };
+            if (hitTest(x, y, trackRect)) {
+              this.draggingSlider = this.SLIDER_DEFS[i].key;
+              this.updateSliderFromX(this.draggingSlider, x, screenW, screenH);
+              return true;
+            }
+          }
+        }
+        return true;
+      } else if (type === "move") {
+        if (this.draggingSlider) {
+          this.updateSliderFromX(this.draggingSlider, x, screenW, screenH);
+          return true;
+        }
+        return true;
+      } else if (type === "end") {
+        // 取消
+        if (this.pressedButton === "diff-cancel" && hitTest(x, y, this.getDifficultyCancelRect(screenW, screenH))) {
+          this.showDifficultyPicker = false;
+          this.pressedDifficultyPreset = null;
+          this.pressedDifficultyConfirm = false;
+          this.draggingSlider = null;
+          playSfx("click");
+          vibrateShort();
+          this.pressedButton = null;
+          return true;
+        }
+        // 确认
+        if (this.pressedDifficultyConfirm && hitTest(x, y, this.getDifficultyConfirmRect(screenW, screenH))) {
+          const preset = this.currentDifficultyPreset();
+          // 保存到存档（custom 用草稿，其他用预设）
+          if (preset === "custom") {
+            platformStore.setCustomDifficulty("custom", this.customCfgDraft);
+          } else {
+            platformStore.setCustomDifficulty(preset);
+          }
+          this.showDifficultyPicker = false;
+          this.pressedDifficultyPreset = null;
+          this.pressedDifficultyConfirm = false;
+          this.draggingSlider = null;
+          playSfx("click");
+          vibrateShort();
+          this.pressedButton = null;
+          return true;
+        }
+        // 预设档位切换
+        if (this.pressedDifficultyPreset !== null) {
+          const idx = this.pressedDifficultyPreset;
+          if (hitTest(x, y, this.getDifficultyPresetRect(idx, screenW, screenH))) {
+            const presets: CustomDifficultyPreset[] = ["easy", "normal", "hard", "custom"];
+            const newPreset = presets[idx];
+            // 立即保存档位切换（自定义草稿保留，切回 custom 时复用）
+            platformStore.setCustomDifficulty(newPreset);
+            // 切到 custom 时，用存档中的自定义配置初始化草稿
+            if (newPreset === "custom") {
+              this.customCfgDraft = { ...platformStore.managerMetaRef().customDifficulty };
+            }
+            playSfx("click");
+            vibrateShort();
+          }
+          this.pressedDifficultyPreset = null;
+          this.pressedButton = null;
+          return true;
+        }
+        this.draggingSlider = null;
+        this.pressedDifficultyPreset = null;
+        this.pressedDifficultyConfirm = false;
+        this.pressedButton = null;
+        return true;
+      }
+      return true;
+    }
+
     if (type === "start") {
       // 返回
       if (hitTest(x, y, { x: 8, y: 8, w: 56, h: 32 })) {
@@ -1025,10 +1725,31 @@ export class ManagerDeployScene extends Scene {
         this.pressedButton = "auto";
         return true;
       }
+      // v11：自定义难度按钮
+      if (hitTest(x, y, this.getDifficultyButtonRect(screenW))) {
+        this.pressedButton = "difficulty";
+        // 打开面板时，用存档中的自定义配置初始化草稿
+        this.customCfgDraft = { ...platformStore.managerMetaRef().customDifficulty };
+        return true;
+      }
       // 模式卡片
       for (let i = 0; i < MODE_ORDER.length; i++) {
         if (hitTest(x, y, this.getModeCardRect(i, screenW))) {
           this.pressedButton = `mode-${i}`;
+          return true;
+        }
+      }
+      // v8：classic 模式下关卡按钮
+      if (this.mode === "classic") {
+        for (let i = 0; i < MAX_LEVEL; i++) {
+          if (hitTest(x, y, this.getLevelBtnRect(i, screenW))) {
+            this.pressedLevelIdx = i;
+            return true;
+          }
+        }
+        // v8：地区按钮
+        if (hitTest(x, y, this.getRegionBtnRect(screenW))) {
+          this.pressedButton = "region";
           return true;
         }
       }
@@ -1075,6 +1796,15 @@ export class ManagerDeployScene extends Scene {
             this.director.push(new ManagerSeasonScene(this.director));
           } else if (id === "story") {
             this.director.push(new ManagerStoryScene(this.director));
+          } else if (id === "dialog") {
+            // v9 Phase 4.2：AI 对话演练
+            this.director.push(new ManagerAIDialogScene(this.director));
+          } else if (id === "quiz") {
+            // v9 Phase 4.3：知识闯关
+            this.director.push(new ManagerQuizModeScene(this.director));
+          } else if (id === "stats") {
+            // v11 D2：数据仪表盘
+            this.director.push(new ManagerStatsScene(this.director));
           } else if (id === "accessibility") {
             // v7 D5：打开无障碍设置覆盖层（非场景跳转）
             this.accessibilityOverlay = new AccessibilityOverlay(this.director);
@@ -1083,6 +1813,13 @@ export class ManagerDeployScene extends Scene {
         return true;
       }
       if (pressed === "start" && hitTest(x, y, this.getStartButtonRect(screenW))) {
+        // v9：适老模式无需部署探员，直接进入案例教学场景
+        if (this.mode === "senior") {
+          playSfx("click");
+          vibrateShort();
+          this.director.replace(new ManagerSeniorScene(this.director));
+          return true;
+        }
         if (this.getPlacedCount() === 6 && this.maze) {
           playSfx("click");
           vibrateShort();
@@ -1104,11 +1841,49 @@ export class ManagerDeployScene extends Scene {
         this.autoDeploy();
         return true;
       }
+      // v11：自定义难度按钮 → 打开面板
+      if (pressed === "difficulty" && hitTest(x, y, this.getDifficultyButtonRect(screenW))) {
+        this.showDifficultyPicker = true;
+        this.pressedDifficultyPreset = null;
+        this.pressedDifficultyConfirm = false;
+        this.draggingSlider = null;
+        playSfx("click");
+        vibrateShort();
+        return true;
+      }
       if (pressed?.startsWith("mode-")) {
         const idx = parseInt(pressed.split("-")[1]);
         if (hitTest(x, y, this.getModeCardRect(idx, screenW))) {
           this.switchMode(MODE_ORDER[idx]);
         }
+        return true;
+      }
+      // v8：关卡按钮
+      if (this.pressedLevelIdx !== null) {
+        const idx = this.pressedLevelIdx;
+        this.pressedLevelIdx = null;
+        if (hitTest(x, y, this.getLevelBtnRect(idx, screenW))) {
+          const lv = idx + 1;
+          const prog = platformStore.managerProgress();
+          const maxUnlocked = Math.min(MAX_LEVEL, prog.maxLevel + 1);
+          if (lv <= maxUnlocked) {
+            this.selectedLevel = lv;
+            playSfx("click");
+            vibrateShort();
+          }
+        }
+        return true;
+      }
+      // v8：地区按钮 → 打开地区选择面板
+      if (pressed === "region") {
+        if (hitTest(x, y, this.getRegionBtnRect(screenW))) {
+          this.showRegionPicker = true;
+          this.pressedRegionIdx = null;
+          this.pressedRegionConfirm = false;
+          playSfx("click");
+          vibrateShort();
+        }
+        this.pressedButton = null;
         return true;
       }
       if (pressed?.startsWith("agent-")) {
@@ -1174,6 +1949,8 @@ export class ManagerDeployScene extends Scene {
       mode: this.mode,
       maze: this.maze,
       challengeAffixes,
+      // v8：classic 模式传递玩家选择的起始关卡
+      startLevel: this.mode === "classic" ? this.selectedLevel : undefined,
     });
   }
 }

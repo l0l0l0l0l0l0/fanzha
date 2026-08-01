@@ -8,7 +8,8 @@ import type { GameId } from "@/types";
 import { ACHIEVEMENTS, type Achievement, type AchievementContext } from "@/data/achievements";
 import { CODEX } from "@/data/codex";
 import { AGENTS } from "@/games/manager/data";
-import type { ManagerMode, ManagerMetaProgression, TalentBranch, CodexCategory } from "@/games/manager/types";
+import type { ManagerMode, ManagerMetaProgression, TalentBranch, CodexCategory, WrongQuestionRecord, BattleReplayRecord } from "@/games/manager/types";
+import type { ThunderMode, Difficulty } from "@/games/thunder/types";
 
 export type Rank =
   | "反诈小白"
@@ -93,6 +94,7 @@ const DEFAULT_MANAGER: ManagerProgression = {
     daily: 0,
     tower: 0,
     challenge: 0,
+    senior: 0,
   },
   dailyChallengesCompleted: 0,
   totalBossKills: 0,
@@ -153,6 +155,41 @@ const DEFAULT_MANAGER_META: ManagerMetaProgression = {
   },
   completedStoryChapters: [],
   towerEventChoices: {},
+  // ===== v8 全面升级新增默认值 =====
+  completedAgentStoryQuests: [],
+  selectedRegionId: null,
+  completedStoryStages: [],
+  caseBreakdownCorrectCount: 0,
+  caseBreakdownTotalCount: 0,
+  speechBubblesBroken: 0,
+  victimsRescuedTotal: 0,
+  victimsLostTotal: 0,
+  tacticalCommandsUsed: 0,
+  cardSkillsUsed: 0,
+  // ===== v9 全面升级新增默认值 =====
+  relicShards: {},
+  unlockedRecipes: [],
+  // ===== v9 Phase 4.3 全面升级新增默认值 =====
+  wrongQuestions: {},
+  quizClearedLevels: [],
+  quizHighScores: {},
+  // ===== v10 全面升级新增默认值 =====
+  learnedFraudTipsThisRun: [],
+  learnedFraudTipsTotal: 0,
+  // ===== v11 全面升级新增默认值 =====
+  weaknessIntel: [],
+  completedVictimSimScenarios: [],
+  victimSimBestRanks: {},
+  battleReplays: [],
+  customDifficulty: {
+    enemyHpMul: 1.0,
+    enemySpeedMul: 1.0,
+    enemyDmgMul: 1.0,
+    spawnIntervalMul: 1.0,
+    startEnergy: 100,
+    baseHpMul: 1.0,
+  },
+  customDifficultyPreset: "normal",
 };
 
 interface PlatformState {
@@ -187,8 +224,10 @@ const STORAGE_KEY = "anti-fraud-platform";
  * 当前存档版本：升级结构时递增，load 时据此迁移
  * - v3：v6 manager 元进度（资源/天赋/遗物/装备/图鉴/赛季/爬塔）
  * - v4：v7 全面升级（错题记录/口诀收集/案例解锁/排行榜/引导/可访问性/剧情/事件选择）
+ * - v5：v10 全面升级（managerMeta 字段完整性兜底 + 新增 F87/F88 案例解锁兼容 + 反诈知识点统计字段）
+ * - v6：v11 全面升级（弱点情报/受害人模拟/战斗回放/自定义难度）
  */
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 6;
 
 const defaultState: PlatformState = {
   totalFoolsBusted: 0,
@@ -199,6 +238,7 @@ const defaultState: PlatformState = {
     manager: 0,
     thunder: 0,
     "bomb-island": 0,
+    "chat-detective": 0,
   },
   totalGames: 0,
   settings: { sound: true, haptics: true },
@@ -510,6 +550,161 @@ class PlatformStore {
           }
           validMeta.towerEventChoices = choices;
         }
+        // ===== v8 全面升级新增字段校验 =====
+        validMeta.completedAgentStoryQuests = safeStrArr(savedMeta.completedAgentStoryQuests);
+        validMeta.selectedRegionId = typeof savedMeta.selectedRegionId === "string" ? savedMeta.selectedRegionId : null;
+        validMeta.completedStoryStages = safeStrArr(savedMeta.completedStoryStages);
+        validMeta.caseBreakdownCorrectCount = safeInt(savedMeta.caseBreakdownCorrectCount, 0);
+        validMeta.caseBreakdownTotalCount = safeInt(savedMeta.caseBreakdownTotalCount, 0);
+        validMeta.speechBubblesBroken = safeInt(savedMeta.speechBubblesBroken, 0);
+        validMeta.victimsRescuedTotal = safeInt(savedMeta.victimsRescuedTotal, 0);
+        validMeta.victimsLostTotal = safeInt(savedMeta.victimsLostTotal, 0);
+        validMeta.tacticalCommandsUsed = safeInt(savedMeta.tacticalCommandsUsed, 0);
+        validMeta.cardSkillsUsed = safeInt(savedMeta.cardSkillsUsed, 0);
+
+        // ===== v9 全面升级新增字段校验与迁移 =====
+        // 遗物碎片池迁移：旧存档无 relicShards，从旧 ownedRelics 补偿 3 碎片/件（保值不丢）
+        if (savedMeta.relicShards && typeof savedMeta.relicShards === "object") {
+          const shards: Record<string, number> = {};
+          for (const [k, v] of Object.entries(savedMeta.relicShards)) {
+            if (typeof k === "string") shards[k] = safeInt(v, 0);
+          }
+          validMeta.relicShards = shards;
+        } else if (validMeta.ownedRelics.length > 0) {
+          // v8→v9 迁移：每件旧遗物补偿 3 碎片（可立即合成或保留）
+          const shards: Record<string, number> = {};
+          for (const rid of validMeta.ownedRelics) {
+            shards[rid] = (shards[rid] ?? 0) + 3;
+          }
+          validMeta.relicShards = shards;
+        } else {
+          validMeta.relicShards = {};
+        }
+        validMeta.unlockedRecipes = safeStrArr(savedMeta.unlockedRecipes);
+
+        // ===== v9 Phase 4.3 全面升级新增字段校验与迁移 =====
+        // 错题本：结构化对象，逐条校验
+        if (savedMeta.wrongQuestions && typeof savedMeta.wrongQuestions === "object") {
+          const wq: Record<string, WrongQuestionRecord> = {};
+          for (const [k, v] of Object.entries(savedMeta.wrongQuestions)) {
+            if (typeof k !== "string" || !v || typeof v !== "object") continue;
+            const r = v as Partial<WrongQuestionRecord>;
+            const source = r.source === "quiz" || r.source === "dialog" || r.source === "case" || r.source === "battle"
+              ? r.source : "quiz";
+            const qtype = r.questionType === "single" || r.questionType === "multi" || r.questionType === "judge" || r.questionType === "branch"
+              ? r.questionType : "single";
+            wq[k] = {
+              questionId: typeof r.questionId === "string" ? r.questionId : k,
+              source,
+              questionType: qtype,
+              questionText: typeof r.questionText === "string" ? r.questionText : "",
+              options: Array.isArray(r.options) ? r.options.filter((x): x is string => typeof x === "string") : [],
+              correctAnswer: typeof r.correctAnswer === "string" ? r.correctAnswer : "",
+              lastWrongAnswer: typeof r.lastWrongAnswer === "string" ? r.lastWrongAnswer : "",
+              wrongCount: safeInt(r.wrongCount, 1),
+              firstWrongAt: safeInt(r.firstWrongAt, Date.now()),
+              lastWrongAt: safeInt(r.lastWrongAt, Date.now()),
+              category: typeof r.category === "string" ? r.category : "",
+              relatedCaseId: typeof r.relatedCaseId === "string" ? r.relatedCaseId : undefined,
+              explanation: typeof r.explanation === "string" ? r.explanation : undefined,
+            };
+          }
+          validMeta.wrongQuestions = wq;
+        } else {
+          validMeta.wrongQuestions = {};
+        }
+        validMeta.quizClearedLevels = safeStrArr(savedMeta.quizClearedLevels);
+        if (savedMeta.quizHighScores && typeof savedMeta.quizHighScores === "object") {
+          const hs: Record<string, number> = {};
+          for (const [k, v] of Object.entries(savedMeta.quizHighScores)) {
+            if (typeof k === "string") hs[k] = safeInt(v, 0);
+          }
+          validMeta.quizHighScores = hs;
+        } else {
+          validMeta.quizHighScores = {};
+        }
+      }
+      // ===== v5 迁移：v10 新增字段兜底（避免旧存档字段缺失导致的 undefined 访问）=====
+      // 反诈知识点统计：本局/累计学到
+      const m = validMeta as ManagerMetaProgression & {
+        learnedFraudTipsThisRun?: unknown;
+        learnedFraudTipsTotal?: unknown;
+      };
+      if (m.learnedFraudTipsThisRun === undefined || !Array.isArray(m.learnedFraudTipsThisRun)) {
+        (validMeta as ManagerMetaProgression & {
+          learnedFraudTipsThisRun?: string[];
+        }).learnedFraudTipsThisRun = [];
+      }
+      if (typeof m.learnedFraudTipsTotal !== "number" || !Number.isFinite(m.learnedFraudTipsTotal)) {
+        (validMeta as ManagerMetaProgression & {
+          learnedFraudTipsTotal?: number;
+        }).learnedFraudTipsTotal = 0;
+      }
+      // ===== v6 迁移：v11 新增字段兜底（弱点情报/受害人模拟/战斗回放/自定义难度）=====
+      const m11 = validMeta as ManagerMetaProgression & {
+        weaknessIntel?: unknown;
+        completedVictimSimScenarios?: unknown;
+        victimSimBestRanks?: unknown;
+        battleReplays?: unknown;
+        customDifficulty?: unknown;
+        customDifficultyPreset?: unknown;
+      };
+      if (!Array.isArray(m11.weaknessIntel)) {
+        (validMeta as ManagerMetaProgression & { weaknessIntel?: unknown[] }).weaknessIntel = [];
+      }
+      if (!Array.isArray(m11.completedVictimSimScenarios)) {
+        (validMeta as ManagerMetaProgression & { completedVictimSimScenarios?: unknown[] }).completedVictimSimScenarios = [];
+      }
+      if (!m11.victimSimBestRanks || typeof m11.victimSimBestRanks !== "object") {
+        (validMeta as ManagerMetaProgression & { victimSimBestRanks?: Record<string, string> }).victimSimBestRanks = {};
+      }
+      if (!Array.isArray(m11.battleReplays)) {
+        (validMeta as ManagerMetaProgression & { battleReplays?: unknown[] }).battleReplays = [];
+      }
+      if (!m11.customDifficulty || typeof m11.customDifficulty !== "object") {
+        (validMeta as ManagerMetaProgression & {
+          customDifficulty?: {
+            enemyHpMul: number; enemySpeedMul: number; enemyDmgMul: number;
+            spawnIntervalMul: number; startEnergy: number; baseHpMul: number;
+          };
+        }).customDifficulty = {
+          enemyHpMul: 1.0, enemySpeedMul: 1.0, enemyDmgMul: 1.0,
+          spawnIntervalMul: 1.0, startEnergy: 100, baseHpMul: 1.0,
+        };
+      }
+      if (typeof m11.customDifficultyPreset !== "string") {
+        (validMeta as ManagerMetaProgression & { customDifficultyPreset?: string }).customDifficultyPreset = "normal";
+      }
+      // 确保 v8/v9 后续字段存在（防旧存档缺失）
+      if (!Array.isArray(validMeta.completedAgentStoryQuests)) {
+        validMeta.completedAgentStoryQuests = [];
+      }
+      if (typeof validMeta.selectedRegionId !== "string") {
+        validMeta.selectedRegionId = null;
+      }
+      if (!Array.isArray(validMeta.completedStoryStages)) {
+        validMeta.completedStoryStages = [];
+      }
+      if (typeof validMeta.caseBreakdownCorrectCount !== "number") {
+        validMeta.caseBreakdownCorrectCount = 0;
+      }
+      if (typeof validMeta.caseBreakdownTotalCount !== "number") {
+        validMeta.caseBreakdownTotalCount = 0;
+      }
+      if (typeof validMeta.speechBubblesBroken !== "number") {
+        validMeta.speechBubblesBroken = 0;
+      }
+      if (typeof validMeta.victimsRescuedTotal !== "number") {
+        validMeta.victimsRescuedTotal = 0;
+      }
+      if (typeof validMeta.victimsLostTotal !== "number") {
+        validMeta.victimsLostTotal = 0;
+      }
+      if (typeof validMeta.tacticalCommandsUsed !== "number") {
+        validMeta.tacticalCommandsUsed = 0;
+      }
+      if (typeof validMeta.cardSkillsUsed !== "number") {
+        validMeta.cardSkillsUsed = 0;
       }
       this.state = {
         ...defaultState,
@@ -570,7 +765,8 @@ class PlatformStore {
     this.loaded = true;
   }
 
-  private save(): void {
+  /** 持久化当前 state 到存储（引擎在 meta 更新后调用） */
+  save(): void {
     // 写入前补全版本号，便于后续迁移
     this.state.version = SCHEMA_VERSION;
     setStorageSync(STORAGE_KEY, this.state);
@@ -631,6 +827,45 @@ class PlatformStore {
     });
     this.save();
     return unlocked;
+  }
+
+  /**
+   * v4：记录一局雷霆反诈游戏
+   * 雷霆模块自身已通过 THUNDER_SAVE_KEY 持久化（天赋点/排行榜/影子/BossRush 最佳），
+   * 本方法负责平台级进度：bestScores / 成就 / 每日挑战 / 累计统计。
+   * 返回本次新解锁的成就。
+   */
+  recordThunderGame(data: {
+    mode: ThunderMode;
+    difficulty: Difficulty;
+    score: number;
+    win?: boolean;
+    wave?: number;
+    endless?: boolean;
+    maxCombo?: number;
+    bossKills?: number;
+    defeatedBossIds?: string[];
+    busted?: number;
+    durationSec: number;
+    dailyCompleted?: boolean;
+  }): Achievement[] {
+    // 解锁本局击败 BOSS 对应的图鉴条目
+    const unlockedTypes: string[] = [];
+    if (data.defeatedBossIds && data.defeatedBossIds.length > 0) {
+      // BOSS 击败解锁由引擎在战斗过程中已通过 codexId 联动，此处仅做兜底
+      // 不重复解锁，避免与引擎事件冲突
+    }
+    return this.recordGame({
+      gameId: "thunder",
+      score: data.score,
+      busted: data.busted ?? 0,
+      unlockedTypes,
+      durationSec: data.durationSec,
+      win: data.win ?? false,
+      wave: data.wave,
+      maxCombo: data.maxCombo,
+      daily: data.dailyCompleted ?? false,
+    });
   }
 
   private buildContext(lastGame: AchievementContext["lastGame"]): AchievementContext {
@@ -944,7 +1179,7 @@ class PlatformStore {
     // 反诈积分：基础 1 分/击杀 + 50 分/BOSS + 模式加成
     const modeBonus: Record<ManagerMode, number> = {
       classic: 1.2, timeTrial: 1.0, bossRush: 1.5, endlessRush: 1.3,
-      daily: 1.8, tower: 1.6, challenge: 2.0,
+      daily: 1.8, tower: 1.6, challenge: 2.0, senior: 1.5,
     };
     const pointsGained = Math.floor(
       kills * (modeBonus[data.mode] ?? 1.0) + (data.bossKills ?? 0) * 50
@@ -1006,6 +1241,21 @@ class PlatformStore {
   /** 元进度（只读视图） */
   managerMetaProgress(): ManagerMetaProgression {
     return { ...this.state.managerMeta };
+  }
+
+  /** v8：设置当前选中地区（持久化） */
+  setSelectedRegion(regionId: string): void {
+    this.state.managerMeta.selectedRegionId = regionId;
+    this.save();
+  }
+
+  /** v10：统一给 managerMeta 增加金币（替代各场景散落的内联累加） */
+  addManagerCoins(amount: number): void {
+    if (!Number.isFinite(amount) || amount === 0) return;
+    const meta = this.state.managerMeta;
+    meta.coins = Math.max(0, meta.coins + Math.floor(amount));
+    this.state.managerMeta = { ...meta };
+    this.save();
   }
 
   /** 探员是否已解锁 */
@@ -1125,6 +1375,59 @@ class PlatformStore {
     if (category === "enemy") meta.enemyCodex = [...meta.enemyCodex, codexId];
     else if (category === "agent") meta.agentCodex = [...meta.agentCodex, codexId];
     else meta.caseCodex = [...meta.caseCodex, codexId];
+    this.state.managerMeta = { ...meta };
+    this.save();
+  }
+
+  /** v11：取 managerMeta 引用（引擎层读取弱点情报/回放等用） */
+  managerMetaRef(): ManagerMetaProgression {
+    return this.state.managerMeta;
+  }
+
+  /** v11：解锁弱点情报（受害人模拟通关后调用，持久化） */
+  unlockWeaknessIntel(enemyTypeId: string, scenarioId: string, damageBonus: number): void {
+    const meta = this.state.managerMeta;
+    if (meta.weaknessIntel.some((w) => w.enemyTypeId === enemyTypeId)) return;
+    meta.weaknessIntel = [...meta.weaknessIntel, {
+      scenarioId, enemyTypeId, damageBonus, unlockedAt: Date.now(),
+    }];
+    this.state.managerMeta = { ...meta };
+    this.save();
+  }
+
+  /** v11：保存战斗回放（仅保留最近 3 局） */
+  saveBattleReplay(record: BattleReplayRecord): void {
+    const meta = this.state.managerMeta;
+    meta.battleReplays = [record, ...meta.battleReplays].slice(0, 3);
+    this.state.managerMeta = { ...meta };
+    this.save();
+  }
+
+  /** v11：记录受害人模拟完成（含最佳评级） */
+  recordVictimSimResult(scenarioId: string, rank: "S" | "A" | "B" | "C" | "D"): void {
+    const meta = this.state.managerMeta;
+    if (!meta.completedVictimSimScenarios.includes(scenarioId)) {
+      meta.completedVictimSimScenarios = [...meta.completedVictimSimScenarios, scenarioId];
+    }
+    const rankOrder: Record<string, number> = { S: 5, A: 4, B: 3, C: 2, D: 1 };
+    const prev = meta.victimSimBestRanks[scenarioId];
+    if (!prev || rankOrder[rank] > rankOrder[prev]) {
+      meta.victimSimBestRanks = { ...meta.victimSimBestRanks, [scenarioId]: rank };
+    }
+    this.state.managerMeta = { ...meta };
+    this.save();
+  }
+
+  /** v11：设置自定义难度（预设档位 + 自定义配置，持久化） */
+  setCustomDifficulty(preset: import("@/games/manager/types").CustomDifficultyPreset, config?: import("@/games/manager/types").CustomDifficultyConfig): void {
+    const meta = this.state.managerMeta;
+    meta.customDifficultyPreset = preset;
+    if (preset === "custom" && config) {
+      meta.customDifficulty = { ...config };
+    } else {
+      // easy/normal/hard：以预设档位覆盖自定义配置，保持一致
+      meta.customDifficulty = { ...meta.customDifficulty };
+    }
     this.state.managerMeta = { ...meta };
     this.save();
   }
@@ -1325,6 +1628,150 @@ class PlatformStore {
   recordTowerEventChoice(floor: number, optionId: string): void {
     const meta = this.state.managerMeta;
     meta.towerEventChoices = { ...meta.towerEventChoices, [floor]: optionId };
+    this.state.managerMeta = { ...meta };
+    this.save();
+  }
+
+  // ============ v9 Phase 4.3：错题本 + 知识闯关 ============
+
+  /**
+   * 记录一次答题结果到结构化错题本
+   * - 答对：wrongCount-- （降到 0 移除条目）
+   * - 答错：新增或更新条目，wrongCount++ 并刷新 lastWrongAt
+   * @returns 更新后的该题错次（0 表示已移除）
+   */
+  recordWrongQuestion(data: {
+    questionId: string;
+    source: WrongQuestionRecord["source"];
+    questionType: WrongQuestionRecord["questionType"];
+    questionText: string;
+    options: string[];
+    correctAnswer: string;
+    userAnswer: string;
+    category: string;
+    relatedCaseId?: string;
+    explanation?: string;
+    correct: boolean;
+  }): number {
+    const meta = this.state.managerMeta;
+    const key = `${data.source}::${data.questionId}`;
+    const now = Date.now();
+    const wq = { ...meta.wrongQuestions };
+    if (data.correct) {
+      // 答对：递减，到 0 移除
+      const cur = wq[key];
+      if (cur) {
+        const next = cur.wrongCount - 1;
+        if (next <= 0) {
+          const { [key]: _r, ...rest } = wq;
+          void _r;
+          meta.wrongQuestions = rest;
+        } else {
+          meta.wrongQuestions = { ...wq, [key]: { ...cur, wrongCount: next } };
+        }
+      }
+    } else {
+      // 答错：新增或更新
+      const cur = wq[key];
+      meta.wrongQuestions = {
+        ...wq,
+        [key]: {
+          questionId: data.questionId,
+          source: data.source,
+          questionType: data.questionType,
+          questionText: data.questionText,
+          options: data.options,
+          correctAnswer: data.correctAnswer,
+          lastWrongAnswer: data.userAnswer,
+          wrongCount: (cur?.wrongCount ?? 0) + 1,
+          firstWrongAt: cur?.firstWrongAt ?? now,
+          lastWrongAt: now,
+          category: data.category,
+          relatedCaseId: data.relatedCaseId,
+          explanation: data.explanation,
+        },
+      };
+    }
+    this.state.managerMeta = { ...meta };
+    this.save();
+    return meta.wrongQuestions[key]?.wrongCount ?? 0;
+  }
+
+  /** 获取错题本所有条目（按最近答错时间排序） */
+  getWrongQuestions(): WrongQuestionRecord[] {
+    return Object.values(this.state.managerMeta.wrongQuestions)
+      .sort((a, b) => b.lastWrongAt - a.lastWrongAt);
+  }
+
+  /** 按来源筛选错题 */
+  getWrongQuestionsBySource(source: WrongQuestionRecord["source"]): WrongQuestionRecord[] {
+    return this.getWrongQuestions().filter((q) => q.source === source);
+  }
+
+  /** 错题本统计：按来源分桶 */
+  getWrongQuestionStats(): Record<WrongQuestionRecord["source"], number> {
+    const stats: Record<WrongQuestionRecord["source"], number> = {
+      quiz: 0, dialog: 0, case: 0, battle: 0,
+    };
+    for (const q of Object.values(this.state.managerMeta.wrongQuestions)) {
+      stats[q.source] += 1;
+    }
+    return stats;
+  }
+
+  /** 清空错题本（用于设置中的"重置错题本"） */
+  clearWrongQuestions(): void {
+    const meta = this.state.managerMeta;
+    meta.wrongQuestions = {};
+    this.state.managerMeta = { ...meta };
+    this.save();
+  }
+
+  /**
+   * 记录知识闯关通关
+   * @returns 是否为新通关（用于触发奖励）
+   */
+  recordQuizLevelCleared(levelId: string, score: number): boolean {
+    const meta = this.state.managerMeta;
+    const isNew = !meta.quizClearedLevels.includes(levelId);
+    const prevScore = meta.quizHighScores[levelId] ?? 0;
+    if (isNew) {
+      meta.quizClearedLevels = [...meta.quizClearedLevels, levelId];
+    }
+    if (score > prevScore) {
+      meta.quizHighScores = { ...meta.quizHighScores, [levelId]: score };
+    }
+    this.state.managerMeta = { ...meta };
+    this.save();
+    return isNew || score > prevScore;
+  }
+
+  /** 知识闯关：某关卡是否已通关 */
+  isQuizLevelCleared(levelId: string): boolean {
+    return this.state.managerMeta.quizClearedLevels.includes(levelId);
+  }
+
+  /** 知识闯关：获取某关卡最高分 */
+  getQuizHighScore(levelId: string): number {
+    return this.state.managerMeta.quizHighScores[levelId] ?? 0;
+  }
+
+  /** 知识闯关：获取已通关数量 */
+  getQuizClearedCount(): number {
+    return this.state.managerMeta.quizClearedLevels.length;
+  }
+
+  /**
+   * v9 Phase 4.3：直接累加 managerMeta 中的资源字段
+   * 用于知识闯关等非战斗场景发放情报/反诈积分奖励
+   * （金币/碎片走 addResources，本方法仅处理 managerMeta 独有字段）
+   */
+  addManagerMetaResources(data: { intel?: number; antiFraudPoints?: number; caseFiles?: number; talentPoints?: number }): void {
+    const meta = this.state.managerMeta;
+    if (data.intel) meta.intel += Math.max(0, data.intel);
+    if (data.antiFraudPoints) meta.antiFraudPoints += Math.max(0, data.antiFraudPoints);
+    if (data.caseFiles) meta.caseFiles += Math.max(0, data.caseFiles);
+    if (data.talentPoints) meta.talentPoints += Math.max(0, data.talentPoints);
     this.state.managerMeta = { ...meta };
     this.save();
   }

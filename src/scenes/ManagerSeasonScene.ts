@@ -729,18 +729,9 @@ export class ManagerSeasonScene extends Scene {
     if (!quest) return;
     const meta = platformStore.managerMetaProgress();
     if (meta.weeklyCompleted.includes(questId)) return;
-    // 增加赛季积分 + 金币
     platformStore.addSeasonScore(quest.reward.seasonScore);
-    // 增加金币（直接操作 managerMeta）
-    const newMeta = platformStore.managerMetaProgress();
-    // 通过 grantRelic + 内部接口增加金币（platformStore 没有独立 addCoins 方法，复用 craftEquipment 的反向不合适）
-    // 这里使用一个轻量内联：直接调用 platformStore 暴露的方法
-    // 若 quest.reward.relicId 存在，授予遗物
-    if (quest.reward.relicId) {
-      platformStore.grantRelic(quest.reward.relicId);
-    }
+    if (quest.reward.coins) platformStore.addManagerCoins(quest.reward.coins);
+    if (quest.reward.relicId) platformStore.grantRelic(quest.reward.relicId);
     platformStore.completeWeeklyQuest(questId);
-    // 金币累加通过内联实现（platformStore 未暴露 addCoins，此处通过 seasonScore 间接体现）
-    // TODO: 后续可在 platformStore 暴露 addCoins 统一处理
   }
 }

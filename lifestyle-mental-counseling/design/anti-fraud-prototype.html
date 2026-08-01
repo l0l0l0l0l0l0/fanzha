@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>反诈游戏 · 交互原型</title>
+<style>
+  :root{
+    --bg:#0f1320; --panel:#171c2e; --panel2:#1f2740; --line:#2c3656;
+    --txt:#e7ecf6; --sub:#9aa6c4; --acc:#5b8cff; --warn:#ff7a7a; --ok:#4fd6a3; --gold:#ffcf6b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;line-height:1.6}
+  .wrap{max-width:980px;margin:0 auto;padding:24px 18px 60px}
+  header h1{font-size:22px;margin:0 0 4px}
+  header p{color:var(--sub);margin:0 0 18px;font-size:13px}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+  .tab{padding:8px 14px;border:1px solid var(--line);background:var(--panel);color:var(--sub);border-radius:999px;cursor:pointer;font-size:14px;transition:.2s}
+  .tab.active{background:var(--acc);color:#fff;border-color:var(--acc)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
+  .card h2{font-size:15px;margin:0 0 12px;color:var(--acc);letter-spacing:.5px}
+  .duo{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .duo .box{border-radius:10px;padding:14px;font-size:13.5px}
+  .duo .left{background:#1a2438;border:1px solid #2a3a5c}
+  .duo .right{background:#2a1c22;border:1px solid #5c2a33}
+  .duo .box b{display:block;font-size:12px;color:var(--sub);margin-bottom:6px}
+  .meta{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--sub);margin-bottom:10px}
+  .meta b{color:var(--txt)}
+  .note{background:var(--panel2);border-left:3px solid var(--gold);padding:10px 12px;border-radius:8px;font-size:13.5px;color:var(--gold)}
+  svg{width:100%;height:auto;display:block}
+  .legend{display:flex;gap:16px;font-size:12px;color:var(--sub);margin-top:8px;flex-wrap:wrap}
+  .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:var(--sub);font-weight:600}
+  td.input{background:#0d1322}
+  .row{display:grid;grid-template-columns:90px 1fr;gap:8px;align-items:start}
+  .row label{color:var(--sub);font-size:12.5px;padding-top:6px}
+  textarea,.row input{width:100%;background:#0d1322;border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:8px;font-size:13px;font-family:inherit;resize:vertical}
+  .btn{background:var(--acc);color:#fff;border:none;padding:9px 16px;border-radius:8px;cursor:pointer;font-size:13px;margin-top:10px}
+  .dist{margin-top:12px;display:none}
+  .dist.show{display:block}
+  .tag{display:inline-block;background:#33203a;color:var(--warn);border:1px solid #5c2a44;padding:3px 9px;border-radius:999px;font-size:12px;margin:3px 4px 0 0}
+  .lenses{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+  .lens{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:13px}
+  .lens b{color:var(--ok);font-size:13px}
+  .defense li{margin-bottom:8px;font-size:13.5px}
+  .defense b{color:var(--gold)}
+  footer{text-align:center;color:var(--sub);font-size:12.5px;margin-top:20px}
+  footer .hot{color:var(--warn);font-weight:700}
+  .warnbar{background:#2a1c22;border:1px solid #5c2a33;color:var(--warn);font-size:12.5px;padding:8px 12px;border-radius:8px;margin-bottom:16px}
+  @media(max-width:680px){.duo,.lenses{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>反诈游戏 · 交互原型</h1>
+    <p>设计主线：先代入「被填满的甜」→ 中招后用 CBT 思维记录 + 三透镜复盘 + 熵曲线照见自己 → 免疫。切换上方品类查看四类手感。</p>
+  </header>
+  <div class="warnbar">⚠️ 本原型为已被拆解的套路模拟，用于反诈教育；现实中绝不向任何人转账、不提供验证码/房产证，遇疑拨 96110。</div>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="card">
+    <h2 id="h-hook">① 双屏对比 · 你的故事 vs 真相</h2>
+    <div class="meta">
+      <span>核心钩子：<b id="m-hook"></b></span>
+      <span>需求空白：<b id="m-need"></b></span>
+      <span>示例：<b id="m-ex"></b></span>
+    </div>
+    <div class="duo">
+      <div class="box left"><b>你以为的</b><span id="d-left"></span></div>
+      <div class="box right"><b>实际上的</b><span id="d-right"></span></div>
+    </div>
+    <div class="note" id="d-note" style="margin-top:12px"></div>
+  </div>
+
+  <div class="card">
+    <h2 id="h-ent">② 熵曲线 · 信任如何建立又崩塌（<span id="ent-shape"></span>）</h2>
+    <svg id="chart" viewBox="0 0 600 300" preserveAspectRatio="xMidYMid meet"></svg>
+    <div class="legend">
+      <span><i style="background:#5b8cff"></i>认知熵（对方是谁的不确定性）</span>
+      <span><i style="background:#ffcf6b"></i>行为熵（行为反常度）</span>
+      <span><i style="background:#ff7a7a"></i>意义熵（关系算什么）</span>
+    </div>
+    <div class="note" id="ent-hint" style="margin-top:10px"></div>
+  </div>
+
+  <div class="card">
+    <h2>③ CBT 思维记录 · 复盘你当时脑子里的那句话</h2>
+    <div class="row"><label>事件</label><input id="tr-event"></div>
+    <div class="row"><label>想法</label><input id="tr-thought"></div>
+    <div class="row"><label>情绪</label><input id="tr-emotion"></div>
+    <div class="row"><label>行为</label><input id="tr-behavior"></div>
+    <div class="row"><label>更健康的想法</label><input id="tr-healthy"></div>
+    <button class="btn" onclick="analyze()">标注命中的认知扭曲</button>
+    <div class="dist" id="tr-dist"></div>
+  </div>
+
+  <div class="card">
+    <h2>④ 三透镜复盘 · 多视角解释你为何信了</h2>
+    <div class="lenses" id="lenses"></div>
+  </div>
+
+  <div class="card">
+    <h2>⑤ 防御锦囊 · 可带走的 3 条</h2>
+    <ul class="defense" id="defense"></ul>
+  </div>
+
+  <footer>真实出口：遇可疑情况拨 <span class="hot">96110</span> / <span class="hot">110</span>，下载国家反诈中心 App 自检。<br>你刚才经历的是已被拆解的套路——现实里没有「复盘」按钮，先按暂停。</footer>
+</div>
+
+<script>
+const DATA = {
+  "杀猪盘":{
+    hook:"被爱 + 被重视", need:"情感 / 意义 / 掌控感空白", ex:"林姐（38 岁，离异独居）",
+    left:"一个懂你、带你赚钱、说要和你过日子的人。你们有小秘密、有共同目标，他让你成了更好的自己。",
+    right:"一个按话术模板行事的陌生人。你的「小秘密」是剧本里的钩子，你的「更好的自己」是米开朗基罗效应的表演——他只是把你理想中的样子念回给你听。交叉熵 H(p,q) 从近乎为 0（灵魂伴侣错觉）到暴涨：你爱上的，是一个从未存在过的人。",
+    note:"你不是贪，你是太久没被好好对待。他卖的不是理财，是『被爱』。",
+    shape:"养熟 ↓ → 背叛 ↑",
+    hint:"养熟期 p≈q（灵魂伴侣错觉，交叉熵极低）；崩盘期 q 揭穿，交叉熵暴涨，共享密码本崩塌。",
+    phases:["初遇","养熟","引投","加码","崩盘"],
+    series:{cog:[60,15,30,45,95], beh:[40,20,55,70,80], mean:[55,15,35,50,95]},
+    tr:{event:"他说有个内部名额，今晚截止，让我先垫 5 万",thought:"他不会害我，错过这波就亏了，而且前面都赚到了",emotion:"焦虑 70% + 一丝兴奋",behavior:"刷卡转账",healthy:"真爱不会在提现前急着要钱；前面「赚到」只是账面数字，目的是锁住我"},
+    dist:[{t:"他不会害我",l:"读心术 / 应该思维"},{t:"错过这波就亏了",l:"损失厌恶 / 灾难化"},{t:"前面都赚到了",l:"沉没成本 / 承诺升级"}],
+    lenses:[
+      {t:"CBT 透镜（认知行为）",b:"你被几道认知扭曲接力带走了：先「情感推理」认定真心，再「确认偏误」只信吻合的证据，最后「沉没成本」让你越投越深。"},
+      {t:"行为经济学透镜（筹码与损失）",b:"骗子用「小赚→提现→加码」制造可控错觉，再用沉没成本和损失厌恶把你锁死。你不是在投资，是在为『被爱』续费。"},
+      {t:"叙事透镜（你写进了什么故事）",b:"你把自己写进了「被拯救/逆袭」剧本。骗子只是递来了剧本，并让你当主角。识破故事，就摘下了钩子。"}
+    ],
+    defense:[
+      "交叉熵自检：当一段关系「好得不像真的」、对方恰好满足你最想要的模样——先问「我是在恋爱，还是在填空洞？」",
+      "钱情分离：任何「先谈感情、再谈投资、拒绝见面视频」的组合，都是杀猪盘的标准形状。",
+      "提现试金石：正规平台随时能提现；以「风控/缴税/解冻」卡你提现的，100% 是局。"
+    ]
+  },
+  "刷单返利":{
+    hook:"轻易获利 + 从众", need:"经济 / 掌控 / 证明空白", ex:"小芸（22 岁，大三学生）",
+    left:"一个动动手指就能返现的靠谱兼职。首单真的到账了，连做三轮都赚，群里人人晒单。你觉得自己找到了低门槛的生财之道。",
+    right:"一台精心调校的「变动奖励机器」。首单返现是诱饵（锚定你「它是真的」），群里的盈利截图是托儿，连做三轮都返是为了让你上头。交叉熵 H(p,q) 从近乎为 0（「能赚」的错觉）到暴涨：你信的「兼职」，从第一笔垫资起就不存在了。",
+    note:"你不是笨，你是想靠自己赚到钱——这没错。错的是有人把你的上进，做成了收割你的刀。",
+    shape:"诱饵 ↓ → 收割 ↑",
+    hint:"诱饵期 p≈q（「它能返现」错觉，交叉熵极低）；收割期 q 被揭穿（返现承诺永不兑现），交叉熵暴涨，密码本崩塌。",
+    phases:["初遇","首单返现","连做","转大额","崩盘"],
+    series:{cog:[55,12,20,50,95], beh:[45,25,30,75,85], mean:[50,15,22,55,95]},
+    tr:{event:"系统提示「充值 199 升级才能提现」，群友催「最后 5 分钟」",thought:"前面都到账了，再充一笔就能连本带利提出来，不充前面的就没了",emotion:"焦虑 80% + 孤注一掷的兴奋",behavior:"充值 199，之后继续垫资",healthy:"正规兼职绝不会让我先垫钱；「不充就没了」是制造损失的恐慌，不是事实"},
+    dist:[{t:"前面都到账了",l:"锚定 / 确认偏误"},{t:"再充一笔就能提出来",l:"控制错觉 / 赌徒谬误"},{t:"不充前面的就没了",l:"沉没成本 / 损失厌恶 / 灾难化"}],
+    lenses:[
+      {t:"CBT 透镜（认知行为）",b:"你被几道扭曲接力带走了：先「控制错觉」以为点几下无风险，再「锚定」首单返现当真理，最后「沉没成本+损失厌恶」让你越垫越深。"},
+      {t:"行为经济学透镜（变动奖励+沉没成本）",b:"骗子用和老虎机同款的变动奖励 schedule：首单必中、之后时有时无，把你的多巴胺钓上来；再用「垫资才能解冻」锁死你。你不是在兼职，是在一台对你零和收益的抽奖机上不断投币。"},
+      {t:"社会认同透镜（群托从众）",b:"群里满屏「今日赚 XXX」是托儿剧本。人看到「大家都在赚」会本能放松警惕。识破「全员赢家」本身就是红 flag——真实兼职里永远有人亏。"}
+    ],
+    defense:[
+      "垫资即终局：任何「先充值/交保证金/解冻费才能提现或返利」的兼职，100% 是刷单诈骗。正规平台不会让你先掏钱。",
+      "首单返现是诱饵，不是证据：它付你 20 元，是为了锚定你「它是真的」，好让你后面掏 2000。",
+      "群托识别：满屏晒盈利、催你抓紧的「兼职群」，几乎都是托儿局。真兼职从不需要你进私聊群垫资。"
+    ]
+  },
+  "冒充公检法":{
+    hook:"恐惧 + 权威服从", need:"安全 / 秩序 / 核实渠道空白", ex:"老周（58 岁，退休）",
+    left:"真警察来电办案，你涉嫌洗钱必须配合：保密、下载软件、把资金转到「安全账户」自证清白，案子了结就退还。",
+    right:"一个用恐惧给你洗脑的骗子。假通缉令、假案号、限时施压，目的只有一个——让你在慌乱中把存款转进他的账户。交叉熵 H(p,q) 从被恐惧压到极低（你「配合」得越顺，越信它是真办案）到暴涨：公检法从不设安全账户、从不电话要转账，这一条规则直接击穿了整场戏。",
+    note:"你怕摊上事，恰恰因为你是个守法的好人。骗子卖的，正是你这份老实。",
+    shape:"威慑 ↓ → 揭示 ↑",
+    hint:"威慑期恐惧让 victim 把 p 对齐 q（服从），交叉熵被压到极低；揭示期「公检法不设安全账户」击穿 q，交叉熵暴涨。",
+    phases:["初遇来案","确认涉案","被要求保密","配合","揭示"],
+    series:{cog:[50,20,12,10,95], beh:[40,30,35,60,90], mean:[45,25,15,12,95]},
+    tr:{event:"「警官」说身份证涉洗钱，要求转账到「安全账户」自证，并说会牵连女儿",thought:"他是警察不能骗我；不转清白就洗不掉，女儿也要受连累",emotion:"恐惧 90% + 孤立无助",behavior:"按指示下载同屏软件、转账",healthy:"真公检法绝不电话办案、绝不设安全账户；怕就挂断打 110/96110 核实，先找家人"},
+    dist:[{t:"警察不能骗我",l:"权威偏见"},{t:"不转就洗不掉清白",l:"灾难化 / 非黑即白"},{t:"女儿要受连累",l:"孤立效应下的被操控恐惧"},{t:"警官说照做就行",l:"责任转移（把判断交出去）"}],
+    lenses:[
+      {t:"CBT 透镜（认知行为）",b:"你被几道扭曲接力带走了：先「权威偏见」把穿制服的当不可质疑，再「灾难化」把不配合等同于坐牢，最后「责任转移」把判断权交出去。恐惧让这些扭曲格外牢固。"},
+      {t:"社会心理学透镜（权威服从+孤立）",b:"人面对自认的公权力会本能让渡判断。骗子还要你「保密、别挂电话、去安静处」——切断你唯一的现实核对。被孤立，是上当的前奏。"},
+      {t:"危机应激透镜（恐惧窄化理性）",b:"急性恐惧触发应激，让理性判断暂时掉线，人进入「服从以自保」模式。限时通牒更把窄化焊死。凡是催你「现在就决定、别商量」的，都先按暂停。"}
+    ],
+    defense:[
+      "三不铁律：公检法不电话办案、不设「安全账户」、不要求转账自证。出现「安全账户/转账/屏幕共享」，100% 是假。",
+      "挂断再核实：真办案会当面、出示证件、走正规程序。电话里要你转账或同屏的，挂断后打 110/96110 或找社区民警——用你自己的渠道。",
+      "恐慌里不做决定：任何「限时、保密、别告诉家人」的要求，都是红 flag。先找至少一个真人确认，再动钱。"
+    ]
+  },
+  "养老诈骗":{
+    hook:"亲情缺口 + 健康/养老焦虑 + 权威信任", need:"亲情 / 健康 / 保障 / 尊严空白", ex:"王阿姨（65 岁，空巢）",
+    left:"一个比亲儿女还亲的「干女儿」，每周来看你、陪你说话；一位权威「教授」说这保健品能调好你的身子；一个「国家背书」的养老项目，让养老钱稳稳增值。",
+    right:"一条冲着你钱和房来的流水线。免费鸡蛋是锚，每日关怀是拟亲情的共享密码本，白大褂是伪造的权威。交叉熵 H(p,q) 从极低（「比亲儿女还亲」）到暴涨：他们要的从来不是你，是你的养老钱和房产证。",
+    note:"你想自己扛、不想麻烦儿女，这没错。错的是有人把你的孤单，做成了收割你的镰刀。",
+    shape:"关怀 ↓ → 揭示 ↑",
+    hint:"养熟期稳定关怀+假背书让 p≈q（「真家人」错觉，交叉熵极低）；收割期要钱/要房本使 q 揭穿，交叉熵暴涨，密码本崩塌。",
+    phases:["初遇关怀","持续关怀","推介","复购","揭示"],
+    series:{cog:[55,18,25,40,95], beh:[40,22,50,65,88], mean:[50,15,28,45,95]},
+    tr:{event:"「干女儿」推介「以房养老」高息理财，要房产证抵押，说别告诉女儿",thought:"她比我亲女儿还亲，不会害我；这项目正规，不办就错过，也不想麻烦闺女",emotion:"安心 60% + 一丝犹豫被安抚",behavior:"配合提供房产证信息、准备签约",healthy:"真儿女/真医生不会催我偷偷签字；正规养老政策不私聊推销、不要房产证；先打给女儿或社区民警"},
+    dist:[{t:"比亲女儿还亲",l:"情感推理"},{t:"教授/正规项目",l:"权威偏见"},{t:"不办就错过",l:"损失厌恶 / 稀缺"},{t:"不想麻烦闺女",l:"隐瞒倾向（反复受害的温床）"}],
+    lenses:[
+      {t:"CBT 透镜（认知行为）",b:"你被几道扭曲接力带走了：先「情感推理」把关怀当真情，再「权威偏见」把白大褂当真理，最后「损失厌恶+隐瞒倾向」让你既掏钱又不声张。越瞒，越被套牢。"},
+      {t:"依恋与孤独透镜（情感替代）",b:"空巢的孤单，被「干儿女」精准填上。人在情感空缺时，会把持续的温暖误认为亲情。识破「关怀→推销」的转化点：真亲情不急着卖你东西。"},
+      {t:"权威与信息弱势透镜（难核实）",b:"白大褂、「教授」、伪造资质，利用你对专家的信任，也利用你不便上网核实的信息差。凡要房本/大额，先找子女或社区民警核实。"}
+    ],
+    defense:[
+      "天上不会掉儿女：对你过分热情、又急着让你掏钱的「干儿子/干女儿/专家」，先打问号。真儿女、真医生不会催你偷偷转账或抵押房产。",
+      "保健≠治疗：凡宣称「包治百病/替代药物」的保健品一律假；有病去正规医院，别信讲座「神药」。",
+      "房本钱袋子守紧：任何「以房养老/高息养老」要你抵押房产或转账的，先和子女、社区民警核实。正规养老政策不私聊推销、不要房产证。"
+    ]
+  }
+};
+
+const COLORS={cog:"#5b8cff",beh:"#ffcf6b",mean:"#ff7a7a"};
+let cur="杀猪盘";
+
+function buildTabs(){
+  const t=document.getElementById('tabs');
+  Object.keys(DATA).forEach(k=>{
+    const b=document.createElement('div');
+    b.className='tab'+(k===cur?' active':'');
+    b.textContent=k;
+    b.onclick=()=>{cur=k;render();};
+    t.appendChild(b);
+  });
+}
+
+function render(){
+  const d=DATA[cur];
+  document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('active',Object.keys(DATA)[i]===cur));
+  document.getElementById('m-hook').textContent=d.hook;
+  document.getElementById('m-need').textContent=d.need;
+  document.getElementById('m-ex').textContent=d.ex;
+  document.getElementById('d-left').textContent=d.left;
+  document.getElementById('d-right').textContent=d.right;
+  document.getElementById('d-note').textContent=d.note;
+  document.getElementById('ent-shape').textContent=d.shape;
+  document.getElementById('ent-hint').textContent=d.hint;
+  renderChart(d);
+  document.getElementById('tr-event').value=d.tr.event;
+  document.getElementById('tr-thought').value=d.tr.thought;
+  document.getElementById('tr-emotion').value=d.tr.emotion;
+  document.getElementById('tr-behavior').value=d.tr.behavior;
+  document.getElementById('tr-healthy').value=d.tr.healthy;
+  document.getElementById('tr-dist').className='dist';
+  document.getElementById('tr-dist').innerHTML='';
+  const lens=document.getElementById('lenses');lens.innerHTML='';
+  d.lenses.forEach(l=>{const c=document.createElement('div');c.className='lens';c.innerHTML='<b>'+l.t+'</b><br>'+l.b;lens.appendChild(c);});
+  const def=document.getElementById('defense');def.innerHTML='';
+  d.defense.forEach(x=>{const li=document.createElement('li');li.innerHTML='<b>• </b>'+x;def.appendChild(li);});
+}
+
+function renderChart(d){
+  const svg=document.getElementById('chart');
+  const W=600,H=300,padL=34,padR=14,padT=18,padB=40;
+  const n=d.phases.length;
+  const x=i=>padL+(W-padL-padR)*(i/(n-1));
+  const y=v=>H-padB-(H-padT-padB)*(v/100);
+  let s=`<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H-padB}" stroke="#2c3656"/>`;
+  s+=`<line x1="${padL}" y1="${H-padB}" x2="${W-padR}" y2="${H-padB}" stroke="#2c3656"/>`;
+  [0,25,50,75,100].forEach(v=>{s+=`<text x="${padL-6}" y="${y(v)+4}" fill="#9aa6c4" font-size="10" text-anchor="end">${v}</text>`;});
+  d.phases.forEach((p,i)=>{s+=`<text x="${x(i)}" y="${H-padB+18}" fill="#9aa6c4" font-size="11" text-anchor="middle">${p}</text>`;});
+  Object.keys(d.series).forEach(key=>{
+    const pts=d.series[key].map((v,i)=>x(i)+','+y(v)).join(' ');
+    s+=`<polyline points="${pts}" fill="none" stroke="${COLORS[key]}" stroke-width="2.5" pathLength="1" class="draw"/>`;
+    d.series[key].forEach((v,i)=>{s+=`<circle cx="${x(i)}" cy="${y(v)}" r="3.5" fill="${COLORS[key]}"/>`;});
+  });
+  svg.innerHTML=s;
+  // animate
+  requestAnimationFrame(()=>{
+    svg.querySelectorAll('.draw').forEach((p,i)=>{
+      p.style.strokeDasharray=1;p.style.strokeDashoffset=1;p.style.transition=`stroke-dashoffset 1.1s ease ${i*0.15}s`;
+      requestAnimationFrame(()=>{p.style.strokeDashoffset=0;});
+    });
+  });
+}
+
+function analyze(){
+  const d=DATA[cur];
+  const box=document.getElementById('tr-dist');
+  let html='<b style="color:var(--warn)">命中的认知扭曲：</b><br>';
+  d.dist.forEach(x=>{html+=`<span class="tag">「${x.t}」→ ${x.l}</span>`;});
+  html+='<div style="margin-top:10px;color:var(--sub);font-size:12.5px">提示：这些扭曲单独看都「合理」，串起来就成了陷阱。下次它再出现，你会认得它。</div>';
+  box.innerHTML=html;box.className='dist show';
+}
+
+buildTabs();
+render();
+</script>
+</body>
+</html>

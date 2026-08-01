@@ -1,0 +1,178 @@
+[
+  {
+    "id": "E01-001", "typeId": "E01", "type": "证据判断", "cardType": "chat", "difficulty": 2,
+    "kind": "evidence",
+    "title": "证据判断 / 找出杀猪盘诈骗话术",
+    "body": "下面是与\"白富美\"网友的聊天记录。请选出其中的诈骗话术（单选一条消息）。",
+    "evidenceImage": [
+      { "from": "scammer", "text": "哥哥在吗？今天想跟你聊聊天~", "time": "20:01" },
+      { "from": "me", "text": "在的，怎么了？", "time": "20:02" },
+      { "from": "scammer", "text": "我发现一个投资漏洞，带你一起赚，保密别告诉别人，先投500秒到账650。", "time": "20:03" },
+      { "from": "me", "text": "这么厉害？靠谱吗？", "time": "20:04" },
+      { "from": "scammer", "text": "当然靠谱，群里大家都赚了，加大投入3万返5万~", "time": "20:05" }
+    ],
+    "evidenceTags": ["normal", "normal", "scam", "normal", "scam"],
+    "options": ["第1条：哥哥在吗", "第2条：在的", "第3条：投资漏洞保密", "第4条：靠谱吗", "第5条：加大投入3万返5万"],
+    "evidenceAnswer": 2,
+    "cues": ["投资漏洞", "保密", "杀猪盘"],
+    "explain": "第3条\"投资漏洞+保密+先投500返650\"是杀猪盘核心话术。任何\"投资漏洞+保密+稳赚\"都是诈骗。",
+    "psychology": ["intimacy", "greed", "trust"],
+    "knowledgePoints": ["KP-PIG-BUTCHERING"],
+    "season": ["all"],
+    "caseArchive": { "title": "杀猪盘聊天证据判断", "date": "2026", "source": "反诈中心", "takeaway": "投资漏洞+保密+稳赚=杀猪盘核心话术。" }
+  },
+  {
+    "id": "E01-002", "typeId": "E01", "type": "证据判断", "cardType": "chat", "difficulty": 2,
+    "kind": "evidence",
+    "title": "证据判断 / 找出冒充客服钓鱼话术",
+    "body": "下面是\"抖音客服\"的来电聊天记录。请选出其中的钓鱼话术。",
+    "evidenceImage": [
+      { "from": "scammer", "text": "您好，这里是抖音客服，您开通了直播会员每月扣费800元。", "time": "14:01" },
+      { "from": "me", "text": "我没开通过啊？", "time": "14:02" },
+      { "from": "scammer", "text": "如需取消，请下载会议软件共享屏幕，我帮您操作关闭。", "time": "14:03" },
+      { "from": "me", "text": "共享屏幕？安全吗？", "time": "14:04" },
+      { "from": "scammer", "text": "绝对安全，请提供银行卡号接收退款，再报一下短信验证码。", "time": "14:05" }
+    ],
+    "evidenceTags": ["cue", "normal", "scam", "normal", "scam"],
+    "options": ["第1条：扣费800元", "第2条：我没开通", "第3条：共享屏幕操作", "第4条：安全吗", "第5条：银行卡+验证码"],
+    "evidenceAnswer": 2,
+    "cues": ["共享屏幕", "扣费恐吓", "冒充客服"],
+    "explain": "第3条\"共享屏幕操作关闭\"是冒充客服核心钓鱼话术。共享屏幕=交出密码验证码。第5条银行卡+验证码同样是钓鱼（但本题要求选\"其话术\"，第3条最典型）。",
+    "psychology": ["urgency", "fear", "authority"],
+    "knowledgePoints": ["KP-AI-IMPERSONATION"],
+    "season": ["all"],
+    "caseArchive": { "title": "冒充客服聊天证据判断", "date": "2026", "source": "反诈中心", "takeaway": "共享屏幕+扣费恐吓=冒充客服钓鱼。" }
+  },
+  {
+    "id": "E01-003", "typeId": "E01", "type": "证据判断", "cardType": "chat", "difficulty": 2,
+    "kind": "evidence",
+    "title": "证据判断 / 找出刷单诈骗话术",
+    "body": "下面是兼职群\"任务派单员\"的聊天记录。请选出其中的诈骗话术。",
+    "evidenceImage": [
+      { "from": "scammer", "text": "点赞关注店铺即可返佣，已结第一单5元到账。", "time": "09:01" },
+      { "from": "me", "text": "真的能赚钱吗？", "time": "09:02" },
+      { "from": "scammer", "text": "现在做连单任务垫付500返650，多做多赚，拉同学一起更划算。", "time": "09:03" },
+      { "from": "me", "text": "垫付？要我先出钱？", "time": "09:04" },
+      { "from": "scammer", "text": "放心，本金+佣金一并提现，操作失误需再垫3000解冻。", "time": "09:05" }
+    ],
+    "evidenceTags": ["cue", "normal", "scam", "normal", "scam"],
+    "options": ["第1条：点赞返佣5元", "第2条：真的能赚吗", "第3条：垫付500返650拉同学", "第4条：要我先出钱", "第5条：再垫3000解冻"],
+    "evidenceAnswer": 2,
+    "cues": ["垫付连单", "拉同学", "刷单"],
+    "explain": "第3条\"垫付500返650+拉同学\"是刷单诈骗核心话术。垫付连单=诈骗，拉同学扩大受害面。第5条\"再垫3000解冻\"同样是诈骗话术。",
+    "psychology": ["greed", "conformity", "sunkCost"],
+    "knowledgePoints": ["KP-BRUSH-ORDER"],
+    "season": ["all"],
+    "caseArchive": { "title": "刷单聊天证据判断", "date": "2026", "source": "反诈中心", "takeaway": "垫付连单+拉同学=刷单诈骗核心话术。" }
+  },
+  {
+    "id": "E01-004", "typeId": "E01", "type": "证据判断", "cardType": "call", "difficulty": 3,
+    "kind": "evidence",
+    "title": "证据判断 / 找出冒充公检法恐吓话术",
+    "body": "下面是\"刑侦支队\"来电的对话记录。请选出其中的恐吓话术。",
+    "evidenceImage": [
+      { "from": "scammer", "text": "我是市局刑侦支队民警，你名下银行卡涉嫌洗钱200万。", "time": "13:01" },
+      { "from": "me", "text": "不可能，我没洗钱！", "time": "13:02" },
+      { "from": "scammer", "text": "案件保密不得告诉任何人，请将资金转入安全账户清查自证清白，否则拘捕你。", "time": "13:03" },
+      { "from": "me", "text": "安全账户？", "time": "13:04" },
+      { "from": "scammer", "text": "下载检务通APP按指引操作，配合调查否则立即执行抓捕。", "time": "13:05" }
+    ],
+    "evidenceTags": ["cue", "normal", "scam", "normal", "scam"],
+    "options": ["第1条：涉嫌洗钱200万", "第2条：不可能", "第3条：保密+安全账户+拘捕", "第4条：安全账户？", "第5条：下载APP否则抓捕"],
+    "evidenceAnswer": 2,
+    "cues": ["安全账户", "保密不得告诉", "拘捕恐吓"],
+    "explain": "第3条\"保密+安全账户+拘捕\"是冒充公检法核心恐吓话术。公检法不电话办案，无安全账户，不要求保密。",
+    "psychology": ["fear", "authority", "urgency"],
+    "knowledgePoints": ["KP-IMPERSONATION"],
+    "season": ["all"],
+    "caseArchive": { "title": "冒充公检法聊天证据判断", "date": "2026", "source": "公安部", "takeaway": "保密+安全账户+拘捕=冒充公检法三件套。" }
+  },
+  {
+    "id": "E01-005", "typeId": "E01", "type": "证据判断", "cardType": "secondhand", "difficulty": 2,
+    "kind": "evidence",
+    "title": "证据判断 / 找出二手平台钓鱼话术",
+    "body": "下面是闲鱼卖手机时\"客服\"的聊天记录。请选出其中的钓鱼话术。",
+    "evidenceImage": [
+      { "from": "scammer", "text": "【闲鱼客服】您有一笔交易异常，买家付款被冻结。", "time": "15:01" },
+      { "from": "me", "text": "怎么会冻结？", "time": "15:02" },
+      { "from": "scammer", "text": "需缴纳2000元解冻保证金到指定账户，缴清后保证金与货款一并返还。", "time": "15:03" },
+      { "from": "me", "text": "保证金？", "time": "15:04" },
+      { "from": "scammer", "text": "请点击链接填写银行卡信息加速解冻，否则永久冻结账户。", "time": "15:05" }
+    ],
+    "evidenceTags": ["cue", "normal", "scam", "normal", "scam"],
+    "options": ["第1条：交易异常冻结", "第2条：怎么会冻结", "第3条：缴2000解冻保证金", "第4条：保证金？", "第5条：点链接填银行卡"],
+    "evidenceAnswer": 2,
+    "cues": ["解冻保证金", "指定账户", "二手平台"],
+    "explain": "第3条\"缴2000解冻保证金到指定账户\"是二手平台诈骗核心话术。闲鱼客服只在APP内，不收保证金。",
+    "psychology": ["urgency", "fear", "authority"],
+    "knowledgePoints": ["KP-SECONDHAND"],
+    "season": ["all"],
+    "caseArchive": { "title": "二手平台聊天证据判断", "date": "2026", "source": "市场监管总局", "takeaway": "解冻保证金+指定账户=二手平台诈骗。" }
+  },
+  {
+    "id": "E01-006", "typeId": "E01", "type": "证据判断", "cardType": "recruit", "difficulty": 2,
+    "kind": "evidence",
+    "title": "证据判断 / 找出虚假招聘收费话术",
+    "body": "下面是\"招聘HR\"的聊天记录。请选出其中的收费话术。",
+    "evidenceImage": [
+      { "from": "scammer", "text": "高薪兼职日结800-1500，0经验可做，时间自由。", "time": "10:01" },
+      { "from": "me", "text": "0经验也行？", "time": "10:02" },
+      { "from": "scammer", "text": "入职需先交1980元培训费，培训后上岗，费用上岗后退还。", "time": "10:03" },
+      { "from": "me", "text": "要先交钱？", "time": "10:04" },
+      { "from": "scammer", "text": "还可协助办理培训贷19800元，上岗后用工资抵扣，绝对划算。", "time": "10:05" }
+    ],
+    "evidenceTags": ["cue", "normal", "scam", "normal", "scam"],
+    "options": ["第1条：高薪日结0经验", "第2条：0经验也行", "第3条：交1980培训费上岗退还", "第4条：要先交钱", "第5条：办培训贷19800"],
+    "evidenceAnswer": 2,
+    "cues": ["培训费", "上岗退还", "虚假招聘"],
+    "explain": "第3条\"交1980培训费上岗退还\"是虚假招聘核心收费话术。正规招聘不收任何费用，先交费=诈骗。",
+    "psychology": ["greed", "trust", "sunkCost"],
+    "knowledgePoints": ["KP-FAKE-JOB"],
+    "season": ["summerJob", "schoolOpen"],
+    "caseArchive": { "title": "虚假招聘聊天证据判断", "date": "2026", "source": "人社部", "takeaway": "培训费+上岗退还=虚假招聘收费话术。" }
+  },
+  {
+    "id": "E01-007", "typeId": "E01", "type": "证据判断", "cardType": "video", "difficulty": 3,
+    "kind": "evidence",
+    "title": "证据判断 / 找出AI换脸借款话术",
+    "body": "下面是\"朋友\"视频借款的聊天记录。请选出其中的诈骗话术。",
+    "evidenceImage": [
+      { "from": "scammer", "text": "（视频通话）老朋友，我遇到急事需借3万周转。", "time": "21:01" },
+      { "from": "me", "text": "怎么了？", "time": "21:02" },
+      { "from": "scammer", "text": "手机摔坏了借别人手机，麦克风坏了只能打字，扫码转账给我就行。", "time": "21:03" },
+      { "from": "me", "text": "扫码？", "time": "21:04" },
+      { "from": "scammer", "text": "快一点，急用，别告诉别人，视频里是我本人你放心。", "time": "21:05" }
+    ],
+    "evidenceTags": ["cue", "normal", "scam", "normal", "scam"],
+    "options": ["第1条：视频借3万", "第2条：怎么了", "第3条：手机坏+麦克风坏+扫码转账", "第4条：扫码？", "第5条：快点别告诉别人"],
+    "evidenceAnswer": 2,
+    "cues": ["麦克风坏了", "扫码转账", "AI换脸"],
+    "explain": "第3条\"手机摔坏+麦克风坏+扫码转账\"是AI换脸借款核心话术。打字规避语音破绽+扫码转账=诈骗。",
+    "psychology": ["urgency", "trust", "intimacy"],
+    "knowledgePoints": ["KP-AI-REALTIME-DEEPFAKE"],
+    "season": ["all"],
+    "caseArchive": { "title": "AI换脸借款聊天证据判断", "date": "2026", "source": "公安部", "takeaway": "麦克风坏+扫码转账=AI换脸借款诈骗。" }
+  },
+  {
+    "id": "E01-008", "typeId": "E01", "type": "证据判断", "cardType": "live", "difficulty": 2,
+    "kind": "evidence",
+    "title": "证据判断 / 找出直播带货脱离平台话术",
+    "body": "下面是直播间主播的私信记录。请选出其中的脱离平台话术。",
+    "evidenceImage": [
+      { "from": "scammer", "text": "亲，直播间看的苹果手机喜欢吗？", "time": "19:01" },
+      { "from": "me", "text": "喜欢，怎么买？", "time": "19:02" },
+      { "from": "scammer", "text": "平台手续费太高，加我微信直接转账便宜200，发货更快。", "time": "19:03" },
+      { "from": "me", "text": "加微信？", "time": "19:04" },
+      { "from": "scammer", "text": "已有粉丝晒收到货截图，1元秒杀最后10单，错过无！", "time": "19:05" }
+    ],
+    "evidenceTags": ["normal", "normal", "scam", "normal", "scam"],
+    "options": ["第1条：苹果手机喜欢吗", "第2条：怎么买", "第3条：加微信便宜200", "第4条：加微信？", "第5条：1元秒杀最后10单"],
+    "evidenceAnswer": 2,
+    "cues": ["加微信", "手续费高", "脱离平台"],
+    "explain": "第3条\"加微信直接转账便宜200\"是直播带货诈骗核心脱离平台话术。平台内交易有担保，私下转账无保障。",
+    "psychology": ["greed", "conformity", "urgency"],
+    "knowledgePoints": ["KP-LIVE-COMMERCE"],
+    "season": ["all"],
+    "caseArchive": { "title": "直播带货聊天证据判断", "date": "2026", "source": "市场监管总局", "takeaway": "加微信+便宜+转账=直播带货脱离平台诈骗。" }
+  }
+]

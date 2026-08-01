@@ -31,14 +31,95 @@ import {
   REBUILD_THRESHOLD, REBUILD_RATE_MUL, REBUILD_MAX_PARALLEL,
   // 模块知识点
   MODULE_KNOWLEDGE,
+  // v5 新增：模块→图鉴映射 / 受害者救援 / 过载大招
+  MODULE_CODEX_TYPE, MODULE_CODEX_UNLOCK_THRESHOLD, MODULE_VICTIM_COUNT,
+  OVERDRIVE_MANUAL_WINDOW, OVERDRIVE_ULT_DAMAGE_PCT, OVERDRIVE_ULT_FLASH, OVERDRIVE_ULT_HITSTOP,
 } from "./data";
 import type {
   ItemId, ParkTierDef, ParkHud, ItemState, BombBossDef, WeatherDef,
   WeaponKind, WeaponState, TreeDef, MapLayoutDef,
   CounterDebuff, CounterShell,
   SpecialSkillKind, ModuleType,
+  // v5 新增类型
+  BossPhaseDef, MinionKind, Minion, SummonDef, Victim,
+  // v6 新增类型
+  BombGameMode, BombDifficulty, BombStoryStage, BombDailyRule, BombTierRating,
+  // v7 武器升级分支类型
+  WeaponUpgradeBranch,
+  // v8 案例档案 + 受害者档案 + 知识图谱类型
+  BombCaseArchive, BombVictimProfile, BombKnowledgeGraph,
+  // v9 全面升级类型
+  CannonSlot, CannonSlotId, ParkLayerState, ParkLayerKind,
+  WaveGapPhase, RTSUpgradeState, RTSUpgradeId, BombCaseTimelineEntry, BombTaskType,
+  // v10 全面升级类型
+  CannonSynergyState, SynergySkillKind, DynamicEventState, DynamicEventDef,
+  WaveGapQuizState, PermanentUpgradeState, PermanentUpgradeId,
+  // v11 全面升级类型
+  BossTrialDef, BossTrialState, QTEDef, QTEState, PactDef, PactState, PactEffect,
+  BombStoryEndingType, BombStoryBranchNode, BombStoryMultiEnding,
+  IndustryChainDef, AbyssSubStructure, DemolitionAnimState,
+  VictimStoryCard, AbilityRadar, DebriefScenario, BattleReportQR,
+  AchievementShowcaseCard, HotspotCase, WeatherParticleConfig,
 } from "./types";
 import type { GameCanvas } from "@/platform/web";
+// v6 升级数据层 + 跨局存档
+import {
+  STORY_STAGES, getStoryStage, getStoryTier, getStoryBoss,
+  DAILY_RULES, getDailyRule, getTodayKey,
+  MODE_LABELS, DIFFICULTY_LABELS,
+  // v7 武器升级树 + 道具升星
+  WEAPON_UPGRADE_TREES, getWeaponTree,
+  ITEM_STAR_DEFS, getItemStarDef, getItemStarLevel,
+  // v8 案例档案 + 受害者档案 + 知识图谱 + 评级 + 铭言
+  getCaseArchive, matchVictimProfile, buildKnowledgeGraph,
+  calculateRating, randomMotto,
+} from "./dataV2";
+import {
+  loadV6Save, recordRunComplete, submitModeScore, submitDifficultyScore,
+  submitDailyScore, clearStoryStage, submitRating,
+  // v7 跨局成长存档
+  getWeaponBranch, getItemStar, addItemFragments, incrementModulesDestroyed,
+  // v8 累计救援数
+  addVictimsRescued,
+  // v9 全面升级存档
+  loadV9Save, markBossDefeated, getUnlockedCannons, unlockCannon,
+  updateDailyTaskProgress, getDailyTaskProgress,
+  addClueFragments, incrementKnowledgeTips, addCaseTimelineEntries, recordRTSBuild,
+  // v10 跨局永久成长树存档
+  depositClueFragments, getClueFragmentBank,
+} from "./storage";
+// v9 全面升级数据层
+import {
+  CANNON_SLOTS_INIT, CANNON_FIRE_INTERVAL_BASE, countActiveCannons,
+  buildParkLayers, nearestIntactLayer, layerOfModule, PARK_LAYERS,
+  RTS_NODE_MAP, pickRTSOfferings, getRTSLevel, rtsMultiplier, rtsMultishotBonus, rtsCritChance,
+  getModuleKnowledgeTip, getLayerKnowledgeTip,
+  buildCaseTimeline,
+  getTodayBombTasks, getTodayKeyBomb,
+  // v10 数据
+  SYNERGY_SKILLS, recommendSynergySkill, pickDynamicEvent, pickWaveGapQuiz,
+  PERMANENT_UPGRADE_MAP, getPermanentLevel, permanentMul,
+  // v11 数据
+  getBossTrial, getTrialQuestion, pickQTE, pickPacts,
+  getIndustryChain, getStoryMultiEnding, resolveStoryEnding,
+  getHotspotByTier, getVictimStoryByRescueCount, getDebriefByTier,
+  getWeatherParticles,
+} from "./dataV3";
+
+// ============ v6 难度系数 ============
+
+/** 难度系数：影响 Boss HP / 修复速度 / 反击频率 */
+const DIFFICULTY_COEF: Record<BombDifficulty, { hpMul: number; repairMul: number; counterMul: number; scoreMul: number; label: string }> = {
+  easy:   { hpMul: 0.7,  repairMul: 0.7, counterMul: 0.8, scoreMul: 0.8,  label: "简单" },
+  normal: { hpMul: 1.0,  repairMul: 1.0, counterMul: 1.0, scoreMul: 1.0,  label: "普通" },
+  hard:   { hpMul: 1.3,  repairMul: 1.3, counterMul: 1.2, scoreMul: 1.3,  label: "困难" },
+  hell:   { hpMul: 1.8,  repairMul: 1.6, counterMul: 1.5, scoreMul: 1.8,  label: "地狱" },
+};
+
+/** 极速模式总时长（秒） */
+const SPEEDRUN_TOTAL_SEC = 180;
+/** 极速模式结算时的额外时间奖励分（每剩余秒） */
+const SPEEDRUN_TIME_BONUS_PER_SEC = 20;
 
 /** shade() 纯函数结果缓存：key = `${hex}|${factor}`，避免热循环重复 parseInt/toString */
 const _shadeCache = new Map<string, string>();
@@ -121,8 +202,8 @@ interface BuildingModule {
   depth: number;
   /** 主题色 */
   color: string;
-  /** 模块类型：决定特殊渲染（信号塔/电诈工位/电击室/铁笼/小黑屋/白家武装/苦工宿舍/装甲碉堡/铁丝网/地基） */
-  type: "antenna" | "floor" | "server" | "dorm" | "fortress" | "wall" | "foundation" | "shock" | "cage" | "cell" | "guard";
+  /** 模块类型：决定特殊渲染（信号塔/电诈工位/电击室/铁笼/小黑屋/白家武装/苦工宿舍/装甲碉堡/铁丝网/地基；v6: 直播间/赌博机房/暗网服务器/虚拟币矿场） */
+  type: "antenna" | "floor" | "server" | "dorm" | "fortress" | "wall" | "foundation" | "shock" | "cage" | "cell" | "guard" | "liveRoom" | "casino" | "darkweb" | "minefarm";
   /** 运行时：是否已被拆除 */
   demolished: boolean;
   /** 拆除动画进度 0→1（0=刚拆除，1=废墟稳定） */
@@ -142,6 +223,19 @@ interface BuildingModule {
   demolishOrder: number;
   /** 重建完成的渐显动画 0→1（重建瞬间设为 0，渐增至 1 表示完全显现） */
   rebuildAnim: number;
+  // ===== v11 升级新增字段（可选，严格兼容；C1 逐帧崩塌动画） =====
+  /** 崩塌阶段：0=完好 1=裂痕 2=倾斜 3=倒塌中 4=扬尘稳定（缺省=0，向后兼容旧模块） */
+  demolitionStage?: 0 | 1 | 2 | 3 | 4;
+  /** 崩塌动画当前阶段进度 0..1 */
+  demolitionProgress?: number;
+  /** 倾斜方向（-1=左倾，1=右倾，0=未定；模块被击破时随机赋值） */
+  tiltDir?: number;
+  /** 倾斜角度（弧度，渲染层用） */
+  tiltAngle?: number;
+  /** 烟尘粒子计数（渲染层用） */
+  dustParticles?: number;
+  /** 火星粒子计数（渲染层用） */
+  sparkParticles?: number;
 }
 
 /** 按 debuff 取对应警示色 */
@@ -150,7 +244,84 @@ const DEBUFF_WARN_COLORS: Record<CounterDebuff, string> = {
   weaponJam: "#FF5A2A",
   itemDisable: "#E5353B",
   visionJam: "#B388FF",
+  // v6 新增
+  overdriveDrain: "#FFD666",
+  comboBreak: "#FF5A60",
 };
+
+// ============ v5 小怪元数据（运行时渲染/debuff 映射） ============
+
+/** 小怪种类 → 显示元数据 */
+const MINION_META: Record<MinionKind, { emoji: string; name: string; color: string; debuff: CounterDebuff }> = {
+  "fraud-minion": { emoji: "🦹", name: "电诈马仔", color: "#FF7A1A", debuff: "weaponJam" },
+  "card-farmer":  { emoji: "💳", name: "洗钱卡农", color: "#B388FF", debuff: "cdLock" },
+  "cyber-hacker": { emoji: "👾", name: "黑客学徒", color: "#00E5FF", debuff: "visionJam" },
+  // v6 新增
+  "live-streamer": { emoji: "📹", name: "假主播", color: "#FF5A60", debuff: "comboBreak" },
+  "coin-broker":   { emoji: "🪙", name: "币圈中介", color: "#FFD666", debuff: "overdriveDrain" },
+};
+
+/** 小怪接近炮兵的触发半径（像素） */
+const MINION_PROXIMITY_R = 70;
+/** 小怪受击碰撞半径（用于炮弹命中判定） */
+const MINION_HIT_R = 18;
+/** cyber-hacker 远程攻击射程（像素，达到后开始发射反击弹） */
+const HACKER_RANGED_R = 280;
+
+/** 受害者救援：逃脱至画布左侧 X 阈值 */
+const VICTIM_ESCAPE_X = 30;
+/** 受害者救援奖励分数 */
+const VICTIM_REWARD_SCORE = 150;
+/** 受害者救援过载充能 */
+const VICTIM_REWARD_OVERDRIVE = 5;
+
+// ============ v5 localStorage 持久化（图鉴解锁 + 模块拆除累计） ============
+
+const CODEX_STORAGE_KEY = "bomb-codex-unlocks-v1";
+const MODULE_KILL_CUMULATIVE_KEY = "bomb-module-kill-cumulative-v1";
+
+function loadCodexUnlocks(): Set<string> {
+  try {
+    const raw = localStorage.getItem(CODEX_STORAGE_KEY);
+    if (!raw) return new Set();
+    return new Set(JSON.parse(raw) as string[]);
+  } catch { return new Set(); }
+}
+function saveCodexUnlocks(set: Set<string>): void {
+  try { localStorage.setItem(CODEX_STORAGE_KEY, JSON.stringify([...set])); } catch { /* ignore */ }
+}
+function loadModuleKillCumulative(): Record<string, number> {
+  try {
+    const raw = localStorage.getItem(MODULE_KILL_CUMULATIVE_KEY);
+    if (!raw) return {};
+    return JSON.parse(raw) as Record<string, number>;
+  } catch { return {}; }
+}
+function saveModuleKillCumulative(map: Record<string, number>): void {
+  try { localStorage.setItem(MODULE_KILL_CUMULATIVE_KEY, JSON.stringify(map)); } catch { /* ignore */ }
+}
+
+/** DPS 历史采样间隔（秒） */
+const DPS_SAMPLE_INTERVAL = 1.0;
+/** DPS 历史最大样本数（超过则丢弃最早） */
+const DPS_SAMPLE_MAX = 120;
+
+// ============ v6 引擎启动配置 ============
+
+/**
+ * v6 引擎启动配置：决定游戏模式 / 难度 / 剧情关卡 / 每日规则。
+ * 不传 config 时默认 endless + normal，向后兼容 v5 行为。
+ */
+export interface BombEngineConfig {
+  /** 游戏模式（默认 endless） */
+  mode?: BombGameMode;
+  /** 难度（默认 normal） */
+  difficulty?: BombDifficulty;
+  /** 剧情模式：关卡索引（0-based；不传则取存档最高解锁关） */
+  storyStageIdx?: number;
+  /** 每日模式：日期 key（默认取今日） */
+  dailyKey?: string;
+}
 
 export class BombIslandEngine extends GameEngine {
   private particles = new ParticleSystem();
@@ -173,6 +344,8 @@ export class BombIslandEngine extends GameEngine {
   private cdLeft: Record<ItemId, number> = {
     bomb: 0, missile: 0, fireRain: 0, incendiary: 0, drone: 0,
     laser: 0, meteor: 0, arrowRain: 0, swords: 0,
+    // v6 新增道具
+    signalJam: 0, airStrike: 0,
   };
   private shells: Shell[] = [];
   private counterShells: CounterShell[] = [];
@@ -231,6 +404,8 @@ export class BombIslandEngine extends GameEngine {
   private visionJamUntil = 0;
   /** 当前失效的道具 id（itemDisable 期间） */
   private disabledItem: ItemId | null = null;
+  /** v6 信号屏蔽结束时间（>this.t 时 Boss 反击暂停） */
+  private signalJamUntil = 0;
 
   // ============ v4 Boss 专属反击技能 ============
   /** 当前生效的专属技能（null = 无技能生效） */
@@ -239,6 +414,197 @@ export class BombIslandEngine extends GameEngine {
   private specialSkillLastT = -999;
   /** 本波是否已首次触发专属技能（避免 HP 反复穿越阈值导致重复触发） */
   private specialSkillTriggered = false;
+
+  // ============ v5 Boss 多阶段系统 ============
+  /** 当前 Boss 阶段序号（0/1/2） */
+  private bossPhaseIdx: 0 | 1 | 2 = 0;
+  /** 阶段切换横幅剩余显示秒数（>0 时渲染阶段切换提示） */
+  private bossPhaseTransitionT = 0;
+  /** 阶段切换横幅文本 */
+  private bossPhaseTransitionText = "";
+  /** 已触发过召唤的阶段集合（避免重复召唤） */
+  private summonedPhases = new Set<number>();
+  /** Boss 入场动画剩余秒数（>0 时渲染入场 letterbox 特写） */
+  private bossIntroT = 0;
+  /** Boss 击败特写剩余秒数（>0 时渲染击败慢镜头 letterbox） */
+  private bossDefeatT = 0;
+
+  // ============ v5 召唤小怪系统 ============
+  /** 当前活动小怪列表 */
+  private minions: Minion[] = [];
+  /** 小怪 ID 自增计数器 */
+  private minionIdCounter = 1;
+  /** 本局已击杀小怪总数 */
+  private minionsKilled = 0;
+
+  // ============ v5 受害者救援系统 ============
+  /** 当前正在奔逃的受害者列表 */
+  private victims: Victim[] = [];
+  /** 受害者 ID 自增计数器 */
+  private victimIdCounter = 1;
+  /** 本局已救援受害者总数 */
+  private victimsRescued = 0;
+
+  // ============ v5 过载双模式（主动大招 + 自动 buff） ============
+  /** 过载满后可主动释放的窗口剩余秒（>0 表示等待玩家点击释放；归零则自动转 buff） */
+  private overdriveManualLeft = 0;
+
+  // ============ v5 图鉴解锁系统 ============
+  /** 全局已解锁图鉴 typeId 集合（跨局持久化） */
+  private codexUnlocks: Set<string> = loadCodexUnlocks();
+  /** 本局新解锁的图鉴 typeId 列表（用于结算页展示） */
+  private codexUnlockedThisRun: string[] = [];
+  /** 全局模块拆除累计（跨局持久化，用于图鉴解锁判定） */
+  private moduleKillCumulative: Record<string, number> = loadModuleKillCumulative();
+
+  // ============ v5 DPS 历史采样（用于结算页折线图） ============
+  /** DPS 历史样本（每秒采样一次实时 dps） */
+  private dpsHistory: number[] = [];
+  /** 上次 DPS 采样时间 */
+  private dpsSampleLastT = 0;
+
+  // ============ v6 模式 / 难度 / 剧情进度 ============
+  /** 当前游戏模式（默认 endless） */
+  private gameMode: BombGameMode = "endless";
+  /** 当前难度（默认 normal） */
+  private difficulty: BombDifficulty = "normal";
+  /** 难度系数缓存 */
+  private diffCoef = DIFFICULTY_COEF.normal;
+  /** 剧情模式：当前关卡定义（非剧情模式为 null） */
+  private storyStage: BombStoryStage | null = null;
+  /** 剧情模式：当前关卡内已通关波次（用于判定 passWaves） */
+  private storyClearedInStage = 0;
+  /** 每日模式：当日规则 */
+  private dailyRule: BombDailyRule | null = null;
+  /** 每日模式：日期 key（YYYY-MM-DD） */
+  private dailyKey = "";
+  /** 极速模式：剩余秒数（>0 进行中；<=0 结算） */
+  private speedrunRemain = 0;
+  /** 极速模式：总时长（用于 HUD 进度条） */
+  private speedrunTotal = SPEEDRUN_TOTAL_SEC;
+  /** 硬核模式：民心值（1 = 满血，0 = 终局） */
+  private hardcoreMorale = 1;
+  /** 模式专属提示文案（HUD 顶部展示） */
+  private modeHint: string | null = null;
+  /** 本局是否已结束（避免重复结算） */
+  private ended = false;
+
+  // ============ v7 武器升级树 + 道具升星 ============
+  /** 当前局武器分支缓存（key=WeaponKind, value=已选分支定义；从存档加载） */
+  private weaponBranchCache: Partial<Record<WeaponKind, WeaponUpgradeBranch>> = {};
+  /** 当前局道具星级缓存（key=ItemId, value=1-5；从存档加载） */
+  private itemStarCache: Partial<Record<ItemId, number>> = {};
+  /** 本局累计掉落的道具碎片数（用于结算页展示） */
+  private fragmentsEarnedThisRun = 0;
+  /** 本局触发的升星次数（用于结算页展示） */
+  private starUpsThisRun = 0;
+  /** 本局可解锁但尚未选择的武器分支提示（累计拆除数达标时弹出选择 UI） */
+  private pendingWeaponUpgrades: WeaponKind[] = [];
+
+  // ============ v8 案例档案 + 受害者档案 + 评级 ============
+  /** 当前待展示的案例档案（Boss 击败时注入，HUD 暴露给场景层渲染） */
+  private pendingCaseArchive: BombCaseArchive | null = null;
+  /** 案例档案展示剩余秒数（>0 时场景层渲染案例弹窗） */
+  private caseArchiveRemain = 0;
+  /** 当前匹配到的受害者档案（救援数达阈值时注入） */
+  private matchedVictimProfile: BombVictimProfile | null = null;
+  /** 受害者档案提示剩余秒数（>0 时场景层渲染提示） */
+  private victimProfileHintRemain = 0;
+  /** 本局已匹配过的受害者档案 typeId 列表（避免重复提示） */
+  private matchedVictimTypeIds: string[] = [];
+  /** 本局模块遭遇统计（用于知识图谱 total 字段） */
+  private moduleEncounterStats: Partial<Record<ModuleType, number>> = {};
+  /** 本局最终评级（结算时计算） */
+  private finalRating: BombTierRating = "F";
+  /** 本局最终综合得分（结算时计算） */
+  private finalScore = 0;
+
+  // ============ v9 全面升级状态 ============
+  /** S1 多炮位部署：3 炮位运行时状态（按 unlockedCannons 初始化） */
+  private cannonSlots: CannonSlot[] = [];
+  /** S1 当前选中操控的炮位 ID（默认 center） */
+  private activeCannonId: CannonSlotId = "center";
+  /** S1 副炮发射计时累积（独立于主炮 fireTimer） */
+  private auxFireAcc = 0;
+  /** S2 当前园区分层状态（emitHud 时重算） */
+  private parkLayers: ParkLayerState[] = [];
+  /** 本波已拆空层集合（避免重复触发层清空奖励） */
+  private clearedLayersThisWave = new Set<ParkLayerKind>();
+  /** S3 波次间隙面板状态 */
+  private waveGapPhase: WaveGapPhase = "none";
+  /** S3 线索碎片（拆除模块/拆层奖励获得） */
+  private clueFragments = 0;
+  /** S3 本局已选 RTS 升级 */
+  private rtsUpgrades: RTSUpgradeState = {};
+  /** S3 当前波次间隙待选 RTS 节点 */
+  private rtsOfferings: RTSUpgradeId[] = [];
+  /** T1 当前生效的知识弹幕文本 */
+  private knowledgeTipText = "";
+  /** T1 知识弹幕剩余秒数 */
+  private knowledgeTipRemain = 0;
+  /** T2 本局案例时间线事件（Boss 击败时累积） */
+  private caseTimelineEvents: Array<{ atSec: number; caseArchiveId: string; tierStructure?: string }> = [];
+  /** E3 本局新击败的 Boss 图鉴 ID 列表 */
+  private bossCodexUnlockedThisRun: string[] = [];
+  /** G1 本局每日任务实时进度（结算时注入 HUD） */
+  private dailyTaskRuntime: Array<{ id: string; name: string; icon: string; progress: number; target: number; claimed: boolean }> = [];
+
+  // ============ v10 全面升级状态 ============
+  /** B1 连携充能槽状态（3炮位同层聚焦自动充能，满后自动释放组合大招） */
+  private synergy: CannonSynergyState = {
+    energy: 0, ready: false, availableSkill: "tripleBarrage",
+    activeRemain: 0, activeTotal: 0, lastFocusTs: 0,
+  };
+  /** B2 波次间隙动态事件运行时状态（null=未触发） */
+  private dynamicEvent: DynamicEventState | null = null;
+  /** C1 波次间隙知识问答运行时状态（null=未触发） */
+  private waveGapQuiz: WaveGapQuizState | null = null;
+  /** D2 跨局永久成长树快照（开局加载，乘算叠加到引擎各系数） */
+  private permanentUpgrades: PermanentUpgradeState = {};
+  /** v10 本局连携大招释放次数（结算统计） */
+  private synergyUsed = 0;
+  /** v10 本局动态事件完成数（结算统计） */
+  private dynamicEventCleared = 0;
+  /** v10 本局知识问答答对数（结算统计） */
+  private quizCorrect = 0;
+  /** B2 下波 Boss HP 倍率修正（动态事件选项设置，startWave 时消费） */
+  private pendingNextWaveHpMul = 1;
+  /** B2 下波小怪数量加成（动态事件选项设置，startWave 时消费） */
+  private pendingNextWaveMinionBonus = 0;
+  /** B1 当前持续型大招的层目标（crossfire/layerBreak 持续期间锁定） */
+  private synergyActiveLayer: ParkLayerKind | null = null;
+
+  // ============ v11 全面升级状态 ============
+  /** A1 Boss 审判庭运行时状态（null=未在审判中） */
+  private trialState: BossTrialState | null = null;
+  /** A1 当前审判的 Boss 关联定义（用于奖励结算） */
+  private trialDef: BossTrialDef | null = null;
+  /** A1 本局审判庭完美次数（结算统计） */
+  private trialPerfectCount = 0;
+  /** A2 QTE 运行时状态（null=未在 QTE 中） */
+  private qteState: QTEState | null = null;
+  /** A2 本局 QTE 成功次数（结算统计） */
+  private qteSuccessCount = 0;
+  /** A2 QTE 是否已在本波触发过（避免重复触发） */
+  private qteTriggeredThisWave = false;
+  /** A3 契约运行时状态 */
+  private pactState: PactState = { activePacts: [], offerings: [], showing: false };
+  /** A3 本局已签订契约效果累积（用于引擎各系数乘算） */
+  private pactEffectAcc: PactEffect = {};
+  /** A3 本局签订契约数（结算统计） */
+  private pactsSigned = 0;
+  /** A4 当前剧情结局路径（normal/hidden/true；story 模式有效） */
+  private storyEndingPath: BombStoryEndingType = "normal";
+  /** A4 当前剧情分支节点（触发分支时注入） */
+  private storyBranchNode: BombStoryBranchNode | null = null;
+  /** A4 已选分支的 optimal 标记列表（用于真结局判定） */
+  private storyOptimalChoices: boolean[] = [];
+  /** A4 当前剧情结局（通关时注入） */
+  private storyEnding: { type: BombStoryEndingType; name: string; desc: string; themeColor: string } | null = null;
+  /** A4 下波 Boss HP 倍率修正（分支选项设置，startWave 时消费） */
+  private pendingStoryBossHpMul = 1;
+  /** B2 反诈热点案例（Boss 击败时注入，HUD 暴露给场景层） */
+  private hotspotCase: HotspotCase | null = null;
 
   // ============ hit-stop 慢镜头 ============
   /** hit-stop 剩余秒数（>0 时仅推进 particles 与本身衰减，其他逻辑跳过） */
@@ -275,6 +641,9 @@ export class BombIslandEngine extends GameEngine {
     cluster: SPECIAL_WEAPON_START_AMMO,
     emp: SPECIAL_WEAPON_START_AMMO,
     incendiary: SPECIAL_WEAPON_START_AMMO,
+    // v6 新增武器
+    laserCannon: SPECIAL_WEAPON_START_AMMO,
+    missileRain: SPECIAL_WEAPON_START_AMMO,
   };
   /** EMP 减速结束时间（>this.t 表示敌人被减速） */
   private empUntil = 0;
@@ -302,12 +671,17 @@ export class BombIslandEngine extends GameEngine {
   /** 上次"重建完成"提示时间 */
   private lastRebuiltToastT = -999;
 
-  constructor(canvas: GameCanvas) {
+  constructor(canvas: GameCanvas, config?: BombEngineConfig) {
     super(canvas);
     canvas.width = W;
     canvas.height = H;
     resetWeather(); // 重置全局天气状态（retry 时确保从新天气开始）
-    this.startWave(1, true);
+    // v6：初始化模式 / 难度 / 剧情进度 / 每日规则 / 极速计时 / 硬核民心
+    this.initMode(config);
+    this.initUpgradeSystem(); // v7：加载武器分支 + 道具星级缓存
+    this.initV9System(); // v9：多炮位 / 每日任务 / RTS 状态初始化
+    this.initV10System(); // v10：永久成长树 / 连携槽 / 动态事件 / 知识问答初始化
+    this.startWave(this.startWaveOffset() + 1, true);
     startBGM("tense"); // 紧张氛围 BGM
     this.input = new InputManager(canvas);
     this.input.attach(this);
@@ -316,22 +690,738 @@ export class BombIslandEngine extends GameEngine {
     this.addDestroy(() => stopBGM()); // 引擎销毁时停止 BGM
   }
 
+  // ============ v6 模式初始化 ============
+
+  /** 解析启动配置，设置模式 / 难度 / 剧情关卡 / 每日规则 / 极速计时 / 硬核民心 */
+  private initMode(config?: BombEngineConfig): void {
+    this.gameMode = config?.mode ?? "endless";
+    this.difficulty = config?.difficulty ?? "normal";
+    this.diffCoef = DIFFICULTY_COEF[this.difficulty];
+
+    switch (this.gameMode) {
+      case "story": {
+        const save = loadV6Save();
+        const idx = config?.storyStageIdx ?? save.storyMaxUnlockedIdx ?? 0;
+        this.storyStage = getStoryStage(Math.min(idx, STORY_STAGES.length - 1));
+        this.storyClearedInStage = 0;
+        this.modeHint = this.storyStage
+          ? `${this.storyStage.icon} ${this.storyStage.name} · ${this.storyStage.rule ?? "击败 Boss 通关"}`
+          : null;
+        break;
+      }
+      case "daily": {
+        this.dailyKey = config?.dailyKey ?? getTodayKey();
+        this.dailyRule = getDailyRule(this.dailyKey);
+        this.modeHint = `📅 每日挑战 · ${this.dailyRule.name}（${this.dailyRule.desc}）`;
+        break;
+      }
+      case "speedrun": {
+        this.speedrunTotal = SPEEDRUN_TOTAL_SEC;
+        this.speedrunRemain = SPEEDRUN_TOTAL_SEC;
+        this.modeHint = `⏱ 极速模式 · ${SPEEDRUN_TOTAL_SEC} 秒限时 · 摧毁越多得分越高`;
+        break;
+      }
+      case "hardcore": {
+        this.hardcoreMorale = 1;
+        this.modeHint = `💀 硬核模式 · 民心仅 1 · Boss 大招命中即终局`;
+        break;
+      }
+      default:
+        this.modeHint = `∞ 无尽模式 · ${this.diffCoef.label}难度`;
+        break;
+    }
+  }
+
+  /** 取模式起始波次偏移（每日模式支持 startWave） */
+  private startWaveOffset(): number {
+    if (this.gameMode === "daily" && this.dailyRule) {
+      return Math.max(0, this.dailyRule.startWave - 1);
+    }
+    return 0;
+  }
+
+  /** 模式最大波次上限（daily 受 maxWave 限制；其余为 Infinity） */
+  private maxWave(): number {
+    if (this.gameMode === "daily" && this.dailyRule) return this.dailyRule.maxWave;
+    return Infinity;
+  }
+
+  // ============ v7 武器升级树 + 道具升星 ============
+
+  /**
+   * 初始化升级系统：从跨局存档加载武器分支选择与道具星级，缓存到本局。
+   * 这些成长属性跨局持久化，每局开局自动加载，无需玩家重新选择。
+   */
+  private initUpgradeSystem(): void {
+    this.weaponBranchCache = {};
+    this.itemStarCache = {};
+    // 加载武器分支（每武器只选 1 分支）
+    for (const tree of WEAPON_UPGRADE_TREES) {
+      const branchId = getWeaponBranch(tree.weapon);
+      if (branchId) {
+        const branch = tree.branches.find(b => b.id === branchId);
+        if (branch) this.weaponBranchCache[tree.weapon] = branch;
+      }
+    }
+    // 加载道具星级（默认 1★）
+    for (const id of ITEM_ORDER) {
+      this.itemStarCache[id] = getItemStar(id);
+    }
+  }
+
+  // ============ v9 全面升级初始化 ============
+
+  /** 初始化 v9 系统：多炮位（按已解锁炮位）/ 每日任务快照 / RTS 状态 */
+  private initV9System(): void {
+    // S1 多炮位：按存档解锁状态初始化炮位
+    const unlocked = getUnlockedCannons();
+    this.cannonSlots = CANNON_SLOTS_INIT.map(c => {
+      const active = unlocked.includes(c.id);
+      return {
+        ...c,
+        active,
+        weapon: this.weapon,            // 跟随主武器
+        ammo: this.weaponAmmo[this.weapon] ?? -1,
+        level: this.weaponLevel,
+        muzzleUntil: 0,
+        recoil: 0,
+        fireAcc: 0,
+      };
+    });
+    // 确保主炮始终激活
+    const center = this.cannonSlots.find(c => c.id === "center");
+    if (center) center.active = true;
+    this.activeCannonId = "center";
+
+    // G1 每日任务：构建本局实时进度快照（基于今日任务定义 + 存档进度）
+    const todayKey = getTodayKeyBomb();
+    const tasks = getTodayBombTasks();
+    const progress = getDailyTaskProgress(todayKey);
+    this.dailyTaskRuntime = tasks.map(t => {
+      const p = progress.find(pp => pp.taskId === t.id);
+      return {
+        id: t.id, name: t.name, icon: t.icon,
+        progress: p?.progress ?? 0, target: t.target, claimed: p?.claimed ?? false,
+      };
+    });
+
+    // S3 RTS 状态：每局重置
+    this.rtsUpgrades = {};
+    this.clueFragments = 0;
+    this.waveGapPhase = "none";
+    this.rtsOfferings = [];
+    this.caseTimelineEvents = [];
+    this.bossCodexUnlockedThisRun = [];
+    this.knowledgeTipRemain = 0;
+    this.knowledgeTipText = "";
+  }
+
+  // ============ v10 全面升级初始化 ============
+
+  /** 初始化 v10 系统：加载永久成长树 / 重置连携槽·动态事件·问答 / 应用开局加成 */
+  private initV10System(): void {
+    // D2 加载跨局永久成长树快照（乘算叠加到引擎各系数）
+    this.permanentUpgrades = { ...(loadV6Save().permanentUpgrades ?? {}) };
+
+    // B1 连携槽重置
+    this.synergy = {
+      energy: 0, ready: false, availableSkill: "tripleBarrage",
+      activeRemain: 0, activeTotal: 0, lastFocusTs: 0,
+    };
+    this.synergyActiveLayer = null;
+    this.synergyUsed = 0;
+
+    // B2 动态事件 / C1 问答 重置
+    this.dynamicEvent = null;
+    this.waveGapQuiz = null;
+    this.dynamicEventCleared = 0;
+    this.quizCorrect = 0;
+    this.pendingNextWaveHpMul = 1;
+    this.pendingNextWaveMinionBonus = 0;
+
+    // D2 开局加成：pStartCannon 解锁炮位
+    const cannonLv = getPermanentLevel(this.permanentUpgrades, "pStartCannon");
+    if (cannonLv >= 1) {
+      const left = this.cannonSlots.find(c => c.id === "left");
+      if (left && !left.active) {
+        left.active = true;
+        unlockCannon("left");
+      }
+    }
+    if (cannonLv >= 2) {
+      const right = this.cannonSlots.find(c => c.id === "right");
+      if (right && !right.active) {
+        right.active = true;
+        unlockCannon("right");
+      }
+    }
+
+    // D2 开局加成：pStartWeapon 提升武器等级
+    const weaponLv = getPermanentLevel(this.permanentUpgrades, "pStartWeapon");
+    if (weaponLv > 0) {
+      this.weaponLevel = Math.min(WEAPON_MAX_LEVEL, this.weaponLevel + weaponLv);
+      this.cannonSlots.forEach(c => { c.level = this.weaponLevel; });
+    }
+  }
+
+  /** S1：切换激活的操控炮位 */
+  setActiveCannon(id: CannonSlotId): void {
+    if (!this.cannonSlots.find(c => c.id === id && c.active)) return;
+    this.activeCannonId = id;
+    playSfx("click");
+    this.emitHud();
+  }
+
+  /** S1：开关某炮位（仅已解锁炮位可切；主炮不可关） */
+  toggleCannon(id: CannonSlotId): void {
+    const c = this.cannonSlots.find(s => s.id === id);
+    if (!c || !getUnlockedCannons().includes(id)) return;
+    if (id === "center") return; // 主炮不可关
+    c.active = !c.active;
+    playSfx("click");
+    this.emitHud();
+  }
+
+  /** S1：设置炮位优先瞄准层（null=自动最近层） */
+  setCannonPreferLayer(id: CannonSlotId, layer: ParkLayerKind | null): void {
+    const c = this.cannonSlots.find(s => s.id === id);
+    if (!c) return;
+    c.preferLayer = layer;
+    this.emitHud();
+  }
+
+  /** S3：波次间隙选择 RTS 升级（场景层调用），返回是否成功 */
+  chooseRTSUpgrade(id: RTSUpgradeId): boolean {
+    if (this.waveGapPhase !== "rtsPanel") return false;
+    if (!this.rtsOfferings.includes(id)) return false;
+    const node = RTS_NODE_MAP[id];
+    const lv = getRTSLevel(this.rtsUpgrades, id);
+    if (lv >= node.maxLevel) return false;
+    const cost = node.costPerLevel;
+    if (this.clueFragments < cost) return false;
+    this.clueFragments -= cost;
+    this.rtsUpgrades[id] = lv + 1;
+    // cannonUnlock 特殊处理：解锁右翼炮
+    if (id === "cannonUnlock") {
+      const right = this.cannonSlots.find(c => c.id === "right");
+      if (right && !right.active) {
+        right.active = true;
+        unlockCannon("right");
+      }
+    }
+    playSfx("click");
+    this.emitHud();
+    return true;
+  }
+
+  /** S3：跳过 RTS 升级，进入下一阶段（v10：按波次轮换触发动态事件 / 知识问答；v11：链式进入契约面板） */
+  skipRTSUpgrade(): void {
+    if (this.waveGapPhase !== "rtsPanel") return;
+    recordRTSBuild(this.rtsUpgrades);
+    // v10 轮换触发：波次 3/6/9... 触发动态事件；波次 5/10... 且非 3 的倍数触发问答
+    if (this.wave >= 3 && this.wave % 3 === 0) {
+      this.startDynamicEvent();
+      return;
+    }
+    if (this.wave >= 5 && this.wave % 5 === 0 && this.wave % 3 !== 0) {
+      this.startQuiz();
+      return;
+    }
+    // v11 A3：链式进入契约面板或下一波
+    this.enterPactOrNextWave();
+  }
+
+  // ============ v10 B1：炮位连携系统 ============
+
+  /** B1：每帧更新连携槽——检测同层聚焦充能 / 自动释放大招 / 持续大招 DPS */
+  private updateSynergy(dt: number): void {
+    // 持续型大招生效中
+    if (this.synergy.activeRemain > 0) {
+      this.synergy.activeRemain = Math.max(0, this.synergy.activeRemain - dt);
+      const skillDef = SYNERGY_SKILLS[this.synergy.lastSkill ?? "crossfire"];
+      if (skillDef.dps && skillDef.dps > 0) {
+        // crossfire：对所有层模块造成 DPS；layerBreak：对锁定层（下一层）造成 DPS
+        if (this.synergy.lastSkill === "crossfire") {
+          const list = this.modules.filter(m => !m.demolished);
+          for (const m of list) this.damageModule(m, skillDef.dps * dt);
+        } else if (this.synergy.lastSkill === "layerBreak" && this.synergyActiveLayer) {
+          const list = this.modules.filter(m => !m.demolished && layerOfModule(m.type) === this.synergyActiveLayer);
+          for (const m of list) this.damageModule(m, skillDef.dps * dt);
+        }
+      }
+      if (this.synergy.activeRemain <= 0) {
+        this.synergyActiveLayer = null;
+      }
+      this.emitHud();
+      return;
+    }
+
+    // 检测 3 炮位是否同层聚焦（活跃炮位 ≥ 2 且都瞄准同一层）
+    const activeSlots = this.cannonSlots.filter(c => c.active);
+    if (activeSlots.length >= 2) {
+      const aimLayer = nearestIntactLayer(this.parkLayers);
+      if (aimLayer) {
+        const focusingSameLayer = activeSlots.every(c =>
+          (c.preferLayer ?? aimLayer) === aimLayer
+        );
+        if (focusingSameLayer) {
+          // D2 永久加成：连携充能速率
+          const synergyMul = permanentMul(this.permanentUpgrades, "pSynergyGain", "synergyMul");
+          // v11 A3：契约连携充能倍率（synergyMul > 1 = 增益）
+          const pactSynergyMul = this.pactMul("synergyMul");
+          const gainRate = 12 * synergyMul * pactSynergyMul; // 每秒充能 12 点（约 8 秒满）
+          this.synergy.energy = Math.min(100, this.synergy.energy + gainRate * dt);
+          this.synergy.lastFocusTs = this.t;
+          this.synergy.availableSkill = recommendSynergySkill(aimLayer);
+        }
+      }
+    }
+
+    // 充能满 → 自动释放大招
+    if (this.synergy.energy >= 100 && !this.synergy.ready) {
+      this.synergy.ready = true;
+      this.releaseSynergySkill();
+    }
+  }
+
+  /** B1：释放连携大招（按当前瞄准层自动选择技能类型） */
+  private releaseSynergySkill(): void {
+    const aimLayer = nearestIntactLayer(this.parkLayers);
+    const skill = recommendSynergySkill(aimLayer);
+    const def = SYNERGY_SKILLS[skill];
+    this.synergy.lastSkill = skill;
+    this.synergy.ready = false;
+    this.synergy.energy = 0;
+    this.synergyUsed++;
+
+    // D2 永久加成：伤害乘算
+    const dmgMul = permanentMul(this.permanentUpgrades, "pDamage", "damageMul");
+
+    if (skill === "tripleBarrage" && def.instantDamage) {
+      // 瞬时高额伤害：对当前瞄准层所有模块
+      const targetList = aimLayer
+        ? this.modules.filter(m => !m.demolished && layerOfModule(m.type) === aimLayer)
+        : this.modules.filter(m => !m.demolished);
+      const dmg = Math.round(def.instantDamage * dmgMul);
+      for (const m of targetList) this.damageModule(m, dmg);
+      // 飘字 + 特效
+      this.floats.push({
+        x: PARK_CX, y: PARK_BASE_Y - PARK_H / 2, text: `${def.emoji} ${def.name}`,
+        color: def.color, life: 2.0, maxLife: 2.0, size: 20,
+      });
+      postFX.flash(def.color, 0.4, 4);
+      postFX.shake(10, 14);
+    } else if (skill === "layerBreak") {
+      // 穿层：锁定下一层（更深层），持续 5 秒 DPS
+      const layerOrder: ParkLayerKind[] = ["outer", "inner", "core", "vault"];
+      const currentIdx = aimLayer ? layerOrder.indexOf(aimLayer) : 0;
+      const nextLayer = layerOrder[Math.min(layerOrder.length - 1, currentIdx + 1)];
+      this.synergyActiveLayer = nextLayer;
+      this.synergy.activeRemain = def.duration ?? 5;
+      this.synergy.activeTotal = def.duration ?? 5;
+      this.floats.push({
+        x: PARK_CX, y: PARK_BASE_Y - PARK_H / 2, text: `${def.emoji} ${def.name} → ${nextLayer}层`,
+        color: def.color, life: 2.0, maxLife: 2.0, size: 18,
+      });
+      postFX.flash(def.color, 0.35, 3);
+    } else if (skill === "crossfire") {
+      // 交叉火力：全园持续 3 秒 DPS
+      this.synergyActiveLayer = null;
+      this.synergy.activeRemain = def.duration ?? 3;
+      this.synergy.activeTotal = def.duration ?? 3;
+      this.floats.push({
+        x: PARK_CX, y: PARK_BASE_Y - PARK_H / 2, text: `${def.emoji} ${def.name}`,
+        color: def.color, life: 2.0, maxLife: 2.0, size: 20,
+      });
+      postFX.flash(def.color, 0.35, 3);
+      postFX.shake(6, 10);
+    }
+    playSfx("phase");
+    vibrateShort();
+    this.emitHud();
+  }
+
+  // ============ v10 B2：波次间隙动态事件 ============
+
+  /** B2：启动动态事件（从事件池随机抽取 1 个） */
+  private startDynamicEvent(): void {
+    const def = pickDynamicEvent();
+    this.dynamicEvent = {
+      event: def,
+      selectedIdx: null,
+      resultText: "",
+      resolved: false,
+    };
+    this.waveGapPhase = "dynamicEvent";
+    this.emitHud();
+  }
+
+  /** B2：玩家选择动态事件选项（场景层调用），返回是否成功 */
+  resolveDynamicEvent(idx: number): boolean {
+    if (this.waveGapPhase !== "dynamicEvent" || !this.dynamicEvent || this.dynamicEvent.resolved) return false;
+    const choice = this.dynamicEvent.event.choices[idx];
+    if (!choice) return false;
+    this.dynamicEvent.selectedIdx = idx;
+    this.dynamicEvent.resultText = choice.result;
+    this.dynamicEvent.resolved = true;
+    this.dynamicEventCleared++;
+
+    // 应用选项效果
+    // D2 永久加成：碎片掉落乘算
+    const fragMul = permanentMul(this.permanentUpgrades, "pFragmentBonus", "fragmentMul");
+    const fragReward = Math.round(choice.fragmentReward * fragMul);
+    if (fragReward !== 0) {
+      this.clueFragments = Math.max(0, this.clueFragments + fragReward);
+      if (fragReward > 0) addClueFragments(fragReward);
+    }
+    if (choice.overdriveReward) {
+      this.overdrive = Math.min(OVERDRIVE_MAX, this.overdrive + choice.overdriveReward);
+    }
+    if (choice.nextWaveHpMul && choice.nextWaveHpMul !== 1) {
+      this.pendingNextWaveHpMul *= choice.nextWaveHpMul;
+    }
+    if (choice.nextWaveMinionBonus) {
+      this.pendingNextWaveMinionBonus += choice.nextWaveMinionBonus;
+    }
+    // 飘字提示
+    this.floats.push({
+      x: PARK_CX, y: PARK_BASE_Y - PARK_H / 2,
+      text: `${this.dynamicEvent.event.icon} ${choice.optimal ? "✓ 最优应对" : "应对完成"}`,
+      color: choice.optimal ? Theme.colors.safe.DEFAULT : this.dynamicEvent.event.color,
+      life: 2.0, maxLife: 2.0, size: 16,
+    });
+    playSfx("click");
+    this.emitHud();
+    return true;
+  }
+
+  /** B2：关闭已解决的动态事件，进入下一阶段（v11：链式进入契约面板） */
+  dismissDynamicEvent(): void {
+    if (this.waveGapPhase !== "dynamicEvent" || !this.dynamicEvent?.resolved) return;
+    this.dynamicEvent = null;
+    this.waveGapPhase = "none";
+    this.enterPactOrNextWave();
+  }
+
+  // ============ v10 C1：波次间隙知识问答 ============
+
+  /** C1：启动知识问答（从题库随机抽取 1 题） */
+  private startQuiz(): void {
+    const q = pickWaveGapQuiz();
+    this.waveGapQuiz = {
+      ...q,
+      selectedIdx: null,
+      answered: false,
+    };
+    this.waveGapPhase = "quiz";
+    this.emitHud();
+  }
+
+  /** C1：玩家作答（场景层调用），返回是否成功 */
+  answerQuiz(idx: number): boolean {
+    if (this.waveGapPhase !== "quiz" || !this.waveGapQuiz || this.waveGapQuiz.answered) return false;
+    this.waveGapQuiz.selectedIdx = idx;
+    this.waveGapQuiz.answered = true;
+    const correct = idx === this.waveGapQuiz.correctIdx;
+    if (correct) {
+      this.quizCorrect++;
+      // D2 永久加成：碎片掉落乘算
+      const fragMul = permanentMul(this.permanentUpgrades, "pFragmentBonus", "fragmentMul");
+      const fragReward = Math.round(this.waveGapQuiz.rewardFragments * fragMul);
+      this.clueFragments += fragReward;
+      addClueFragments(fragReward);
+      this.overdrive = Math.min(OVERDRIVE_MAX, this.overdrive + this.waveGapQuiz.rewardOverdrive);
+      this.floats.push({
+        x: PARK_CX, y: PARK_BASE_Y - PARK_H / 2,
+        text: `✓ 答对！+${fragReward}碎片 +${this.waveGapQuiz.rewardOverdrive}过载`,
+        color: Theme.colors.safe.DEFAULT, life: 2.0, maxLife: 2.0, size: 16,
+      });
+    } else {
+      this.floats.push({
+        x: PARK_CX, y: PARK_BASE_Y - PARK_H / 2,
+        text: `✗ 答错·${this.waveGapQuiz.knowledgePoint}`,
+        color: Theme.colors.warn.DEFAULT, life: 2.0, maxLife: 2.0, size: 16,
+      });
+    }
+    incrementKnowledgeTips();
+    playSfx(correct ? "click" : "click");
+    this.emitHud();
+    return true;
+  }
+
+  /** C1：关闭已作答的知识问答，进入下一阶段（v11：链式进入契约面板） */
+  dismissQuiz(): void {
+    if (this.waveGapPhase !== "quiz" || !this.waveGapQuiz?.answered) return;
+    this.waveGapQuiz = null;
+    this.waveGapPhase = "none";
+    this.enterPactOrNextWave();
+  }
+
+  /** v9 取本局每日任务实时进度快照（结算页用） */
+  getDailyTaskRuntime() { return this.dailyTaskRuntime; }
+
+  /** v9 取本局案例时间线（结算页用） */
+  getCaseTimeline(): BombCaseTimelineEntry[] {
+    return buildCaseTimeline(this.caseTimelineEvents);
+  }
+
+  /** v9 取本局新解锁 Boss 图鉴 ID 列表（结算页用） */
+  getBossCodexUnlockedThisRun(): string[] { return this.bossCodexUnlockedThisRun; }
+
+  /** v9 S2 取当前园区分层状态（场景层渲染分层 HP 条 + 伪 3D 阴影用） */
+  getParkLayers(): ParkLayerState[] { return this.parkLayers; }
+
+  /** v9 S2 取当前操控炮位 ID */
+  getActiveCannonId(): CannonSlotId { return this.activeCannonId; }
+
+  /** v9 S1 取所有炮位状态（场景层渲染多炮位 UI） */
+  getCannonSlots(): CannonSlot[] { return this.cannonSlots; }
+
+  /** v9 S3 取波次间隙面板状态与待选项（场景层渲染 RTS 面板） */
+  getWaveGapState(): { phase: WaveGapPhase; offerings: RTSUpgradeId[]; rtsState: RTSUpgradeState; fragments: number } {
+    return { phase: this.waveGapPhase, offerings: this.rtsOfferings, rtsState: this.rtsUpgrades, fragments: this.clueFragments };
+  }
+
+  /** v10 B1 取连携槽状态（场景层渲染充能条 / 大招状态） */
+  getSynergy(): CannonSynergyState { return this.synergy; }
+
+  /** v10 B2 取动态事件状态（场景层渲染事件面板） */
+  getDynamicEvent(): DynamicEventState | null { return this.dynamicEvent; }
+
+  /** v10 C1 取知识问答状态（场景层渲染问答面板） */
+  getWaveGapQuiz(): WaveGapQuizState | null { return this.waveGapQuiz; }
+
+  /** v10 D2 取永久成长树快照（结算页展示） */
+  getPermanentUpgrades(): PermanentUpgradeState { return this.permanentUpgrades; }
+
+  /** v9 T1 取当前知识弹幕横幅文本与剩余秒数（场景层渲染顶部知识横幅） */
+  getKnowledgeTip(): { text: string; remain: number } {
+    return { text: this.knowledgeTipText, remain: this.knowledgeTipRemain };
+  }
+
+  /**
+   * v9 S2：某层被首次拆空时触发——发放线索碎片奖励 + 知识弹幕 + 飘字。
+   * 奖励碎片数 = 该层定义的 clueFragments × RTS fragmentMul 加成。
+   */
+  private onParkLayerCleared(layer: ParkLayerKind): void {
+    const def = PARK_LAYERS.find(l => l.kind === layer);
+    if (!def) return;
+    // v10 D2：RTS + 永久碎片加成乘算叠加
+    const rtsFragMul = rtsMultiplier(this.rtsUpgrades, "fragmentBonus", "fragmentMul");
+    const pFragMul = permanentMul(this.permanentUpgrades, "pFragmentBonus", "fragmentMul");
+    const reward = Math.round(def.clueFragments * rtsFragMul * pFragMul);
+    this.clueFragments += reward;
+    addClueFragments(reward);
+    // 知识弹幕横幅（更显眼，4 秒）
+    this.knowledgeTipText = def.knowledgeTip;
+    this.knowledgeTipRemain = 4.0;
+    incrementKnowledgeTips();
+    // 飘字 + toast
+    const cx = PARK_CX, cy = PARK_BASE_Y - PARK_H / 2;
+    this.floats.push({ x: cx, y: cy - 20, text: `${def.emoji} ${def.name}层已拆除`, color: def.color, life: 2.0, maxLife: 2.0, size: 18 });
+    this.floats.push({ x: cx, y: cy + 4, text: `🔍 +${reward} 线索碎片`, color: "#9FE3FF", life: 1.8, maxLife: 1.8, size: 14 });
+    this.toast = { text: `${def.emoji} ${def.name}层拆除！${def.knowledgeTip}`, tone: "good", until: this.t + 3.5 };
+    postFX.flash(def.color, 0.3, 3);
+    postFX.shake(6, 10);
+  }
+
+  /** 取指定武器当前生效的升级分支（无则 null） */
+  private getWeaponBranch(weapon: WeaponKind): WeaponUpgradeBranch | null {
+    return this.weaponBranchCache[weapon] ?? null;
+  }
+
+  /** 取指定武器射速倍率（含分支加成，默认 1.0） */
+  private weaponFireRateMul(weapon: WeaponKind): number {
+    return this.getWeaponBranch(weapon)?.fireRateMul ?? 1.0;
+  }
+
+  /** 取指定武器伤害倍率（含分支加成，默认 1.0） */
+  private weaponDamageMul(weapon: WeaponKind): number {
+    return this.getWeaponBranch(weapon)?.damageMul ?? 1.0;
+  }
+
+  /** 取指定武器多管加成（含分支加成，默认 0） */
+  private weaponMultishotBonus(weapon: WeaponKind): number {
+    return this.getWeaponBranch(weapon)?.multishotBonus ?? 0;
+  }
+
+  /** 取指定武器特殊属性（无则 null） */
+  private weaponSpecial(weapon: WeaponKind): WeaponUpgradeBranch["special"] | null {
+    return this.getWeaponBranch(weapon)?.special ?? null;
+  }
+
+  /** 取指定道具当前星级（默认 1） */
+  private getItemStar(id: ItemId): number {
+    return this.itemStarCache[id] ?? 1;
+  }
+
+  /** 取指定道具 CD 倍率（含星级加成，<1 = CD 更短） */
+  private itemCdMul(id: ItemId): number {
+    return getItemStarLevel(id, this.getItemStar(id)).cdMul;
+  }
+
+  /** 取指定道具伤害倍率（含星级加成，>1 = 伤害更高） */
+  private itemDamageMul(id: ItemId): number {
+    return getItemStarLevel(id, this.getItemStar(id)).damageMul;
+  }
+
+  /** 取指定道具时长倍率（含星级加成，>1 = 时长更长） */
+  private itemDurationMul(id: ItemId): number {
+    return getItemStarLevel(id, this.getItemStar(id)).durationMul;
+  }
+
+  /**
+   * 拆除模块时掉落道具碎片 + 累计拆除计数（用于武器升级树解锁判定）。
+   * 碎片随机掉落到一个道具上，达到阈值自动升星。
+   */
+  private dropFragmentAndCount(): void {
+    // 累计拆除数 +1（跨局持久化，用于武器升级树解锁判定）
+    const totalDestroyed = incrementModulesDestroyed();
+    // 本局掉落 1-3 个碎片（随机分配到一个道具）
+    const dropCount = 1 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < dropCount; i++) {
+      const id = ITEM_ORDER[Math.floor(Math.random() * ITEM_ORDER.length)];
+      const curStar = this.getItemStar(id);
+      if (curStar >= 5) continue; // 已封顶
+      const nextStarDef = getItemStarLevel(id, curStar + 1);
+      const needed = nextStarDef.fragmentsNeeded;
+      const res = addItemFragments(id, 1, needed);
+      this.fragmentsEarnedThisRun += 1;
+      // 更新本局缓存
+      if (res.starUp) {
+        this.itemStarCache[id] = res.newStar;
+        this.starUpsThisRun += 1;
+        // 升星提示
+        this.toast = {
+          text: `⭐ ${ITEMS[id].emoji} ${ITEMS[id].name} 升至 ${res.newStar}★！`,
+          tone: "good", until: this.t + 2.0,
+        };
+        postFX.flash("#FFD666", 0.4, 3);
+        playSfx("good");
+      }
+    }
+    // 武器升级树解锁检测：累计拆除数达到某分支 unlockCost 时提示
+    this.checkWeaponBranchUnlock(totalDestroyed);
+  }
+
+  /** 检测武器升级树解锁：达到 unlockCost 且该武器未选分支时加入待选列表 */
+  private checkWeaponBranchUnlock(totalDestroyed: number): void {
+    for (const tree of WEAPON_UPGRADE_TREES) {
+      if (this.weaponBranchCache[tree.weapon]) continue; // 已选分支
+      const anyUnlocked = tree.branches.some(b => totalDestroyed >= b.unlockCost);
+      if (!anyUnlocked) continue;
+      if (this.pendingWeaponUpgrades.includes(tree.weapon)) continue;
+      this.pendingWeaponUpgrades.push(tree.weapon);
+      const branchName = tree.branches.find(b => totalDestroyed >= b.unlockCost)?.name ?? "";
+      this.toast = {
+        text: `🔓 ${WEAPONS[tree.weapon].emoji} ${WEAPONS[tree.weapon].name} 可选升级分支：${branchName}（升级面板选择）`,
+        tone: "info", until: this.t + 2.4,
+      };
+      playSfx("good");
+    }
+  }
+
+  // ============ v8 受害者档案匹配 + 评级 + 战报 ============
+
+  /**
+   * 检测受害者档案匹配：累计救援数达到某档案 unlockAtRescued 阈值时触发。
+   * 每个档案只提示一次，避免重复弹窗。
+   */
+  private checkVictimProfileMatch(totalRescued: number): void {
+    const profile = matchVictimProfile(totalRescued);
+    if (!profile) return;
+    if (this.matchedVictimTypeIds.includes(profile.typeId)) return; // 已提示过
+    this.matchedVictimTypeIds.push(profile.typeId);
+    this.matchedVictimProfile = profile;
+    this.victimProfileHintRemain = 5.0; // 档案提示展示 5 秒
+    this.toast = {
+      text: `📋 解锁受害者档案：${profile.name}（${profile.desc.slice(0, 20)}…）`,
+      tone: "info", until: this.t + 2.8,
+    };
+    postFX.flash(profile.color, 0.3, 3);
+    playSfx("good");
+  }
+
+  /**
+   * 计算本局评级与综合得分（F→SSS）。
+   * 综合得分 = 拆除率 × 1000 + 救援数 × 50 + 最高连击 × 10 + 最高 DPS × 0.1
+   * 完美通关（win 且 destroyRate=1）额外 +20%。
+   */
+  private computeRating(win: boolean, destroyRate: number): {
+    score: number; rating: BombTierRating; ratingColor: string;
+  } {
+    const perfectRun = win && destroyRate >= 1;
+    return calculateRating({
+      destroyRate,
+      victimsRescued: this.victimsRescued,
+      maxCombo: this.maxCombo,
+      maxDps: this.maxDps,
+      perfectRun,
+    });
+  }
+
+  /** 构建战报分享卡数据（结算页 Canvas 生成 PNG 用） */
+  private buildBattleReportCard(rating: BombTierRating, ratingColor: string, score: number): {
+    rating: BombTierRating; ratingColor: string; score: number;
+    gameMode: BombGameMode; difficulty: BombDifficulty; clearedWaves: number;
+    victimsRescued: number; maxCombo: number; moduleKillCount: number;
+    motto: string; tierName: string; bossName: string;
+  } {
+    return {
+      rating, ratingColor, score,
+      gameMode: this.gameMode,
+      difficulty: this.difficulty,
+      clearedWaves: this.clearedWaves,
+      victimsRescued: this.victimsRescued,
+      maxCombo: this.maxCombo,
+      moduleKillCount: this.moduleKillCount,
+      motto: randomMotto(),
+      tierName: this.tier.name,
+      bossName: this.bossDef.bossName,
+    };
+  }
+
+
   // ============ 波次 ============
 
   private startWave(wave: number, initial = false): void {
     this.wave = wave;
-    this.tier = getTierForWave(wave);
-    this.bossDef = getBossForWave(wave);
+    // v6：模式专属 tier / boss 选择
+    if (this.gameMode === "story" && this.storyStage) {
+      this.tier = getStoryTier(this.storyStage);
+      this.bossDef = getStoryBoss(this.storyStage);
+    } else {
+      this.tier = getTierForWave(wave);
+      this.bossDef = getBossForWave(wave);
+    }
     this.bossEnraged = false;
-    this.repair = repairForWave(wave);
+    // v6：修复量受难度系数影响（剧情/每日/极速/硬核均适用）
+    this.repair = repairForWave(wave) * this.diffCoef.repairMul;
     this.escape = 0;
     this.phase = "fight";
     this.fireTimer = 0.5;
-    this.counterTimer = this.bossDef.counterInterval; // 第一波给点缓冲
+    // v6：反击间隔受难度系数影响（counterMul 越大反击越频繁）
+    this.counterTimer = this.bossDef.counterInterval / this.diffCoef.counterMul;
     this.counterWarnLeft = 0;
     // v4：重置专属技能状态（每波重新触发）
     this.specialSkillActive = null;
     this.specialSkillTriggered = false;
+    // v5：重置 Boss 阶段 / 召唤 / 受害者状态
+    this.bossPhaseIdx = 0;
+    this.bossPhaseTransitionT = 0;
+    this.bossPhaseTransitionText = "";
+    this.summonedPhases.clear();
+    this.minions.length = 0;
+    this.victims.length = 0;
+    this.bossIntroT = initial ? 1.0 : 1.5;
+    this.bossDefeatT = 0;
+    // v11：重置本波 QTE / 审判 / 热点案例状态
+    this.qteTriggeredThisWave = false;
+    this.qteState = null;
+    this.qteHolding = false;
+    this.hotspotCase = null;
+    // v11 A4：检查剧情分支触发点（在 startWave 时设置 storyBranchNode，清波后展示）
+    if (initial) this.checkStoryBranchTrigger();
     this.shells.length = 0;
     this.counterShells.length = 0;
     this.counterWarns.length = 0;
@@ -362,9 +1452,21 @@ export class BombIslandEngine extends GameEngine {
     }
     // 构建模块化建筑（每模块独立 HP）
     this.buildModules();
-    // 总 HP = 所有模块 HP 之和
-    this.maxHp = this.modules.reduce((s, m) => s + m.maxHp, 0);
+    // 总 HP = 所有模块 HP 之和；v6：受难度 hpMul + 每日 bossHpMul 影响
+    // v10 B2：动态事件选项的 nextWaveHpMul 修正（消费后重置）
+    // v11 A3：契约 bossHpMul 已在 choosePact 时合并到 pendingNextWaveHpMul
+    // v11 A4：剧情分支 nextStageBossHpMul 修正（消费后重置）
+    const modeHpMul = this.dailyRule ? this.dailyRule.bossHpMul : 1;
+    const hpMul = this.diffCoef.hpMul * modeHpMul * this.pendingNextWaveHpMul * this.pendingStoryBossHpMul;
+    this.pendingNextWaveHpMul = 1; // 消费完毕
+    this.pendingStoryBossHpMul = 1; // 消费完毕
+    this.pendingNextWaveMinionBonus = 0;
+    this.maxHp = Math.round(this.modules.reduce((s, m) => s + m.maxHp, 0) * hpMul);
+    this.modules.forEach(m => { m.maxHp = Math.round(m.maxHp * hpMul); m.hp = m.maxHp; });
     this.hp = this.maxHp;
+    // v9 S2：构建园区分层运行时状态（外墙/内墙/核心/金库，聚合各层 HP）
+    this.parkLayers = buildParkLayers(this.modules);
+    this.clearedLayersThisWave = new Set();
     const tip = initial
       ? `${this.bossDef.bossName}·${this.tier.name} 园区已锁定 · 武器 LV${this.weaponLevel} · ${this.weather.emoji}${this.weather.name}`
       : `波次 ${wave}：${this.bossDef.bossName} 出现！${this.weather.emoji}${this.weather.name} · ${this.weather.desc}`;
@@ -422,8 +1524,10 @@ export class BombIslandEngine extends GameEngine {
           return hpSmall;
         case "floor":
         case "dorm":
+        case "liveRoom":   // v6：直播间（中型）
+        case "casino":     // v6：赌博机房（中型）
           return hpMedium;
-        default: // cage / cell / shock / guard / fortress
+        default: // cage / cell / shock / guard / fortress / darkweb / minefarm
           return hpLarge;
       }
     };
@@ -488,9 +1592,29 @@ export class BombIslandEngine extends GameEngine {
     // ---- 地基（最后拆除，小型）----
     ms.push(mk("foundation", "园区地基", PARK_LEFT, PARK_BASE_Y - 4, PARK_W, 4, 0, tierColor, "foundation"));
 
+    // ---- v6 新增：迪拜园区专属模块（虚拟币洗钱主题）----
+    if (this.tier.structure === "dubai") {
+      // 虚拟币矿场（主楼右侧大型）
+      ms.push(mk("minefarm", "虚拟币矿场", mainX + mainW + 6, PARK_BASE_Y - 90, 56, 90, depth, "#FFD666", "minefarm"));
+      // 暗网服务器（主楼左侧大型）
+      ms.push(mk("darkweb", "暗网服务器", mainX - 62, PARK_BASE_Y - 90, 56, 90, depth, "#B388FF", "darkweb"));
+    }
+
+    // ---- v6 新增：西非园区专属模块（庞氏骗局/跨洲中转主题）----
+    if (this.tier.structure === "wafrica") {
+      // 赌博机房（主楼右侧中型）
+      ms.push(mk("casino", "赌博机房", mainX + mainW + 6, PARK_BASE_Y - 84, 50, 84, depth, "#E5353B", "casino"));
+      // 直播间（主楼左侧中型）
+      ms.push(mk("liveRoom", "直播间", mainX - 56, PARK_BASE_Y - 84, 50, 84, depth, "#FF5A60", "liveRoom"));
+    }
+
     this.modules = ms;
     this.moduleCombo = 0;
     this.moduleComboTimer = 0;
+    // v8：累计模块遭遇统计（用于知识图谱 total 字段）
+    for (const m of ms) {
+      this.moduleEncounterStats[m.type] = (this.moduleEncounterStats[m.type] ?? 0) + 1;
+    }
   }
 
   /**
@@ -507,6 +1631,24 @@ export class BombIslandEngine extends GameEngine {
     // v4：累计模块拆除统计（用于结算页战报）
     this.moduleKillCount += 1;
     this.moduleKillStats[m.type] = (this.moduleKillStats[m.type] ?? 0) + 1;
+    // v5：累计全局模块拆除数（跨局持久化，用于图鉴解锁判定）
+    this.moduleKillCumulative[m.type] = (this.moduleKillCumulative[m.type] ?? 0) + 1;
+    this.checkCodexUnlock(m.type);
+    // v7：掉落道具碎片 + 累计拆除计数（用于武器升级树解锁判定）
+    this.dropFragmentAndCount();
+    // v5：拆除 cage/cell/dorm 时释放受害者
+    const victimCount = MODULE_VICTIM_COUNT[m.type] ?? 0;
+    if (victimCount > 0) {
+      const cx0 = m.x + m.w / 2;
+      const cy0 = m.y + m.h / 2;
+      for (let i = 0; i < victimCount; i++) {
+        this.spawnVictim(cx0 + (Math.random() - 0.5) * m.w * 0.6, cy0 + (Math.random() - 0.5) * m.h * 0.6, m.type);
+      }
+      this.floats.push({
+        x: cx0, y: cy0 - 28, text: `🔓 解救 ${victimCount} 名受害者`,
+        color: "#52C41A", life: 1.6, maxLife: 1.6, size: 14,
+      });
+    }
     // v3：赋拆除序号 + 重置重建字段
     m.demolishOrder = this.demolishOrderCounter++;
     m.repairProgress = 0;
@@ -559,27 +1701,85 @@ export class BombIslandEngine extends GameEngine {
         x: cx, y: cy + 24, text: `📖 ${knowledge.tip}`, color: knowledge.color,
         life: 2.6, maxLife: 2.6, size: 13,
       });
+      // v9 T1：同步设置 HUD 知识弹幕横幅（更显眼，3 秒）
+      this.knowledgeTipText = knowledge.tip;
+      this.knowledgeTipRemain = 3.0;
+      incrementKnowledgeTips();
+    }
+
+    // v9 S3：拆除模块掉落线索碎片（基础 1 + RTS fragmentMul 加成 + 大型模块额外）
+    // v11 A3：契约碎片掉率倍率（fragmentMul > 1 = 增益）
+    const fragBonus = rtsMultiplier(this.rtsUpgrades, "fragmentBonus", "fragmentMul");
+    const pactFragMul = this.pactMul("fragmentMul");
+    const fragGain = Math.max(1, Math.round((m.w * m.h) / 4000) * fragBonus * pactFragMul);
+    this.clueFragments += fragGain;
+    addClueFragments(fragGain);
+    this.floats.push({ x: cx + 20, y: cy - 24, text: `🔍 +${fragGain}`, color: "#9FE3FF", life: 1.0, maxLife: 1.0, size: 12 });
+
+    // v9 G1：每日任务进度——拆除模块 +1 / 拆除指定类型 +1
+    this.advanceDailyTask("destroyModules", 1);
+    this.advanceDailyTask("destroyType", 1, m.type);
+
+    // v9 S2：重算分层状态，检测是否有层被 newly cleared → 触发知识弹幕 + 线索碎片奖励
+    this.parkLayers = buildParkLayers(this.modules);
+    const mLayer = layerOfModule(m.type);
+    const layerState = this.parkLayers.find(l => l.kind === mLayer);
+    if (layerState && layerState.cleared && !this.clearedLayersThisWave.has(mLayer)) {
+      this.clearedLayersThisWave.add(mLayer);
+      this.onParkLayerCleared(mLayer);
     }
 
     // 音效 + 震动
     playSfx("explode");
     vibrateShort();
 
-    // 过载槽充能（连拆越多充能越多）
-    this.overdrive = Math.min(OVERDRIVE_MAX, this.overdrive + 6 + this.moduleCombo * 2);
+    // 过载槽充能（连拆越多充能越多）+ v9 RTS overdriveMul 加成
+    const rtsOverdriveMul = rtsMultiplier(this.rtsUpgrades, "overdriveGain", "overdriveMul");
+    this.overdrive = Math.min(OVERDRIVE_MAX, this.overdrive + (6 + this.moduleCombo * 2) * rtsOverdriveMul);
     this.overdriveIdle = 0;
+  }
+
+  /** v9 G1：推进每日任务进度（按 type 匹配任务；increment 为增量） */
+  private advanceDailyTask(type: BombTaskType, increment: number, moduleType?: string): void {
+    const tasks = getTodayBombTasks();
+    for (const t of tasks) {
+      if (t.type !== type) continue;
+      if (type === "destroyType" && t.params?.moduleType !== moduleType) continue;
+      const p = updateDailyTaskProgress(t.id, t.target, increment);
+      // 同步本局运行时快照
+      const rt = this.dailyTaskRuntime.find(r => r.id === t.id);
+      if (rt) { rt.progress = p.progress; rt.claimed = p.claimed; }
+    }
   }
 
   // ============ 模块目标选择与伤害（v2：绝对伤害，每击≤100） ============
 
   /**
    * 选择一个未拆除的模块作为炮弹目标。
-   * 优先选择离给定 x 最近的未拆模块（让多管齐射分布更自然）。
+   * v9 S2：分层优先级——优先攻击炮位 preferLayer（或自动最近未拆层）内的模块，
+   *       同层内再按离给定 x 最近的模块选择（让多管齐射分布更自然）。
    * 若全部已拆返回 null（本波即将清空）。
    */
-  private pickTargetModule(preferX: number): BuildingModule | null {
+  private pickTargetModule(preferX: number, preferLayer: ParkLayerKind | null = null): BuildingModule | null {
+    // 确定目标层：显式 preferLayer > 自动最近未拆层
+    let targetLayer = preferLayer;
+    if (!targetLayer) targetLayer = nearestIntactLayer(this.parkLayers);
     let best: BuildingModule | null = null;
     let bestDist = Infinity;
+    // 第一轮：仅目标层内的未拆模块
+    if (targetLayer) {
+      for (const m of this.modules) {
+        if (m.demolished) continue;
+        if (layerOfModule(m.type) !== targetLayer) continue;
+        const mx = m.x + m.w / 2;
+        const d = Math.abs(mx - preferX);
+        if (d < bestDist) { bestDist = d; best = m; }
+      }
+      if (best) return best;
+    }
+    // 兜底：目标层已空时退化为全局最近未拆模块
+    best = null;
+    bestDist = Infinity;
     for (const m of this.modules) {
       if (m.demolished) continue;
       const mx = m.x + m.w / 2;
@@ -664,7 +1864,22 @@ export class BombIslandEngine extends GameEngine {
 
   private handleTap(x: number, y: number): void {
     if (this.phase !== "fight") return;
-    // 武器切换按钮（优先级最高）
+    // v11 A2：QTE 进行中——点击屏幕任意位置即触发 QTE 输入
+    if (this.qteState && !this.qteState.finished) {
+      this.qteInput("tap");
+      return;
+    }
+    // v5：过载大招按钮（优先级最高，仅当过载就绪时显示）
+    if (this.overdriveManualLeft > 0 && this.overdrive >= OVERDRIVE_MAX) {
+      const r = this.getOverdriveButtonRect();
+      if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) {
+        this.triggerOverdriveUltimate();
+        playSfx("click");
+        this.emitHud();
+        return;
+      }
+    }
+    // 武器切换按钮
     for (let i = 0; i < WEAPON_ORDER.length; i++) {
       const r = this.getWeaponSlotRect(i);
       if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) {
@@ -699,9 +1914,21 @@ export class BombIslandEngine extends GameEngine {
     return { x: SLOT_X + i * (w + gap), y: 32, w, h: 32 };
   }
 
+  /** v5：过载大招按钮坐标（炮兵上方，仅当 overdriveManualLeft > 0 时显示） */
+  private getOverdriveButtonRect() {
+    return { x: CANNON_X - 56, y: CANNON_Y - 92, w: 112, h: 36 };
+  }
+
   /** 切换当前武器 */
   private switchWeapon(kind: WeaponKind): void {
     if (this.weapon === kind) return;
+    // v6：每日模式禁用武器检查
+    if (this.isWeaponDisabled(kind)) {
+      this.toast = { text: `🚫 ${WEAPONS[kind].name} 今日禁用`, tone: "bad", until: this.t + 1.4 };
+      playSfx("bad");
+      this.emitHud();
+      return;
+    }
     this.weapon = kind;
     const def = WEAPONS[kind];
     const ammo = kind === "standard" ? -1 : this.weaponAmmo[kind];
@@ -712,9 +1939,35 @@ export class BombIslandEngine extends GameEngine {
     this.emitHud();
   }
 
+  /** v6：武器是否被每日规则禁用 */
+  private isWeaponDisabled(kind: WeaponKind): boolean {
+    return !!(this.dailyRule?.disabledWeapons?.includes(kind));
+  }
+
+  /** v6：道具是否被每日规则禁用 */
+  private isItemDisabled(id: ItemId): boolean {
+    return !!(this.dailyRule?.disabledItems?.includes(id));
+  }
+
   private useItem(id: ItemId): void {
+    // v6：每日模式禁用道具检查
+    if (this.isItemDisabled(id)) {
+      this.toast = { text: `🚫 ${ITEMS[id].emoji} ${ITEMS[id].name} 今日禁用`, tone: "bad", until: this.t + 1.4 };
+      playSfx("bad");
+      this.emitHud();
+      return;
+    }
     const def = ITEMS[id];
-    this.cdLeft[id] = def.cd;
+    // v7：道具升星——CD 倍率（<1 = CD 更短）
+    const cdMul = this.itemCdMul(id);
+    // v11 A3：契约道具 CD 倍率（itemCdMul > 1 = CD 延长 = 代价）
+    const pactCdMul = this.pactMul("itemCdMul");
+    this.cdLeft[id] = def.cd * cdMul * pactCdMul;
+    // v7：道具升星——伤害倍率 / 时长倍率（>1 = 伤害更高/时长更长）
+    const dmgMul = this.itemDamageMul(id);
+    const durMul = this.itemDurationMul(id);
+    // v11 A3：契约道具伤害倍率（itemDamageMul < 1 = 伤害降低 = 代价）
+    const pactItemDmgMul = this.pactMul("itemDamageMul");
     // 全局刷新：其他道具剩余 CD 折减
     for (const oid of ITEM_ORDER) {
       if (oid === id) continue;
@@ -725,11 +1978,16 @@ export class BombIslandEngine extends GameEngine {
     // 连击
     this.combo += 1; this.comboTimer = 2;
     // 效果（v2：绝对伤害，每模块每击≤100；不显示伤害飘字）
+    // v7：所有伤害/时长按星级倍率缩放
+    // v11 A3：契约伤害倍率叠加
+    const itemDmg = (v?: number) => Math.min(100, Math.round((v ?? 100) * dmgMul * pactItemDmgMul));
+    const itemDps = (v?: number) => Math.min(100, Math.round((v ?? 100) * dmgMul * pactItemDmgMul));
+    const itemDur = (v?: number) => (v ?? 3) * durMul;
     switch (def.effect) {
       case "blast": {
         // 反诈炮弹：园区中心大爆破，半径内每模块承受 100 伤害
         const bx = PARK_CX, by = PARK_TOP + PARK_H * 0.4;
-        this.damageModulesAoE(bx, by, 90, def.damageAbs ?? 100);
+        this.damageModulesAoE(bx, by, 90, itemDmg(def.damageAbs));
         this.spawnBlast(bx, by, def.color, 1.4);
         this.beams.push({ until: this.t + 0.35, color: def.color, kind: "blast", x: bx, y: by, r: 90 });
         postFX.flash(def.color, 0.35, 3); postFX.shake(9, 14);
@@ -742,7 +2000,7 @@ export class BombIslandEngine extends GameEngine {
         const target = this.pickTargetModule(PARK_CX);
         if (target) {
           const tx = target.x + target.w / 2, ty = target.y + target.h / 2;
-          this.damageModule(target, def.damageAbs ?? 100);
+          this.damageModule(target, itemDmg(def.damageAbs));
           this.beams.push({ until: this.t + 0.45, color: def.color, kind: "homing", x: tx, y: ty, r: 60 });
           this.spawnBurst(tx, ty, def.color, 1);
         }
@@ -753,24 +2011,24 @@ export class BombIslandEngine extends GameEngine {
       }
       case "fireRain":
         // 警方突击：3 秒火雨 DoT，覆盖园区上半部，每秒每模块 100
-        this.dots.push({ until: this.t + (def.duration ?? 3), dps: def.dpsAbs ?? 100, kind: "fireRain", x: PARK_CX, y: PARK_TOP, r: PARK_W * 0.6, startT: this.t });
+        this.dots.push({ until: this.t + itemDur(def.duration ?? 3), dps: itemDps(def.dpsAbs ?? 100), kind: "fireRain", x: PARK_CX, y: PARK_TOP, r: PARK_W * 0.6, startT: this.t });
         playSfx("shoot");
         break;
       case "burnZone":
         // 银行止付：4 秒燃烧区 DoT，每秒每模块 100
-        this.dots.push({ until: this.t + (def.duration ?? 4), dps: def.dpsAbs ?? 100, kind: "burnZone", x: PARK_CX, y: PARK_BASE_Y - 10, r: 70, startT: this.t });
+        this.dots.push({ until: this.t + itemDur(def.duration ?? 4), dps: itemDps(def.dpsAbs ?? 100), kind: "burnZone", x: PARK_CX, y: PARK_BASE_Y - 10, r: 70, startT: this.t });
         playSfx("explode");
         break;
       case "drone":
         // 反诈无人机：5 秒扫射 DoT，每秒对随机未拆模块 80
-        this.dots.push({ until: this.t + (def.duration ?? 5), dps: def.dpsAbs ?? 80, kind: "drone", x: PARK_CX, y: PARK_TOP - 70, r: 0, startT: this.t });
+        this.dots.push({ until: this.t + itemDur(def.duration ?? 5), dps: itemDps(def.dpsAbs ?? 80), kind: "drone", x: PARK_CX, y: PARK_TOP - 70, r: 0, startT: this.t });
         playSfx("shoot");
         break;
       case "laser": {
         // 反诈 APP 光束：横扫园区中部，水平带内每模块 100
         const ly = PARK_TOP + PARK_H * 0.4;
         const list = this.modulesInHorizontalBand(ly, 12);
-        for (const m of list) this.damageModule(m, def.damageAbs ?? 100);
+        for (const m of list) this.damageModule(m, itemDmg(def.damageAbs));
         this.beams.push({ until: this.t + 0.4, color: def.color, kind: "laser", x: PARK_CX, y: ly, r: 0 });
         postFX.flash(def.color, 0.3, 3);
         this.hitStopRemain = Math.max(this.hitStopRemain, 0.06);
@@ -782,19 +2040,19 @@ export class BombIslandEngine extends GameEngine {
         const n = 5;
         for (let i = 0; i < n; i++) {
           const mx = PARK_LEFT + (i + 0.5) * (PARK_W / n) + (Math.random() - 0.5) * 20;
-          this.strikes.push({ landT: this.t + 0.3 + i * 0.35, x: mx, dmg: def.damageAbs ?? 100, color: def.color, kind: "meteor", startY: -40 });
+          this.strikes.push({ landT: this.t + 0.3 + i * 0.35, x: mx, dmg: itemDmg(def.damageAbs), color: def.color, kind: "meteor", startY: -40 });
         }
         playSfx("boss");
         break;
       }
       case "arrowRain": {
         // 网络封禁令：2 秒箭雨，每箭对落点附近模块 70（dpsAbs×duration/箭数）
-        const dur = def.duration ?? 2;
+        const dur = itemDur(def.duration ?? 2);
         const n = 14;
         for (let i = 0; i < n; i++) {
           const ax = PARK_LEFT + Math.random() * PARK_W;
           // 每箭伤害 = (dps × 时长) / 箭数，封顶 100
-          const perArrow = Math.min(100, Math.round(((def.dpsAbs ?? 70) * dur) / n));
+          const perArrow = Math.min(100, Math.round((itemDps(def.dpsAbs ?? 70) * dur) / n));
           this.strikes.push({ landT: this.t + Math.random() * dur, x: ax, dmg: perArrow, color: def.color, kind: "arrow", startY: -30 });
         }
         playSfx("shoot");
@@ -803,12 +2061,41 @@ export class BombIslandEngine extends GameEngine {
       case "swords": {
         // 全民反诈风暴：终极汇聚爆破，园区中心大半径内每模块 100
         const sx = PARK_CX, sy = PARK_TOP + PARK_H * 0.45;
-        this.damageModulesAoE(sx, sy, 130, def.damageAbs ?? 100);
+        this.damageModulesAoE(sx, sy, 130, itemDmg(def.damageAbs));
         this.beams.push({ until: this.t + 1.0, color: def.color, kind: "swords", x: sx, y: sy, r: 130 });
         this.spawnBurst(sx, sy, def.color, 1.6);
         postFX.flash(def.color, 0.5, 4); postFX.glitch(0.5, 2.5); postFX.shake(12, 16);
         this.hitStopRemain = Math.max(this.hitStopRemain, 0.1);
         playSfx("boss");
+        break;
+      }
+      // v6 新增道具
+      case "signalJam": {
+        // 信号屏蔽：5 秒内 Boss 反击暂停（counterTimer 暂停推进）
+        const dur = itemDur(def.duration ?? 5);
+        this.signalJamUntil = this.t + dur;
+        // 临时清除反击预警
+        this.counterWarns.length = 0;
+        this.counterWarnLeft = 0;
+        this.beams.push({ until: this.t + 0.5, color: def.color, kind: "blast", x: PARK_CX, y: PARK_TOP, r: PARK_W });
+        postFX.flash(def.color, 0.4, 3);
+        playSfx("laser");
+        this.particles.spawnText(PARK_CX, PARK_TOP - 20, "信号屏蔽！", def.color, { size: 14, life: 1.5 });
+        break;
+      }
+      case "airStrike": {
+        // 空袭支援：6 秒武装直升机扫射 DoT
+        const dur = itemDur(def.duration ?? 6);
+        this.dots.push({ until: this.t + dur, dps: itemDps(def.dpsAbs ?? 90), kind: "drone", x: PARK_CX, y: PARK_TOP - 50, r: 0, startT: this.t });
+        // 立即一波导弹覆盖
+        for (let i = 0; i < 6; i++) {
+          const mx = PARK_LEFT + Math.random() * PARK_W;
+          this.strikes.push({ landT: this.t + 0.3 + i * 0.2, x: mx, dmg: itemDmg(60), color: def.color, kind: "meteor", startY: -40 });
+        }
+        postFX.flash(def.color, 0.3, 3);
+        postFX.shake(8, 12);
+        playSfx("explode");
+        this.particles.spawnText(PARK_CX, PARK_TOP - 20, "空袭支援！", def.color, { size: 14, life: 1.5 });
         break;
       }
     }
@@ -819,13 +2106,104 @@ export class BombIslandEngine extends GameEngine {
 
   private addOverdrive(v: number): void {
     if (this.overdriveActive) return;
+    if (this.overdriveManualLeft > 0) return; // 已在主动释放窗口，不再累积
+    // v11 A3：契约过载获取倍率（overdriveMul > 1 = 增益）
+    v = v * this.pactMul("overdriveMul");
     this.overdrive = clamp(this.overdrive + v, 0, OVERDRIVE_MAX);
     if (this.overdrive >= OVERDRIVE_MAX) {
-      this.overdriveActive = true;
-      this.overdriveLeft = OVERDRIVE_DURATION;
-      this.toast = { text: "火力过载！自动炮提速", tone: "good", until: this.t + 2 };
+      // v5：双模式 —— 进入主动释放窗口，等待玩家点击释放大招
+      this.overdriveManualLeft = OVERDRIVE_MANUAL_WINDOW;
+      this.toast = { text: "火力过载就绪！点击大招按钮释放，或 3 秒后自动提速", tone: "info", until: this.t + 2.4 };
       postFX.flash("#00E5FF", 0.3, 3);
     }
+  }
+
+  /** v5：激活过载 buff 模式（玩家未主动释放时自动转入） */
+  private activateOverdriveBuff(): void {
+    if (this.overdriveActive) return;
+    this.overdriveActive = true;
+    this.overdriveLeft = OVERDRIVE_DURATION;
+    this.overdriveManualLeft = 0;
+    this.toast = { text: "火力过载！自动炮提速（未释放大招）", tone: "good", until: this.t + 2 };
+    postFX.flash("#00E5FF", 0.3, 3);
+  }
+
+  /**
+   * v5：玩家主动释放过载大招 —— 全民反诈风暴。
+   * - 对所有存活模块造成 30% maxHp 真伤
+   * - 清除所有活动小怪（视为击杀，给奖励）
+   * - 重置所有道具 CD
+   * - 全屏闪光 + hit-stop + 震屏
+   */
+  private triggerOverdriveUltimate(): void {
+    if (this.overdrive < OVERDRIVE_MAX || this.overdriveActive) return;
+    if (this.phase !== "fight") return;
+    // 消耗过载槽，进入 buff 状态作为奖励
+    this.overdriveActive = true;
+    this.overdriveLeft = OVERDRIVE_DURATION;
+    this.overdriveManualLeft = 0;
+    this.overdrive = 0;
+    // 1. 对所有存活模块造成真伤
+    let killedModules = 0;
+    for (const m of this.modules) {
+      if (m.demolished) continue;
+      const dmg = Math.min(100, Math.round(m.maxHp * OVERDRIVE_ULT_DAMAGE_PCT));
+      // 直接扣血但不触发 demolishModule 的连击逻辑（避免刷连击）；HP 归零则正常拆除
+      m.hp -= dmg;
+      m.hitFlash = 0.2;
+      this.hp = Math.max(0, this.hp - dmg);
+      this.damageThisFrame += dmg;
+      this.waveDamage += dmg;
+      this.totalDamage += dmg;
+      this.dpsWindow.push({ t: this.t, dmg });
+      if (m.hp <= 0) {
+        this.demolishModule(m);
+        killedModules++;
+      }
+    }
+    // 2. 清除所有活动小怪（视为击杀，给奖励）
+    const minionCount = this.minions.length;
+    for (const m of this.minions) {
+      if (m.state === 0) {
+        m.state = 1;
+        this.minionsKilled += 1;
+        const summon = this.bossDef.summon;
+        this.score += summon?.rewardScore ?? 200;
+        const meta = MINION_META[m.kind];
+        this.particles.spawnBurst(m.x, m.y, meta.color, {
+          ring: true, sparks: 12, dots: 16, speed: 200, life: 0.7, size: 3, color2: "#FFD666",
+        });
+      }
+    }
+    // 3. 重置所有道具 CD
+    for (const id of ITEM_ORDER) this.cdLeft[id] = 0;
+    // 4. 全屏视觉特效
+    postFX.flash("#00E5FF", OVERDRIVE_ULT_FLASH, 4);
+    postFX.glitch(0.4, 2);
+    postFX.shake(14, 18);
+    this.hitStopRemain = Math.max(this.hitStopRemain, OVERDRIVE_ULT_HITSTOP);
+    // 大招光束：覆盖整个园区
+    this.beams.push({
+      until: this.t + 1.2, color: "#00E5FF", kind: "swords",
+      x: PARK_CX, y: PARK_TOP + PARK_H * 0.45, r: 160,
+    });
+    this.particles.spawnBurst(PARK_CX, PARK_TOP + PARK_H * 0.5, "#00E5FF", {
+      ring: true, sparks: 40, dots: 50, speed: 400, life: 1.6, size: 6, color2: "#FFD666", shockwave: true,
+    });
+    this.particles.spawnBurst(CANNON_X, CANNON_Y, "#FFD666", {
+      ring: true, sparks: 24, dots: 30, speed: 280, life: 1.0, size: 5, color2: "#00E5FF",
+    });
+    this.toast = {
+      text: `🌟 全民反诈风暴！摧毁 ${killedModules} 模块 · 清除 ${minionCount} 小怪 · 道具 CD 全清`,
+      tone: "good",
+      until: this.t + 3.2,
+    };
+    this.floats.push({
+      x: (CANNON_X + PARK_CX) / 2, y: 200, text: "🌟 全民反诈风暴 🌟",
+      color: "#00E5FF", life: 1.8, maxLife: 1.8, size: 22,
+    });
+    playSfx("boss");
+    vibrateShort();
   }
 
   // ============ 伤害（v2：已迁移至 damageModule / damageModulesAoE） ============
@@ -849,6 +2227,12 @@ export class BombIslandEngine extends GameEngine {
       this.dpsHead = 0;
     }
     if (sum > this.maxDps) this.maxDps = sum;
+    // v5：DPS 历史采样（每秒一次，用于结算页折线图）
+    if (this.t - this.dpsSampleLastT >= DPS_SAMPLE_INTERVAL) {
+      this.dpsSampleLastT = this.t;
+      this.dpsHistory.push(sum);
+      if (this.dpsHistory.length > DPS_SAMPLE_MAX) this.dpsHistory.shift();
+    }
   }
 
   private spawnBurst(x: number, y: number, color: string, scale: number): void {
@@ -884,26 +2268,119 @@ export class BombIslandEngine extends GameEngine {
       if (Math.random() < dt * intensity * 1.5) {
         this.particles.spawn({ x: PARK_CX + (Math.random() - 0.5) * PARK_W, y: PARK_BASE_Y - 10, count: 3, speed: 60, life: 1.3, size: 6, color: "rgba(120,120,120,0.55)", type: "dot", friction: 0.94 });
       }
-      if (this.collapseT > 1.6) this.startWave(this.wave + 1);
+      if (this.collapseT > 1.6) {
+        // v6：模式专属终局判定
+        if (this.checkModeEndAfterClear()) return;
+        // v11 A1：Boss 击败后优先触发审判庭（若该 Boss 有审判配置）
+        if (this.waveGapPhase === "none" && this.trialState) {
+          this.waveGapPhase = "trial";
+          this.emitHud();
+          return;
+        }
+        // v11 A4：剧情模式分支触发点（在 RTS 面板前优先触发）
+        if (this.waveGapPhase === "none" && this.storyBranchNode) {
+          this.waveGapPhase = "storyBranch";
+          this.emitHud();
+          return;
+        }
+        // v9 S3：波次间隙触发 RTS 升级面板（首次进入时抽取待选项；玩家选择/跳过后进入下一波）
+        if (this.waveGapPhase === "none") {
+          this.waveGapPhase = "rtsPanel";
+          this.rtsOfferings = pickRTSOfferings(this.rtsUpgrades, 3);
+        }
+        this.emitHud();
+        return; // 等待玩家 chooseRTSUpgrade / skipRTSUpgrade（后者触发 startWave）
+      }
+      this.emitHud();
+      return;
+    }
+    // v9 S3：若处于 RTS 面板阶段，暂停主循环逻辑（仅推进 particles/hud）
+    if (this.waveGapPhase === "rtsPanel") {
+      this.emitHud();
+      return;
+    }
+    // v10 B2/C1：动态事件 / 知识问答阶段同样暂停主循环（等待玩家选择/作答）
+    if (this.waveGapPhase === "dynamicEvent" || this.waveGapPhase === "quiz") {
+      this.emitHud();
+      return;
+    }
+    // v11 A1/A3/A4：审判庭 / 契约面板 / 剧情分支阶段暂停主循环
+    if (this.waveGapPhase === "trial" || this.waveGapPhase === "pactPanel" || this.waveGapPhase === "storyBranch") {
+      this.emitHud();
+      return;
+    }
+    // v11 A2：QTE 进行中时暂停常规战斗逻辑（仅推进 QTE 计时）
+    if (this.qteState && !this.qteState.finished) {
+      this.updateQTE(dt);
       this.emitHud();
       return;
     }
 
-    // BOSS 狂暴检测
-    if (!this.bossEnraged && this.hp / this.maxHp <= this.bossDef.enrageAt) {
+    // v10 B1：连携槽——充能 / 自动释放 / 持续大招 DPS
+    this.updateSynergy(dt);
+
+    // v6：极速模式倒计时（clearing 阶段不扣时间，只在 fight 阶段扣）
+    if (this.gameMode === "speedrun") {
+      this.speedrunRemain -= dt;
+      if (this.speedrunRemain <= 0) {
+        this.speedrunRemain = 0;
+        // 时间到，按当前进度结算（视为胜利，得分含时间奖励）
+        this.triggerEnd(true, "⏱ 时间到！按摧毁进度结算");
+        return;
+      }
+    }
+
+    // BOSS 狂暴检测（v5：仅当 Boss 未提供 phases 时走旧逻辑；多阶段 Boss 由 updateBossPhase 接管）
+    if (!this.bossDef.phases && !this.bossEnraged && this.hp / this.maxHp <= this.bossDef.enrageAt) {
       this.bossEnraged = true;
       this.toast = { text: `${this.bossDef.bossName} 狂暴！反击频率×${this.bossDef.enrageMul}`, tone: "bad", until: this.t + 2.5 };
       postFX.flash("#E5353B", 0.3, 3);
       postFX.shake(8, 12);
     }
 
+    // v5：Boss 阶段切换检测（含召唤小怪触发）
+    this.updateBossPhase(dt);
+
     // 自动开火（按武器等级计算射速，天气影响射速；weaponJam 时降低射速）
     const jamMul = this.weaponJamUntil > this.t ? WEAPON_JAM_FIRE_MUL : 1;
-    this.fireTimer -= dt * this.weather.fireRateMul * jamMul;
+    // v7：武器升级分支射速倍率（fireRateMul > 1 = 射速更快）
+    const branchFireRateMul = this.weaponFireRateMul(this.weapon);
+    // v10 D2：永久射速加成（fireRateMul < 1 = 间隔缩短 = 更快，乘到间隔上）
+    const pFireRateMul = permanentMul(this.permanentUpgrades, "pFireRate", "fireRateMul");
+    // v11 A3：契约射速倍率（fireRateMul < 1 = 射速降低 = 代价）
+    const pactFireMul = this.pactMul("fireRateMul");
+    this.fireTimer -= dt * this.weather.fireRateMul * jamMul * branchFireRateMul * pactFireMul / pFireRateMul;
     if (this.fireTimer <= 0) {
       this.fireShell();
       const mult = this.overdriveActive ? OVERDRIVE_FIRE_MULT : 1;
-      this.fireTimer = weaponFireInterval(this.weaponLevel) / mult;
+      this.fireTimer = weaponFireInterval(this.weaponLevel) * pFireRateMul / (mult * branchFireRateMul * pactFireMul);
+    }
+
+    // v9 S1：副炮（左/右翼炮）独立自动开火，共享主武器/等级，但用独立计时与较慢基础间隔
+    if (this.cannonSlots.length > 0) {
+      const auxMult = this.overdriveActive ? OVERDRIVE_FIRE_MULT : 1;
+      // RTS 射速倍率（<1 = 更快）
+      const rtsFireMul = rtsMultiplier(this.rtsUpgrades, "fireRate", "fireRateMul");
+      const auxInterval = CANNON_FIRE_INTERVAL_BASE / (auxMult * branchFireRateMul) * rtsFireMul * pFireRateMul / pactFireMul;
+      this.auxFireAcc += dt * this.weather.fireRateMul * jamMul * pactFireMul;
+      while (this.auxFireAcc >= auxInterval) {
+        this.auxFireAcc -= auxInterval;
+        this.fireAuxCannons();
+      }
+    }
+
+    // v9 T1：知识弹幕计时衰减
+    if (this.knowledgeTipRemain > 0) {
+      this.knowledgeTipRemain = Math.max(0, this.knowledgeTipRemain - dt);
+    }
+
+    // v5：过载双模式 —— 满槽后给玩家主动释放窗口，超时自动转 buff
+    if (this.overdriveManualLeft > 0) {
+      this.overdriveManualLeft -= dt;
+      if (this.overdriveManualLeft <= 0 && !this.overdriveActive && this.overdrive >= OVERDRIVE_MAX) {
+        // 玩家未主动释放，自动转 buff
+        this.activateOverdriveBuff();
+      }
     }
 
     // 炮弹
@@ -914,6 +2391,12 @@ export class BombIslandEngine extends GameEngine {
 
     // 反击弹运动
     this.updateCounterShells(dt);
+
+    // v5：召唤小怪运动
+    this.updateMinions(dt);
+
+    // v5：受害者救援运动
+    this.updateVictims(dt);
 
     // 持续 DoT
     this.updateDots(dt);
@@ -1020,6 +2503,8 @@ export class BombIslandEngine extends GameEngine {
           }
         }
       }
+      // v9 S2：废墟重建会改变分层状态，重算 hp/cleared（不重复触发层清空奖励）
+      this.parkLayers = buildParkLayers(this.modules);
     }
     this.damageThisFrame = 0;
 
@@ -1090,20 +2575,376 @@ export class BombIslandEngine extends GameEngine {
 
   // ============ BOSS 反击 ============
 
+  // ============ v5 Boss 多阶段 / 召唤 / 受害者救援 ============
+
+  /**
+   * 取当前生效的 Boss 阶段定义。
+   * 若 BossDef 提供了 phases 数组，按 bossPhaseIdx 索引取；
+   * 否则用顶层字段合成一个回退阶段（向后兼容旧 Boss）。
+   */
+  private currentBossPhase(): { pattern: BombBossDef["pattern"]; counterInterval: number; counterShots: number; counterDebuffDur: number; enrageMul: number; phaseName: string } {
+    const phases = this.bossDef.phases;
+    if (phases && phases.length > 0) {
+      const p = phases[Math.min(this.bossPhaseIdx, phases.length - 1)];
+      return {
+        pattern: p.pattern,
+        counterInterval: p.counterInterval,
+        counterShots: p.counterShots,
+        counterDebuffDur: p.counterDebuffDur,
+        enrageMul: p.enrageMul,
+        phaseName: p.phaseName,
+      };
+    }
+    // 回退：用顶层字段（兼容无 phases 定义的老 Boss）
+    return {
+      pattern: this.bossDef.pattern,
+      counterInterval: this.bossDef.counterInterval,
+      counterShots: this.bossDef.counterShots,
+      counterDebuffDur: this.bossDef.counterDebuffDur,
+      enrageMul: this.bossEnraged ? this.bossDef.enrageMul : 1,
+      phaseName: this.bossEnraged ? "狂暴阶段" : "正常阶段",
+    };
+  }
+
+  /**
+   * 检测 Boss HP 阈值穿越，推进阶段。
+   * - 进入新阶段时：触发阶段切换横幅 + 召唤小怪（若该阶段配置了 summon）
+   * - 进入阶段 2 时同步设置 bossEnraged=true（保持旧 HUD 字段语义）
+   */
+  private updateBossPhase(dt: number): void {
+    // 阶段切换横幅倒计时
+    if (this.bossPhaseTransitionT > 0) {
+      this.bossPhaseTransitionT = Math.max(0, this.bossPhaseTransitionT - dt);
+    }
+    // Boss 入场/击败特写倒计时
+    if (this.bossIntroT > 0) this.bossIntroT = Math.max(0, this.bossIntroT - dt);
+    if (this.bossDefeatT > 0) this.bossDefeatT = Math.max(0, this.bossDefeatT - dt);
+    // v8：案例档案 / 受害者档案提示倒计时
+    if (this.caseArchiveRemain > 0) {
+      this.caseArchiveRemain = Math.max(0, this.caseArchiveRemain - dt);
+      if (this.caseArchiveRemain === 0) this.pendingCaseArchive = null;
+    }
+    if (this.victimProfileHintRemain > 0) {
+      this.victimProfileHintRemain = Math.max(0, this.victimProfileHintRemain - dt);
+      if (this.victimProfileHintRemain === 0) this.matchedVictimProfile = null;
+    }
+
+    if (this.phase !== "fight") return;
+    const phases = this.bossDef.phases;
+    if (!phases || phases.length === 0) return;
+    const hpPct = this.maxHp > 0 ? this.hp / this.maxHp : 1;
+    // v11 A2：濒死一击 QTE——Boss HP 低于 15% 时触发（每波仅一次）
+    if (hpPct <= 0.15 && !this.qteTriggeredThisWave && !this.qteState) {
+      this.triggerQTE("nearDeath");
+    }
+    // 从高到低检测：若当前阶段 idx 的下一阶段阈值 ≥ hpPct，则推进
+    for (let i = this.bossPhaseIdx + 1; i < phases.length; i++) {
+      if (hpPct <= phases[i].hpPct) {
+        this.bossPhaseIdx = phases[i].phase;
+        this.bossPhaseTransitionT = 2.4;
+        this.bossPhaseTransitionText = phases[i].phaseTransitionText;
+        // 进入阶段 2+ 视为狂暴（兼容旧 bossEnraged 字段）
+        if (this.bossPhaseIdx >= 1) this.bossEnraged = true;
+        // 视觉反馈
+        postFX.flash("#FF5A2A", 0.4, 3);
+        postFX.shake(8, 12);
+        this.hitStopRemain = Math.max(this.hitStopRemain, 0.12);
+        this.toast = {
+          text: `⚠ ${this.bossDef.bossName} 进入【${phases[i].phaseName}】！${phases[i].phaseTransitionText}`,
+          tone: "bad",
+          until: this.t + 3.0,
+        };
+        playSfx("boss");
+        vibrateShort();
+        // 触发召唤（若该阶段配置了 summon 且未触发过）
+        this.maybeSummon(i);
+        // v11 A2：阶段切换时 50% 概率触发 QTE（每波仅一次）
+        if (i >= 1 && !this.qteTriggeredThisWave && Math.random() < 0.5) {
+          this.triggerQTE("phaseSwitch");
+        }
+      } else {
+        // 未达下一阈值则后续阶段也不会触发
+        break;
+      }
+    }
+  }
+
+  /** 检查是否需要召唤小怪（每个 triggerPhase 仅触发一次） */
+  private maybeSummon(phaseIdx: number): void {
+    if (this.summonedPhases.has(phaseIdx)) return;
+    const summon = this.bossDef.summon;
+    if (!summon) return;
+    if (summon.triggerPhase !== phaseIdx) return;
+    this.summonedPhases.add(phaseIdx);
+    this.spawnMinions(summon);
+  }
+
+  /** 召唤一批小怪 */
+  private spawnMinions(def: SummonDef): void {
+    for (let i = 0; i < def.count; i++) {
+      this.minions.push({
+        id: this.minionIdCounter++,
+        kind: def.kind,
+        x: PARK_CX + (Math.random() - 0.5) * PARK_W * 0.5,
+        y: PARK_BASE_Y - 20 - Math.random() * 30,
+        hp: def.hpEach,
+        maxHp: def.hpEach,
+        speed: def.speed * (0.9 + Math.random() * 0.2),
+        state: 0,
+        hitFlash: 0,
+        attackCd: 1.5 + Math.random(),
+        debuffed: false,
+        spawnAnim: 0,
+      });
+    }
+    this.toast = { text: `⚠ ${def.announceText}`, tone: "bad", until: this.t + 2.6 };
+    postFX.flash(MINION_META[def.kind].color, 0.3, 2);
+    playSfx("boss");
+  }
+
+  /**
+   * 更新小怪：移动、靠近炮兵施加 debuff、cyber-hacker 远程攻击、受击闪烁衰减。
+   * 小怪不伤害炮兵（纯无尽），但靠近后会自爆施加 debuff。
+   */
+  private updateMinions(dt: number): void {
+    if (this.phase !== "fight") return;
+    const arr = this.minions;
+    for (let i = arr.length - 1; i >= 0; i--) {
+      const m = arr[i];
+      // 出生动画推进
+      if (m.spawnAnim < 1) m.spawnAnim = Math.min(1, m.spawnAnim + dt * 2);
+      // 受击闪烁衰减
+      if (m.hitFlash > 0) m.hitFlash = Math.max(0, m.hitFlash - dt);
+      if (m.state === 1) {
+        // 已自爆，移除
+        const last = arr.length - 1;
+        if (i !== last) arr[i] = arr[last];
+        arr.pop();
+        continue;
+      }
+      // cyber-hacker：进入射程后远程发射反击弹（不靠近自爆）
+      if (m.kind === "cyber-hacker") {
+        const distToCannon = Math.hypot(m.x - CANNON_X, m.y - CANNON_Y);
+        if (distToCannon <= HACKER_RANGED_R) {
+          m.attackCd -= dt;
+          if (m.attackCd <= 0) {
+            m.attackCd = 2.2 + Math.random() * 0.6;
+            this.launchMinionRangedAttack(m);
+          }
+          // 黑客不靠近，停在射程边缘
+          if (distToCannon > HACKER_RANGED_R - 30) {
+            // 向炮兵方向小幅移动保持射程
+            m.x -= m.speed * dt * 0.4;
+          }
+        } else {
+          // 未进入射程，向炮兵移动
+          m.x -= m.speed * dt;
+        }
+        continue;
+      }
+      // 近战小怪：向左移动接近炮兵
+      m.x -= m.speed * dt;
+      // 接近炮兵：施加 debuff 并自爆
+      const dx = m.x - CANNON_X;
+      const dy = m.y - CANNON_Y;
+      if (dx * dx + dy * dy <= MINION_PROXIMITY_R * MINION_PROXIMITY_R) {
+        this.applyMinionDebuff(m);
+        m.state = 1;
+      }
+    }
+  }
+
+  /** 小怪接近炮兵自爆：施加对应 debuff + 视觉特效 */
+  private applyMinionDebuff(m: Minion): void {
+    const meta = MINION_META[m.kind];
+    const summon = this.bossDef.summon;
+    const dur = summon?.debuffDur ?? 2.5;
+    if (meta.debuff === "cdLock") {
+      this.cdLockUntil = Math.max(this.cdLockUntil, this.t + dur);
+    } else if (meta.debuff === "weaponJam") {
+      this.weaponJamUntil = Math.max(this.weaponJamUntil, this.t + dur);
+    } else if (meta.debuff === "itemDisable") {
+      this.itemDisableUntil = Math.max(this.itemDisableUntil, this.t + dur);
+      let worst: ItemId | null = null;
+      let worstCd = Infinity;
+      for (const id of ITEM_ORDER) {
+        if (this.cdLeft[id] < worstCd) { worstCd = this.cdLeft[id]; worst = id; }
+      }
+      this.disabledItem = worst;
+    } else if (meta.debuff === "visionJam") {
+      this.visionJamUntil = Math.max(this.visionJamUntil, this.t + dur);
+    }
+    // 自爆特效
+    this.particles.spawnBurst(m.x, m.y, meta.color, {
+      ring: true, sparks: 14, dots: 18, speed: 220, life: 0.8, size: 4, color2: "#FFD666",
+    });
+    postFX.flash(meta.color, 0.3, 2);
+    postFX.shake(5, 8);
+    this.toast = {
+      text: `⚠ ${meta.name} 自爆！${DEBUFF_NAMES[meta.debuff]} ${dur.toFixed(1)}s`,
+      tone: "bad",
+      until: this.t + 2.0,
+    };
+    playSfx("bad");
+    vibrateShort();
+  }
+
+  /** cyber-hacker 远程攻击：发射一枚反击弹 */
+  private launchMinionRangedAttack(m: Minion): void {
+    const meta = MINION_META[m.kind];
+    const dur = this.bossDef.summon?.debuffDur ?? 2.5;
+    const startX = m.x;
+    const startY = m.y;
+    const tx = CANNON_X + (Math.random() - 0.5) * 50;
+    const ty = CANNON_Y;
+    const T = 0.7;
+    const vx = (tx - startX) / T;
+    const vy = (ty - startY - 0.5 * GRAVITY * T * T) / T;
+    this.counterShells.push({
+      x: startX, y: startY, vx, vy, life: 3, debuff: meta.debuff, duration: dur,
+      color: meta.color, kind: "jam", trail: [],
+    });
+    playSfx("shoot");
+  }
+
+  /**
+   * 炮弹对小怪造成伤害（在 updateShells 命中判定中调用）。
+   * 返回 true 表示炮弹被小怪吸收（不再继续飞行）。
+   */
+  private damageMinion(m: Minion, dmg: number): boolean {
+    if (m.state !== 0) return false;
+    const actual = Math.min(m.hp, dmg);
+    m.hp -= actual;
+    m.hitFlash = 0.1;
+    if (m.hp <= 0) {
+      // 击杀小怪
+      m.state = 1;
+      this.minionsKilled += 1;
+      const summon = this.bossDef.summon;
+      const reward = summon?.rewardScore ?? 200;
+      const odGain = summon?.rewardOverdrive ?? 8;
+      this.score += reward;
+      this.addOverdrive(odGain);
+      const meta = MINION_META[m.kind];
+      this.particles.spawnBurst(m.x, m.y, meta.color, {
+        ring: true, sparks: 16, dots: 20, speed: 240, life: 0.9, size: 4, color2: "#FFD666",
+      });
+      this.floats.push({
+        x: m.x, y: m.y - 8, text: `击杀 ${meta.name} +${reward}`,
+        color: "#FFD666", life: 1.1, maxLife: 1.1, size: 13,
+      });
+      // 击杀小怪时概率释放 1 名受害者（电诈马仔/卡农身上可能有被胁迫人员）
+      if (Math.random() < 0.4) {
+        this.spawnVictim(m.x, m.y, m.kind === "card-farmer" ? "cell" : "dorm");
+      }
+      postFX.shake(4, 8);
+      this.hitStopRemain = Math.max(this.hitStopRemain, 0.05);
+      playSfx("explode");
+      vibrateShort();
+      return true;
+    }
+    return false;
+  }
+
+  /** 拆除模块时释放受害者（cage/cell/dorm） */
+  private spawnVictim(x: number, y: number, fromType: ModuleType): void {
+    this.victims.push({
+      id: this.victimIdCounter++,
+      x, y,
+      speed: 80 + Math.random() * 30,
+      state: 0,
+      anim: Math.random() * Math.PI * 2,
+      fromType,
+    });
+  }
+
+  /** 更新受害者：向左奔逃，到达画布左侧计为救援成功 */
+  private updateVictims(dt: number): void {
+    if (this.phase !== "fight" && this.phase !== "clearing") return;
+    const arr = this.victims;
+    for (let i = arr.length - 1; i >= 0; i--) {
+      const v = arr[i];
+      if (v.state === 1) {
+        const last = arr.length - 1;
+        if (i !== last) arr[i] = arr[last];
+        arr.pop();
+        continue;
+      }
+      v.x -= v.speed * dt;
+      v.anim += dt * 12;
+      // 微小上下波动模拟奔跑
+      v.y += Math.sin(v.anim) * 0.5;
+      if (v.x <= VICTIM_ESCAPE_X) {
+        // 救援成功
+        v.state = 1;
+        this.victimsRescued += 1;
+        this.score += VICTIM_REWARD_SCORE;
+        this.addOverdrive(VICTIM_REWARD_OVERDRIVE);
+        this.particles.spawnBurst(VICTIM_ESCAPE_X, v.y, "#52C41A", {
+          ring: true, sparks: 10, dots: 12, speed: 140, life: 0.8, size: 3, color2: "#FFD666",
+        });
+        this.floats.push({
+          x: VICTIM_ESCAPE_X + 30, y: v.y - 6, text: `救援成功 +${VICTIM_REWARD_SCORE}`,
+          color: "#52C41A", life: 1.4, maxLife: 1.4, size: 14,
+        });
+        playSfx("good");
+        // v8：累计救援数持久化 + 受害者档案匹配
+        const totalRescued = addVictimsRescued(1);
+        this.checkVictimProfileMatch(totalRescued);
+      }
+    }
+  }
+
+  /**
+   * 检查该模块类型的全局累计拆除数是否达到图鉴解锁阈值。
+   * 达到则解锁对应 typeId，持久化到 localStorage，并 emit 提示。
+   */
+  private checkCodexUnlock(moduleType: string): void {
+    const typeId = MODULE_CODEX_TYPE[moduleType];
+    if (!typeId) return;
+    if (this.codexUnlocks.has(typeId)) return;
+    const count = this.moduleKillCumulative[moduleType] ?? 0;
+    if (count < MODULE_CODEX_UNLOCK_THRESHOLD) return;
+    // 解锁！
+    this.codexUnlocks.add(typeId);
+    this.codexUnlockedThisRun.push(typeId);
+    saveCodexUnlocks(this.codexUnlocks);
+    saveModuleKillCumulative(this.moduleKillCumulative);
+    this.toast = {
+      text: `📚 解锁反诈图鉴：${typeId}（累计拆除 ${moduleType} ×${count}）`,
+      tone: "good",
+      until: this.t + 3.5,
+    };
+    this.floats.push({
+      x: PARK_CX, y: PARK_TOP - 30, text: `📚 图鉴解锁 ${typeId}`,
+      color: "#52C41A", life: 2.0, maxLife: 2.0, size: 16,
+    });
+    this.particles.spawnBurst(PARK_CX, PARK_TOP - 20, "#52C41A", {
+      ring: true, sparks: 18, dots: 24, speed: 260, life: 1.1, size: 4, color2: "#FFD666",
+    });
+    postFX.flash("#52C41A", 0.3, 3);
+    playSfx("good");
+  }
+
   private updateBossCounter(dt: number): void {
     this.counterWarnLeft = Math.max(0, this.counterWarnLeft - dt);
+    // v6：信号屏蔽期间 Boss 反击暂停
+    if (this.signalJamUntil > this.t) {
+      return;
+    }
     this.counterTimer -= dt;
     if (this.counterTimer <= 0) {
-      // 即将反击：先发出预警，0.7 秒后发射
-      const enragedMul = this.bossEnraged ? this.bossDef.enrageMul : 1;
-      // 天气影响反击频率（雷暴 +30%）；EMP 减速时反击间隔拉长
+      // v5：使用当前阶段的反击参数（替代顶层 bossDef 字段）
+      const phase = this.currentBossPhase();
       const empCounterMul = this.t < this.empUntil ? EMP_COUNTER_MUL : 1;
-      const interval = this.bossDef.counterInterval / enragedMul / this.weather.counterMul * empCounterMul;
+      // v11 A3：契约反击频率倍率（counterMul > 1 = Boss 反击更频繁 = 代价）
+      const pactCounterMul = this.pactMul("counterMul");
+      const interval = phase.counterInterval / phase.enrageMul / this.weather.counterMul * empCounterMul / pactCounterMul;
       this.counterTimer = interval;
       this.counterWarnLeft = 0.7;
       // 反击类型 = PATTERN_DEBUFF[pattern]
-      const debuff = PATTERN_DEBUFF[this.bossDef.pattern];
-      const duration = this.bossDef.counterDebuffDur;
+      const debuff = PATTERN_DEBUFF[phase.pattern];
+      const duration = phase.counterDebuffDur;
       const warnColor = DEBUFF_WARN_COLORS[debuff];
       // 预警标记
       this.counterWarns.push({
@@ -1114,7 +2955,7 @@ export class BombIslandEngine extends GameEngine {
         color: warnColor,
       });
       // 安排延迟发射（不使用 setTimeout，改用 pending 队列由主循环推进）
-      const shots = this.bossDef.counterShots;
+      const shots = phase.counterShots;
       for (let i = 0; i < shots; i++) {
         this.pendingCounters.push({ at: this.t + 0.7 + i * 0.12, debuff, duration });
       }
@@ -1212,6 +3053,13 @@ export class BombIslandEngine extends GameEngine {
         this.disabledItem = worst;
       } else if (d === "visionJam") {
         this.visionJamUntil = Math.max(this.visionJamUntil, this.t + dur);
+      } else if (d === "overdriveDrain") {
+        // v6：过载倒扣 —— 立即损失 40% 过载值
+        this.overdrive = Math.max(0, this.overdrive - 40);
+      } else if (d === "comboBreak") {
+        // v6：连击重置
+        this.combo = 0;
+        this.comboTimer = 0;
       }
     }
     // 视觉/音效反馈
@@ -1325,15 +3173,60 @@ export class BombIslandEngine extends GameEngine {
       case "visionJam":
         this.visionJamUntil = this.t + duration;
         break;
+      // v6 新增 debuff
+      case "overdriveDrain":
+        // 过载槽倒扣：损失 30% 过载值
+        this.overdrive = Math.max(0, this.overdrive - 30);
+        break;
+      case "comboBreak":
+        // 连击重置
+        this.combo = 0;
+        this.comboTimer = 0;
+        break;
     }
     this.shakeUntil = this.t + 0.3;
     postFX.flash(color, 0.3, 3);
     postFX.shake(6, 10);
     if (debuff === "visionJam") postFX.glitch(0.4, 3);
     this.particles.spawnBurst(CANNON_X, CANNON_Y, color, { ring: true, sparks: 12, dots: 16, speed: 200, life: 0.7, size: 3, color2: "#FFD666" });
-    this.toast = { text: `⚠ ${DEBUFF_EMOJIS[debuff]} ${DEBUFF_NAMES[debuff]} ${duration.toFixed(1)}s`, tone: "bad", until: this.t + 2 };
+    this.toast = { text: `⚠ ${DEBUFF_EMOJIS[debuff] ?? "⚠"} ${DEBUFF_NAMES[debuff] ?? debuff} ${duration.toFixed(1)}s`, tone: "bad", until: this.t + 2 };
     playSfx("hit");
     vibrateShort();
+    // v6：硬核模式 —— Boss 反击命中即终局（民心归零）
+    if (this.gameMode === "hardcore" && !this.ended) {
+      this.hardcoreMorale = 0;
+      this.triggerEnd(false, "💀 硬核模式：Boss 反击命中，民心归零，行动失败");
+    }
+  }
+
+  /** v11：仅施加 debuff 效果（不附带 cannon area 视觉/硬核终局，供 QTE 失败惩罚调用） */
+  private applyDebuff(debuff: CounterDebuff, duration: number): void {
+    switch (debuff) {
+      case "cdLock":
+        this.cdLockUntil = Math.max(this.cdLockUntil, this.t + duration);
+        break;
+      case "weaponJam":
+        this.weaponJamUntil = Math.max(this.weaponJamUntil, this.t + duration);
+        break;
+      case "itemDisable": {
+        this.itemDisableUntil = Math.max(this.itemDisableUntil, this.t + duration);
+        const available = ITEM_ORDER.filter(id => this.cdLeft[id] <= 0);
+        if (available.length > 0) {
+          this.disabledItem = available[Math.floor(Math.random() * available.length)];
+        }
+        break;
+      }
+      case "visionJam":
+        this.visionJamUntil = Math.max(this.visionJamUntil, this.t + duration);
+        break;
+      case "overdriveDrain":
+        this.overdrive = Math.max(0, this.overdrive - 30);
+        break;
+      case "comboBreak":
+        this.combo = 0;
+        this.comboTimer = 0;
+        break;
+    }
   }
 
   private fireShell(): void {
@@ -1344,15 +3237,20 @@ export class BombIslandEngine extends GameEngine {
     if (effective !== "standard") this.weaponAmmo[effective] -= 1;
     // 多管齐射：基础数 + 过载额外加成（过载不再提升单发伤害，改为多发）
     const base = multishotCount(this.weaponLevel);
-    const count = this.overdriveActive ? base + OVERDRIVE_MULTISHOT_BONUS : base;
+    // v7：武器升级分支多管加成（如散弹强化 +1 管）
+    const branchBonus = this.weaponMultishotBonus(effective);
+    const count = (this.overdriveActive ? base + OVERDRIVE_MULTISHOT_BONUS : base) + branchBonus;
     const fired = Math.min(count, MAX_SHELLS - this.shells.length);
     // 过载时多管齐射分布更广
     const spread = this.overdriveActive ? PARK_W * 0.5 : PARK_W * 0.35;
+    // v9 S2：主炮使用当前操控炮位的 preferLayer（未设置则自动最近未拆层）
+    const activeSlot = this.cannonSlots.find(c => c.id === this.activeCannonId);
+    const mainPreferLayer = activeSlot?.preferLayer ?? null;
     for (let i = 0; i < fired; i++) {
       // v2：瞄准未拆模块（击打对象不能是废墟）
       const offset = fired > 1 ? (i - (fired - 1) / 2) * (spread / Math.max(1, fired - 1)) : 0;
       const preferX = PARK_CX + offset;
-      const target = this.pickTargetModule(preferX);
+      const target = this.pickTargetModule(preferX, mainPreferLayer);
       let tx: number, ty: number;
       if (target) {
         // 瞄准目标模块中心 + 小偏移（命中模块本体）
@@ -1372,6 +3270,42 @@ export class BombIslandEngine extends GameEngine {
     this.cannonRecoil = 10 + count * 2;
     this.muzzleUntil = this.t + 0.08 + count * 0.02;
     playSfx("shoot");
+  }
+
+  /**
+   * v9 S1：副炮（左/右翼炮）自动开火。
+   * 共享主武器/等级，但每炮位独立瞄准"自动最近未拆层"。
+   * 多管数 = 基础 1 + RTS multishot 加成；副炮不消耗特殊武器弹药（避免主炮弹药被副炮打空）。
+   */
+  private fireAuxCannons(): void {
+    const auxSlots = this.cannonSlots.filter(c => c.active && c.id !== "center");
+    if (auxSlots.length === 0) return;
+    // 副炮瞄准目标：v9 S2 每炮位按自身 preferLayer，未设置则自动最近未拆层
+    for (const slot of auxSlots) {
+      const target = this.pickTargetModule(slot.x + 40, slot.preferLayer);
+      let tx: number, ty: number;
+      if (target) {
+        tx = target.x + target.w / 2 + (Math.random() - 0.5) * target.w * 0.6;
+        ty = target.y + target.h / 2 + (Math.random() - 0.5) * target.h * 0.6;
+      } else {
+        tx = PARK_CX + (Math.random() - 0.5) * PARK_W * 0.4;
+        ty = PARK_TOP + Math.random() * PARK_H * 0.6;
+      }
+      const T = 0.85 + Math.random() * 0.2;
+      const vx = (tx - slot.x) / T;
+      const vy = (ty - slot.y - 0.5 * GRAVITY * T * T) / T;
+      // 副炮武器：跟随主武器，但只打标准弹逻辑（不消耗特殊弹药）
+      this.shells.push({
+        x: slot.x + 18, y: slot.y - 8, vx, vy, life: 3, trail: [],
+        weapon: this.weapon,
+      });
+      slot.muzzleUntil = this.t + 0.08;
+      slot.recoil = 8;
+    }
+    // 副炮不播放 shoot 音效（避免音效叠太密）；仅推进主炮口光
+    if (this.cannonSlots.some(c => c.active && c.id !== "center")) {
+      this.muzzleUntil = Math.max(this.muzzleUntil, this.t + 0.06);
+    }
   }
 
   private updateShells(dt: number): void {
@@ -1401,6 +3335,24 @@ export class BombIslandEngine extends GameEngine {
         arr.pop();
         continue;
       }
+      // v5：命中小怪（炮弹飞向园区途中若撞到小怪，对其造成伤害并被吸收）
+      if (this.minions.length > 0) {
+        let hitMinion: Minion | null = null;
+        for (const m of this.minions) {
+          if (m.state !== 0) continue;
+          const dx = m.x - s.x, dy = m.y - s.y;
+          if (dx * dx + dy * dy <= MINION_HIT_R * MINION_HIT_R) { hitMinion = m; break; }
+        }
+        if (hitMinion) {
+          const shellDmg = Math.min(100, weaponDamageAbs(this.weaponLevel));
+          this.damageMinion(hitMinion, shellDmg);
+          this.particles.spawnBurst(s.x, s.y, "#FFD666", { ring: true, sparks: 8, dots: 10, speed: 160, life: 0.5, size: 3, color2: "#FF7A1A" });
+          const last = arr.length - 1;
+          if (i !== last) arr[i] = arr[last];
+          arr.pop();
+          continue;
+        }
+      }
       // 命中园区（v2：只要进入园区 bbox 即触发 impactShell，由 impactShell 寻找最近未拆模块）
       if (s.y >= PARK_TOP && s.x >= PARK_LEFT && s.x <= PARK_RIGHT) {
         this.impactShell(s.x, s.y, s.weapon);
@@ -1425,16 +3377,32 @@ export class BombIslandEngine extends GameEngine {
   private impactShell(x: number, y: number, weapon: WeaponKind): void {
     // 天气影响炮弹伤害（雷暴 +20%，浓雾 -15%）；过载不提升单发伤害（改为多发）
     const dmgMul = this.weather.shellDmgMul;
-    const baseDmg = Math.min(100, Math.round(weaponDamageAbs(this.weaponLevel) * dmgMul));
-    this.addOverdrive(SHELL_OVERDRIVE_GAIN);
+    // v7：武器升级分支伤害倍率（damageMul > 1 = 伤害更高）
+    const branchDmgMul = this.weaponDamageMul(weapon);
+    // v10 D2：永久伤害加成（damageMul > 1 = 伤害更高，乘算叠加）
+    const pDmgMul = permanentMul(this.permanentUpgrades, "pDamage", "damageMul");
+    const baseDmg = Math.min(100, Math.round(weaponDamageAbs(this.weaponLevel) * dmgMul * branchDmgMul * pDmgMul));
+    // v10 D2：永久过载获取加成（overdriveMul > 1 = 获取更快）
+    const pOverdriveMul = permanentMul(this.permanentUpgrades, "pOverdriveGain", "overdriveMul");
+    this.addOverdrive(SHELL_OVERDRIVE_GAIN * pOverdriveMul);
     // shake 强度随武器等级递增
     const shakeMag = 4 + this.weaponLevel * 0.5;
     // 寻找最近未拆模块（击打对象不能是废墟）
     const target = this.pickTargetModule(x);
+    // v7：武器升级分支特殊属性
+    const special = this.weaponSpecial(weapon);
     switch (weapon) {
       case "standard": {
         // 标准弹：单模块绝对伤害（爽感强化：每发轻震屏 + hit-stop 概率）
         if (target) this.damageModule(target, baseDmg);
+        // v7：穿透分支——额外命中相邻 2 个未拆模块
+        if (special === "pierce" && target) {
+          const pierced = this.modules
+            .filter(m => !m.demolished && m !== target)
+            .sort((a, b) => Math.abs(a.x - target.x) - Math.abs(b.x - target.x))
+            .slice(0, 2);
+          for (const m of pierced) this.damageModule(m, Math.round(baseDmg * 0.6));
+        }
         this.particles.spawnBurst(x, y, "#FFD666", { ring: true, sparks: 14, dots: 18, speed: 200, life: 0.55, size: 3, color2: "#FF7A1A" });
         this.parkFlashUntil = this.t + 0.1;
         postFX.shake(2.5, 6);
@@ -1445,15 +3413,31 @@ export class BombIslandEngine extends GameEngine {
       }
       case "cluster": {
         // 集束弹：主爆破对落点最近模块 + 3 发子爆破各自寻找最近模块
-        if (target) this.damageModule(target, CLUSTER_MAIN_DMG);
+        const mainDmg = Math.round(CLUSTER_MAIN_DMG * branchDmgMul);
+        const subDmg = Math.round(CLUSTER_SUB_DMG * branchDmgMul);
+        if (target) this.damageModule(target, mainDmg);
         this.spawnBurst(x, y, "#FF7A1A", 1.2);
         for (let i = 0; i < CLUSTER_SUB_COUNT; i++) {
           const a = (i / CLUSTER_SUB_COUNT) * Math.PI * 2 + Math.random() * 0.5;
           const sx = x + Math.cos(a) * CLUSTER_SUB_OFFSET;
           const sy = y + Math.sin(a) * CLUSTER_SUB_OFFSET;
           const subTarget = this.pickTargetModule(sx);
-          if (subTarget) this.damageModule(subTarget, CLUSTER_SUB_DMG);
+          if (subTarget) this.damageModule(subTarget, subDmg);
           this.spawnBurst(sx, sy, "#FF7A1A", 0.9);
+        }
+        // v7：爆炸分支——额外 2 发子爆破
+        if (special === "explode") {
+          for (let i = 0; i < 2; i++) {
+            const sx = x + (Math.random() - 0.5) * CLUSTER_SUB_OFFSET * 2;
+            const sy = y + (Math.random() - 0.5) * CLUSTER_SUB_OFFSET * 2;
+            const subTarget = this.pickTargetModule(sx);
+            if (subTarget) this.damageModule(subTarget, subDmg);
+            this.spawnBurst(sx, sy, "#FF7A1A", 0.9);
+          }
+        }
+        // v7：燃烧分支——附加 2 秒燃烧区 DoT
+        if (special === "burn") {
+          this.dots.push({ until: this.t + 2, dps: 40, kind: "burnZone", x, y, r: 80, startT: this.t });
         }
         this.parkFlashUntil = this.t + 0.12;
         postFX.shake(shakeMag + 1, 10);
@@ -1462,11 +3446,23 @@ export class BombIslandEngine extends GameEngine {
       }
       case "emp": {
         // 电磁弹：直接伤害 + 全局减速 2 秒（冲击波保留）
-        if (target) this.damageModule(target, EMP_DMG_ABS);
+        const empDmg = Math.round(EMP_DMG_ABS * branchDmgMul);
+        if (target) this.damageModule(target, empDmg);
         this.empUntil = this.t + EMP_SLOW_DURATION;
         this.particles.spawnBurst(x, y, "#00E5FF", { ring: true, sparks: 16, dots: 22, speed: 260, life: 0.8, size: 4, color2: "#B388FF", shockwave: true });
         // 额外冲击环
         this.particles.spawn({ x, y, count: 1, speed: 0, life: 1.0, size: 8, color: "#00E5FF", type: "shockwave", ringWidth: 4 });
+        // v7：连锁分支——电磁连锁至相邻 2 个未拆模块
+        if (special === "chain" && target) {
+          const chained = this.modules
+            .filter(m => !m.demolished && m !== target)
+            .sort((a, b) => Math.abs(a.x - target.x) - Math.abs(b.x - target.x))
+            .slice(0, 2);
+          for (const m of chained) {
+            this.damageModule(m, Math.round(empDmg * 0.7));
+            this.particles.spawn({ x: m.x + m.w / 2, y: m.y + m.h / 2, count: 1, speed: 0, life: 0.5, size: 6, color: "#00E5FF", type: "shockwave", ringWidth: 2 });
+          }
+        }
         postFX.flash("#00E5FF", 0.35, 3);
         postFX.shake(shakeMag + 2, 12);
         playSfx("laser");
@@ -1476,11 +3472,46 @@ export class BombIslandEngine extends GameEngine {
       }
       case "incendiary": {
         // 燃烧弹：初始伤害 + 3 秒燃烧区 DoT
-        if (target) this.damageModule(target, INCENDIARY_DMG_ABS);
-        this.dots.push({ until: this.t + INCENDIARY_ZONE_DURATION, dps: INCENDIARY_ZONE_DPS, kind: "burnZone", x, y, r: 100, startT: this.t });
+        const incDmg = Math.round(INCENDIARY_DMG_ABS * branchDmgMul);
+        const incDps = Math.round(INCENDIARY_ZONE_DPS * branchDmgMul);
+        const incDur = special === "explode" ? INCENDIARY_ZONE_DURATION : INCENDIARY_ZONE_DURATION;
+        if (target) this.damageModule(target, incDmg);
+        this.dots.push({ until: this.t + incDur, dps: incDps, kind: "burnZone", x, y, r: special === "explode" ? 150 : 100, startT: this.t });
         this.particles.spawnBurst(x, y, "#E5353B", { ring: true, sparks: 14, dots: 18, speed: 200, life: 0.7, size: 3, color2: "#FF7A1A" });
         this.parkFlashUntil = this.t + 0.1;
         postFX.shake(shakeMag, 10);
+        playSfx("explode");
+        break;
+      }
+      // v6 新增武器
+      case "laserCannon": {
+        // 激光炮：穿透光束，水平带内所有模块受 80 伤害
+        const ly = y;
+        const list = this.modulesInHorizontalBand(ly, 16);
+        const laserDmg = Math.round(80 * branchDmgMul);
+        for (const m of list) this.damageModule(m, laserDmg);
+        this.beams.push({ until: this.t + 0.5, color: "#B388FF", kind: "laser", x, y: ly, r: 0 });
+        this.particles.spawnBurst(x, y, "#B388FF", { ring: true, sparks: 18, dots: 24, speed: 240, life: 0.6, size: 4, color2: "#FFFFFF" });
+        this.parkFlashUntil = this.t + 0.12;
+        postFX.flash("#B388FF", 0.3, 3);
+        postFX.shake(shakeMag + 2, 12);
+        this.hitStopRemain = Math.max(this.hitStopRemain, 0.06);
+        playSfx("laser");
+        break;
+      }
+      case "missileRain": {
+        // 导弹雨：落点附近 4 发导弹分散打击不同模块
+        const mrMainDmg = Math.round(90 * branchDmgMul);
+        const mrSubDmg = Math.round(70 * branchDmgMul);
+        if (target) this.damageModule(target, mrMainDmg);
+        this.spawnBurst(x, y, "#FF5A2A", 1.3);
+        for (let i = 0; i < 4; i++) {
+          const mx = PARK_LEFT + Math.random() * PARK_W;
+          const my = PARK_TOP + Math.random() * PARK_H * 0.7;
+          this.strikes.push({ landT: this.t + 0.2 + i * 0.15, x: mx, dmg: mrSubDmg, color: "#FF5A2A", kind: "meteor", startY: -40 });
+        }
+        this.parkFlashUntil = this.t + 0.15;
+        postFX.shake(shakeMag + 3, 14);
         playSfx("explode");
         break;
       }
@@ -1566,23 +3597,35 @@ export class BombIslandEngine extends GameEngine {
   private clearPhase(): void {
     this.phase = "clearing";
     this.collapseT = 0;
+    // v5：Boss 击败特写（letterbox 慢镜头，2.0 秒）
+    this.bossDefeatT = 2.0;
     // 清波时击破波数 +1，本波伤害归零
     this.clearedWaves += 1;
     this.waveDamage = 0;
+    // v6：剧情模式累计关卡内波次
+    if (this.gameMode === "story" && this.storyStage) {
+      this.storyClearedInStage += 1;
+    }
     // 武器升级（每清一波 +1 级）
     const oldLv = this.weaponLevel;
     if (this.weaponLevel < WEAPON_MAX_LEVEL) this.weaponLevel += 1;
-    const bonus = this.wave * 100 + Math.floor(this.overdrive) * 2 + this.maxCombo * 2;
+    let bonus = this.wave * 100 + Math.floor(this.overdrive) * 2 + this.maxCombo * 2
+      + this.victimsRescued * 50 + this.minionsKilled * 30;
+    // v6：难度系数 + 每日奖励倍率影响得分
+    const rewardMul = this.dailyRule ? this.dailyRule.rewardMul : 1;
+    bonus = Math.round(bonus * this.diffCoef.scoreMul * rewardMul);
     this.score += bonus;
     const upgradeMsg = this.weaponLevel > oldLv ? ` · 武器升级 LV${this.weaponLevel}！` : "";
     this.toast = { text: `${this.bossDef.bossName} 已被击溃！+${bonus}${upgradeMsg}`, tone: "good", until: this.t + 2.8 };
-    postFX.flash("#52C41A", 0.4, 2);
-    // 清波时触发最长 hit-stop（0.2s）+ 多阶段坍塌动画
-    this.hitStopRemain = Math.max(this.hitStopRemain, 0.2);
-    this.particles.spawnBurst(PARK_CX, PARK_TOP + PARK_H * 0.5, "#52C41A", { ring: true, sparks: 30, dots: 40, speed: 360, life: 1.4, size: 6, color2: "#FFD666", shockwave: true });
-    this.particles.spawn({ x: PARK_CX, y: PARK_BASE_Y - 30, count: 30, speed: 260, life: 1.3, size: 5, color: this.tier.color, type: "debris", gravity: 500, friction: 0.96 });
-    // 烟尘扩散
-    this.particles.spawn({ x: PARK_CX, y: PARK_BASE_Y - 20, count: 24, speed: 90, life: 1.6, size: 8, color: "rgba(120,120,120,0.6)", type: "dot", friction: 0.94 });
+    postFX.flash("#52C41A", 0.5, 3);
+    // v5：清波时强化 hit-stop（0.4s 慢镜头）+ 多阶段坍塌动画
+    this.hitStopRemain = Math.max(this.hitStopRemain, 0.4);
+    this.particles.spawnBurst(PARK_CX, PARK_TOP + PARK_H * 0.5, "#52C41A", { ring: true, sparks: 40, dots: 50, speed: 400, life: 1.6, size: 7, color2: "#FFD666", shockwave: true });
+    this.particles.spawn({ x: PARK_CX, y: PARK_BASE_Y - 30, count: 40, speed: 300, life: 1.5, size: 6, color: this.tier.color, type: "debris", gravity: 500, friction: 0.96 });
+    // 烟尘扩散（强化）
+    this.particles.spawn({ x: PARK_CX, y: PARK_BASE_Y - 20, count: 32, speed: 110, life: 1.8, size: 9, color: "rgba(120,120,120,0.6)", type: "dot", friction: 0.94 });
+    // v5：击败时全屏震屏更强
+    postFX.shake(12, 16);
     // 武器升级特效：金色光环
     if (this.weaponLevel > oldLv) {
       this.particles.spawnBurst(CANNON_X, CANNON_Y, "#FFD666", { ring: true, sparks: 18, dots: 22, speed: 240, life: 1.0, size: 4, color2: "#FF7A1A" });
@@ -1612,29 +3655,120 @@ export class BombIslandEngine extends GameEngine {
       points: cs.points,
     };
     this.emit({ type: "bossCodex", payload: codex });
+    // v8：注入真实案例档案（HUD 暴露给场景层渲染富案例弹窗）
+    // 剧情模式优先用关卡绑定的案例 ID，否则按园区档位兜底
+    const caseId = this.storyStage?.caseArchiveId;
+    this.pendingCaseArchive = getCaseArchive(caseId);
+    this.caseArchiveRemain = 6.0; // 案例弹窗展示 6 秒
+
+    // v9 T2：累积案例时间线事件（结算页展示本局遭遇的真实案例时间轴）
+    this.caseTimelineEvents.push({
+      atSec: this.t,
+      caseArchiveId: caseId ?? "default",
+      tierStructure: this.tier.structure,
+    });
+    addCaseTimelineEntries(1);
+
+    // v9 E3：Boss 图鉴解锁——标记当前 Boss 已击败，若为新解锁则加入本局列表
+    {
+      const bossIdx = (this.wave - 1) % 2;
+      const bossId = `${this.tier.structure}-${bossIdx}`;
+      const { isNew } = markBossDefeated(bossId);
+      if (isNew) this.bossCodexUnlockedThisRun.push(bossId);
+      // v11 A1：Boss 击败后初始化审判庭（若有该 Boss 的审判配置）
+      this.initTrialAfterBossDefeat(bossId);
+      // v11 B2：注入反诈热点案例（HUD 暴露给场景层）
+      this.hotspotCase = getHotspotByTier(this.tier.structure);
+    }
+
+    // v9 G1：每日任务进度——击败 Boss +1
+    this.advanceDailyTask("clearBoss", 1);
+  }
+
+  // ============ v6 模式终局判定 ============
+
+  /**
+   * 清波后检查模式专属终局条件（剧情通关 / 每日达到上限波次）。
+   * 返回 true 表示已触发结算，调用方应停止 startWave。
+   */
+  private checkModeEndAfterClear(): boolean {
+    // 剧情模式：达到关卡 passWaves 即通关
+    if (this.gameMode === "story" && this.storyStage) {
+      if (this.storyClearedInStage >= this.storyStage.passWaves) {
+        // v11 A4：最后一关通关时结算多结局
+        const storyStages = STORY_STAGES;
+        const isLastStage = this.storyStage.idx >= storyStages.length - 1;
+        if (isLastStage) this.resolveStoryEnding();
+        // 通关：解锁下一关 + 记录
+        clearStoryStage(this.storyStage.idx);
+        const outro = this.storyStage.outro;
+        const endingSuffix = this.storyEnding ? ` · ${this.storyEnding.name}` : "";
+        this.triggerEnd(true, `🏆 ${this.storyStage.name} 通关！${outro}${endingSuffix}`);
+        return true;
+      }
+    }
+    // 每日模式：达到 maxWave 即通关
+    if (this.gameMode === "daily" && this.dailyRule) {
+      if (this.wave >= this.dailyRule.maxWave) {
+        this.triggerEnd(true, `📅 每日挑战完成！共 ${this.clearedWaves} 波`);
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
-   * 撤退结算：玩家主动结束本局，按当前进度触发 result。
-   * - win：清过至少一波算胜利（反诈成功）
-   * - destroyRate：清过波数时为 1（解锁成就），否则为当前园区破坏比例
-   * - tipId：按当前园区档位选对应反诈锦囊
+   * 触发本局结算（v6 通用终局入口）。
+   * @param win 是否胜利
+   * @param msg 结算提示文案（toast）
    */
-  retreat(): void {
-    if (this.phase === "lost") return; // 已结算
+  private triggerEnd(win: boolean, msg: string): void {
+    if (this.ended || this.phase === "lost") return;
+    this.ended = true;
     this.phase = "lost";
     stopBGM();
+    this.toast = { text: msg, tone: win ? "good" : "bad", until: this.t + 3.5 };
+    // v6：极速模式时间奖励分
+    let timeBonus = 0;
+    if (this.gameMode === "speedrun" && win && this.speedrunRemain > 0) {
+      timeBonus = Math.round(this.speedrunRemain * SPEEDRUN_TIME_BONUS_PER_SEC);
+      this.score += timeBonus;
+    }
+    const result = this.buildResult(win);
+    // v6：跨局存档提交
+    this.submitRunToStorage(win);
+    // v10 D2：本局剩余线索碎片存入跨局银行（用于永久成长树升级）
+    if (this.clueFragments > 0) {
+      depositClueFragments(this.clueFragments);
+    }
+    this.emit({ type: "result", payload: result });
+  }
+
+  /** 构建结算 payload（v6 含模式/难度/评级等字段） */
+  private buildResult(win: boolean): GameResultPayload {
     const currentDestroyRate = this.maxHp > 0 ? 1 - this.hp / this.maxHp : 0;
     const destroyRate = this.clearedWaves > 0 ? 1 : currentDestroyRate;
-    // 按当前园区档位选 tipId
     const tipId = this.tier.structure === "den"
-      ? "tip-006"  // 境外高薪招聘陷阱
+      ? "tip-006"
       : this.tier.structure === "kokang"
-        ? "tip-012" // 客服退款走官方
-        : "tip-013"; // 内部消息是骗局
-    const result: GameResultPayload = {
+        ? "tip-012"
+        : "tip-013";
+    // v8：计算评级 + 综合得分
+    const { score: ratingScore, rating, ratingColor } = this.computeRating(win, destroyRate);
+    this.finalRating = rating;
+    this.finalScore = ratingScore;
+    // v8：提交评级到跨局存档（更新历史最高）
+    submitRating(rating, ratingScore);
+    // v8：构建知识图谱（基于本局拆除统计 + 遭遇统计）
+    const knowledgeGraph = buildKnowledgeGraph(
+      this.moduleKillStats as Record<string, number>,
+      this.moduleEncounterStats as Record<string, number>,
+    );
+    // v8：构建战报分享卡数据
+    const battleReportCard = this.buildBattleReportCard(rating, ratingColor, ratingScore);
+    return {
       gameId: "bomb-island",
-      win: this.clearedWaves > 0,
+      win,
       score: this.score,
       wave: this.wave,
       bustedCount: this.clearedWaves,
@@ -1646,12 +3780,69 @@ export class BombIslandEngine extends GameEngine {
         totalDamage: this.totalDamage,
         maxDps: this.maxDps,
         weaponLevel: this.weaponLevel,
-        // v4：模块拆除战报
         moduleKillCount: this.moduleKillCount,
         moduleKillStats: this.moduleKillStats,
+        bossPhaseMax: this.bossDef.phases?.length ?? 1,
+        minionsKilled: this.minionsKilled,
+        victimsRescued: this.victimsRescued,
+        codexUnlockedCount: this.codexUnlocks.size,
+        codexUnlockedIds: this.codexUnlockedThisRun,
+        dpsHistory: this.dpsHistory,
+        // v6 模式字段
+        gameMode: this.gameMode,
+        difficulty: this.difficulty,
+        storyStageIdx: this.storyStage?.idx,
+        storyStageName: this.storyStage?.name,
+        storyStageCleared: this.gameMode === "story" ? this.storyClearedInStage : undefined,
+        storyStageTotal: this.storyStage?.passWaves,
+        speedrunRemain: this.gameMode === "speedrun" ? Math.ceil(this.speedrunRemain) : undefined,
+        speedrunTotal: this.gameMode === "speedrun" ? this.speedrunTotal : undefined,
+        hardcoreMorale: this.gameMode === "hardcore" ? this.hardcoreMorale : undefined,
+        dailyKey: this.dailyKey || undefined,
+        dailyRule: this.dailyRule?.name,
+        modeHint: this.modeHint,
+        // v7 武器升级树 + 道具升星
+        fragmentsEarned: this.fragmentsEarnedThisRun,
+        starUps: this.starUpsThisRun,
+        weaponBranches: Object.fromEntries(
+          Object.entries(this.weaponBranchCache).map(([k, v]) => [k, v?.id ?? ""])
+        ),
+        itemStars: { ...this.itemStarCache },
+        // v8 评级 + 知识图谱 + 战报分享卡
+        rating,
+        ratingScore,
+        ratingColor,
+        knowledgeGraph,
+        battleReportCard,
+        matchedVictimTypeIds: [...this.matchedVictimTypeIds],
+        // v9 全面升级统计
+        caseTimeline: buildCaseTimeline(this.caseTimelineEvents),
+        bossCodexUnlockedIds: [...this.bossCodexUnlockedThisRun],
+        dailyTaskSnapshot: this.dailyTaskRuntime.map(t => ({ id: t.id, name: t.name, icon: t.icon, progress: t.progress, target: t.target, claimed: t.claimed })),
+        clueFragmentsEarned: this.clueFragments,
       },
-    };
-    this.emit({ type: "result", payload: result });
+    } as GameResultPayload;
+  }
+
+  /** v6：本局结果提交到跨局存档（模式最高分 / 难度最高分 / 每日记录 / 累计统计） */
+  private submitRunToStorage(win: boolean): void {
+    recordRunComplete(this.clearedWaves, win ? 1 : 0);
+    submitModeScore(this.gameMode, this.score);
+    submitDifficultyScore(this.difficulty, this.score);
+    if (this.gameMode === "daily" && this.dailyKey) {
+      submitDailyScore(this.dailyKey, this.score);
+    }
+  }
+
+  /**
+   * 撤退结算：玩家主动结束本局，按当前进度触发 result。
+   * - win：清过至少一波算胜利（反诈成功）
+   * - destroyRate：清过波数时为 1（解锁成就），否则为当前园区破坏比例
+   * - tipId：按当前园区档位选对应反诈锦囊
+   */
+  retreat(): void {
+    if (this.ended || this.phase === "lost") return; // 已结算
+    this.triggerEnd(this.clearedWaves > 0, "撤退结算");
   }
 
   private updateFloats(dt: number): void {
@@ -1761,11 +3952,445 @@ export class BombIslandEngine extends GameEngine {
       // v4 模块拆除统计
       moduleKillCount: this.moduleKillCount,
       moduleKillStats: this.moduleKillStats,
+      // v5 Boss 多阶段 / 召唤小怪 / 受害者救援 / 过载大招
+      bossPhase: this.bossPhaseIdx,
+      bossPhaseMax: this.bossDef.phases?.length ?? 1,
+      bossPhaseName: this.currentBossPhase().phaseName,
+      bossPhaseTransition: this.bossPhaseTransitionT,
+      minionsActive: this.minions.filter(m => m.state === 0).length,
+      minionsKilled: this.minionsKilled,
+      victimsRescued: this.victimsRescued,
+      victimsActive: this.victims.filter(v => v.state === 0).length,
+      overdriveReady: this.overdriveManualLeft > 0 && this.overdrive >= OVERDRIVE_MAX,
+      overdriveManualWindow: this.overdriveManualLeft,
+      codexUnlockedCount: this.codexUnlocks.size,
+      codexUnlockedIds: this.codexUnlockedThisRun,
+      // v5：Boss 入场/击败 letterbox 特写（场景层渲染全屏黑边）
+      bossIntroRemain: this.bossIntroT,
+      bossDefeatRemain: this.bossDefeatT,
+      // ---- v6 模式 / 难度 / 剧情进度 ----
+      gameMode: this.gameMode,
+      difficulty: this.difficulty,
+      storyStageIdx: this.storyStage?.idx,
+      storyStageName: this.storyStage?.name,
+      storyStageTotal: this.storyStage?.passWaves,
+      storyStageCleared: this.gameMode === "story" ? this.storyClearedInStage : undefined,
+      speedrunRemain: this.gameMode === "speedrun" ? Math.ceil(this.speedrunRemain) : undefined,
+      speedrunTotal: this.gameMode === "speedrun" ? this.speedrunTotal : undefined,
+      hardcoreMorale: this.gameMode === "hardcore" ? this.hardcoreMorale : undefined,
+      dailyKey: this.dailyKey || undefined,
+      dailyRule: this.dailyRule?.name,
+      modeHint: this.modeHint,
+      tierNameV6: this.tier.name,
+      // ---- v7 武器升级树 + 道具升星 ----
+      itemStars: { ...this.itemStarCache },
+      weaponBranch: Object.fromEntries(
+        Object.entries(this.weaponBranchCache).map(([k, v]) => [k, v?.id ?? ""])
+      ),
+      // ---- v8 案例档案 + 受害者档案 + 评级 ----
+      caseArchiveRemain: this.caseArchiveRemain,
+      pendingCaseArchive: this.pendingCaseArchive,
+      victimProfileHintRemain: this.victimProfileHintRemain,
+      matchedVictimProfile: this.matchedVictimProfile?.name ?? null,
+      tierRating: this.ended ? this.finalRating : undefined,
+      // ---- v9 全面升级字段 ----
+      cannonSlots: this.cannonSlots,
+      activeCannonId: this.activeCannonId,
+      parkLayers: this.parkLayers,
+      aimLayer: nearestIntactLayer(this.parkLayers),
+      waveGapPhase: this.waveGapPhase,
+      clueFragments: this.clueFragments,
+      rtsUpgrades: this.rtsUpgrades,
+      rtsOfferings: this.rtsOfferings,
+      knowledgeTipRemain: this.knowledgeTipRemain,
+      knowledgeTipText: this.knowledgeTipText,
+      caseTimeline: this.ended ? buildCaseTimeline(this.caseTimelineEvents) : undefined,
+      bossCodexUnlockedIds: this.bossCodexUnlockedThisRun,
+      dailyTaskSnapshot: this.dailyTaskRuntime,
+      // ---- v10 全面升级字段 ----
+      synergy: this.synergy,
+      dynamicEvent: this.dynamicEvent,
+      waveGapQuiz: this.waveGapQuiz,
+      permanentUpgrades: this.permanentUpgrades,
+      synergyUsed: this.synergyUsed,
+      dynamicEventCleared: this.dynamicEventCleared,
+      quizCorrect: this.quizCorrect,
+      // ---- v11 全面升级字段 ----
+      trial: this.trialState,
+      qte: this.qteState,
+      pact: this.pactState.showing ? this.pactState : null,
+      storyEndingPath: this.gameMode === "story" ? this.storyEndingPath : undefined,
+      storyBranchNode: this.storyBranchNode,
+      storyEnding: this.storyEnding,
+      industryChain: getIndustryChain(this.tier.structure),
+      abyssSubStructure: this.tier.abyssSubStructure,
+      hotspotCase: this.hotspotCase,
+      trialPerfectCount: this.trialPerfectCount,
+      qteSuccessCount: this.qteSuccessCount,
+      pactsSigned: this.pactsSigned,
     };
     this.emit({ type: "hud", payload: hud as unknown as Record<string, string | number> });
     if (this.toast && this.t < this.toast.until) {
       this.emit({ type: "toast", text: this.toast.text, tone: this.toast.tone });
     }
+  }
+
+  // ============ v11 A1：Boss 审判庭 ============
+
+  /** A1：Boss 击败后初始化审判庭（若有该 Boss 的审判配置） */
+  private initTrialAfterBossDefeat(bossId: string): void {
+    const trial = getBossTrial(bossId);
+    if (!trial) return;
+    this.trialDef = trial;
+    const firstQ = getTrialQuestion(trial, 0);
+    if (!firstQ) return;
+    this.trialState = {
+      bossId: trial.bossId,
+      currentQuestionIdx: 0,
+      totalQuestions: trial.questions.length,
+      currentQuestion: firstQ,
+      correctCount: 0,
+      selectedIdx: null,
+      finished: false,
+      perfect: false,
+      verdictText: "",
+      rewardedFragments: 0,
+      rewardedOverdrive: 0,
+    };
+    // 飘字提示
+    this.floats.push({
+      x: PARK_CX, y: PARK_BASE_Y - PARK_H / 2,
+      text: "⚖ 审判庭开启",
+      color: trial.themeColor, life: 2.0, maxLife: 2.0, size: 18,
+    });
+  }
+
+  /** A1：玩家作答审判题（场景层调用），返回是否成功 */
+  answerTrialQuestion(idx: number): boolean {
+    if (this.waveGapPhase !== "trial" || !this.trialState || !this.trialDef) return false;
+    if (this.trialState.selectedIdx !== null || this.trialState.finished) return false;
+    const q = this.trialState.currentQuestion;
+    if (idx < 0 || idx >= q.options.length) return false;
+    this.trialState.selectedIdx = idx;
+    const correct = q.options[idx].correct;
+    if (correct) this.trialState.correctCount++;
+    playSfx(correct ? "click" : "click");
+    this.emitHud();
+    return true;
+  }
+
+  /** A1：确认当前题答案，进入下一题或完成审判 */
+  confirmTrialAnswer(): void {
+    if (this.waveGapPhase !== "trial" || !this.trialState || !this.trialDef) return;
+    if (this.trialState.selectedIdx === null) return;
+    const nextIdx = this.trialState.currentQuestionIdx + 1;
+    if (nextIdx < this.trialState.totalQuestions) {
+      // 进入下一题
+      const nextQ = getTrialQuestion(this.trialDef, nextIdx);
+      if (nextQ) {
+        this.trialState.currentQuestionIdx = nextIdx;
+        this.trialState.currentQuestion = nextQ;
+        this.trialState.selectedIdx = null;
+      }
+      this.emitHud();
+      return;
+    }
+    // 全部答完——结算审判
+    this.finishTrial();
+  }
+
+  /** A1：完成审判，结算奖励 */
+  private finishTrial(): void {
+    if (!this.trialState || !this.trialDef) return;
+    const perfect = this.trialState.correctCount === this.trialState.totalQuestions;
+    this.trialState.finished = true;
+    this.trialState.perfect = perfect;
+    if (perfect) {
+      this.trialPerfectCount++;
+      this.trialState.rewardedFragments = this.trialDef.rewardFragments;
+      this.trialState.rewardedOverdrive = this.trialDef.rewardOverdrive;
+      this.trialState.verdictText = this.trialDef.verdict;
+      this.clueFragments += this.trialDef.rewardFragments;
+      addClueFragments(this.trialDef.rewardFragments);
+      this.overdrive = Math.min(OVERDRIVE_MAX, this.overdrive + this.trialDef.rewardOverdrive);
+      this.floats.push({
+        x: PARK_CX, y: PARK_BASE_Y - PARK_H / 2,
+        text: `⚖ 完美审判！+${this.trialDef.rewardFragments}碎片 +${this.trialDef.rewardOverdrive}过载`,
+        color: this.trialDef.themeColor, life: 2.5, maxLife: 2.5, size: 18,
+      });
+      postFX.flash(this.trialDef.themeColor, 0.4, 3);
+    } else {
+      this.trialState.verdictText = this.trialDef.mistrialHint;
+      this.floats.push({
+        x: PARK_CX, y: PARK_BASE_Y - PARK_H / 2,
+        text: `⚖ 审判完成（${this.trialState.correctCount}/${this.trialState.totalQuestions} 正确）`,
+        color: Theme.colors.warn.DEFAULT, life: 2.5, maxLife: 2.5, size: 16,
+      });
+    }
+    playSfx(perfect ? "good" : "click");
+    this.emitHud();
+  }
+
+  /** A1：关闭已完成的审判庭面板，进入下一阶段 */
+  dismissTrial(): void {
+    if (this.waveGapPhase !== "trial" || !this.trialState?.finished) return;
+    this.trialState = null;
+    this.trialDef = null;
+    this.waveGapPhase = "none";
+    // 审判结束后检查剧情分支
+    if (this.storyBranchNode) {
+      this.waveGapPhase = "storyBranch";
+      this.emitHud();
+      return;
+    }
+    // 进入 RTS 面板
+    this.waveGapPhase = "rtsPanel";
+    this.rtsOfferings = pickRTSOfferings(this.rtsUpgrades, 3);
+    this.emitHud();
+  }
+
+  // ============ v11 A2：QTE 致命一击 ============
+
+  /** A2：触发 QTE（Boss 阶段切换/濒死时调用） */
+  private triggerQTE(trigger: "phaseSwitch" | "nearDeath"): void {
+    if (this.qteState || this.qteTriggeredThisWave) return;
+    const def = pickQTE();
+    this.qteState = {
+      def,
+      remain: def.duration,
+      total: def.duration,
+      progress: 0,
+      target: def.target,
+      finished: false,
+      success: false,
+      trigger,
+    };
+    this.qteTriggeredThisWave = true;
+    this.toast = { text: `⚡ ${def.prompt}`, tone: "bad", until: this.t + def.duration + 0.5 };
+    postFX.flash("#FFD666", 0.3, 2);
+    vibrateShort();
+    this.emitHud();
+  }
+
+  /** A2：每帧更新 QTE 状态（倒计时 / 判定失败） */
+  private updateQTE(dt: number): void {
+    if (!this.qteState || this.qteState.finished) return;
+    this.qteState.remain = Math.max(0, this.qteState.remain - dt);
+    // holdAim 类型：持续按住时累积进度
+    if (this.qteState.def.kind === "holdAim" && this.qteHolding) {
+      this.qteState.progress += dt;
+    }
+    // 超时判定
+    if (this.qteState.remain <= 0) {
+      this.resolveQTE();
+    }
+    this.emitHud();
+  }
+
+  /** A2：玩家点击/滑动输入（场景层调用） */
+  qteInput(action: "tap" | "swipe" | "holdStart" | "holdEnd"): void {
+    if (!this.qteState || this.qteState.finished) return;
+    const kind = this.qteState.def.kind;
+    switch (kind) {
+      case "rapidTap":
+        if (action === "tap") {
+          this.qteState.progress += 1;
+          if (this.qteState.progress >= this.qteState.target) this.resolveQTE();
+        }
+        break;
+      case "tapBurst":
+        if (action === "tap") {
+          this.qteState.progress = 1;
+          this.resolveQTE();
+        }
+        break;
+      case "swipeSlash":
+        if (action === "swipe") {
+          this.qteState.progress = 1;
+          this.resolveQTE();
+        }
+        break;
+      case "holdAim":
+        if (action === "holdStart") this.qteHolding = true;
+        if (action === "holdEnd") this.qteHolding = false;
+        if (this.qteState.progress >= this.qteState.target) this.resolveQTE();
+        break;
+    }
+    this.emitHud();
+  }
+  /** A2 holdAim 是否正在按住 */
+  private qteHolding = false;
+
+  /** A2：结算 QTE 成功/失败 */
+  private resolveQTE(): void {
+    if (!this.qteState || this.qteState.finished) return;
+    const q = this.qteState;
+    const success = q.progress >= q.target;
+    q.finished = true;
+    q.success = success;
+    if (success) {
+      this.qteSuccessCount++;
+      // 成功伤害（封顶 100）
+      const dmg = Math.min(100, q.def.successDamage);
+      this.hp = Math.max(0, this.hp - dmg);
+      this.waveDamage += dmg;
+      this.totalDamage += dmg;
+      this.overdrive = Math.min(OVERDRIVE_MAX, this.overdrive + q.def.successOverdrive);
+      this.floats.push({
+        x: PARK_CX, y: PARK_TOP + PARK_H * 0.4,
+        text: `⚡ 致命一击！-${dmg} HP`,
+        color: "#FFD666", life: 1.8, maxLife: 1.8, size: 20,
+      });
+      postFX.flash("#FFD666", 0.5, 3);
+      postFX.shake(10, 14);
+      this.hitStopRemain = Math.max(this.hitStopRemain, 0.2);
+      this.particles.spawnBurst(PARK_CX, PARK_TOP + PARK_H * 0.4, "#FFD666", { ring: true, sparks: 30, dots: 40, speed: 350, life: 1.4, size: 6, color2: "#FF7A1A" });
+      // QTE 击杀判定
+      if (this.hp <= 0) {
+        setTimeout(() => { if (this.phase === "fight") { this.clearPhase(); this.emitHud(); } }, 300);
+      }
+    } else {
+      // 失败惩罚：施加 debuff
+      const dur = q.def.failPenaltyDebuffDur;
+      const debuff = q.def.failDebuff;
+      this.applyDebuff(debuff, dur);
+      this.floats.push({
+        x: PARK_CX, y: PARK_TOP + PARK_H * 0.4,
+        text: `✗ QTE 失败·${DEBUFF_NAMES[debuff]} ${dur}s`,
+        color: Theme.colors.warn.DEFAULT, life: 1.8, maxLife: 1.8, size: 16,
+      });
+      postFX.flash("#E5353B", 0.3, 2);
+    }
+    playSfx(success ? "good" : "click");
+    // 0.8 秒后自动关闭 QTE 面板
+    setTimeout(() => {
+      this.qteState = null;
+      this.qteHolding = false;
+      this.emitHud();
+    }, 800);
+    this.emitHud();
+  }
+
+  // ============ v11 A3：Roguelike 契约系统 ============
+
+  /** A3：波次间隙触发契约面板（每 2 波触发一次） */
+  private offerPacts(): void {
+    this.pactState.offerings = pickPacts(3);
+    this.pactState.showing = true;
+    this.waveGapPhase = "pactPanel";
+    this.emitHud();
+  }
+
+  /** A3：玩家选择契约（场景层调用），返回是否成功 */
+  choosePact(idx: number): boolean {
+    if (this.waveGapPhase !== "pactPanel" || !this.pactState.showing) return false;
+    const pact = this.pactState.offerings[idx];
+    if (!pact) return false;
+    this.pactState.activePacts.push(pact.id);
+    this.pactsSigned++;
+    // 累积效果
+    this.mergePactEffect(pact.effect);
+    // 应用即时效果（Boss HP 倍率 / 反击倍率在下波 startWave 消费）
+    if (pact.effect.bossHpMul && pact.effect.bossHpMul !== 1) {
+      this.pendingNextWaveHpMul *= pact.effect.bossHpMul;
+    }
+    this.floats.push({
+      x: PARK_CX, y: PARK_BASE_Y - PARK_H / 2,
+      text: `${pact.emoji} 签订${pact.name}`,
+      color: pact.color, life: 2.0, maxLife: 2.0, size: 18,
+    });
+    playSfx("click");
+    this.emitHud();
+    return true;
+  }
+
+  /** A3：跳过契约面板，进入下一波 */
+  skipPacts(): void {
+    if (this.waveGapPhase !== "pactPanel") return;
+    this.pactState.showing = false;
+    this.pactState.offerings = [];
+    this.waveGapPhase = "none";
+    this.startWave(this.wave + 1);
+  }
+
+  /** A3：合并契约效果到累积器 */
+  private mergePactEffect(effect: PactEffect): void {
+    const acc = this.pactEffectAcc;
+    acc.itemDamageMul = (acc.itemDamageMul ?? 1) * (effect.itemDamageMul ?? 1);
+    acc.fireRateMul = (acc.fireRateMul ?? 1) * (effect.fireRateMul ?? 1);
+    acc.itemCdMul = (acc.itemCdMul ?? 1) * (effect.itemCdMul ?? 1);
+    acc.fragmentMul = (acc.fragmentMul ?? 1) * (effect.fragmentMul ?? 1);
+    acc.overdriveMul = (acc.overdriveMul ?? 1) * (effect.overdriveMul ?? 1);
+    acc.bossHpMul = (acc.bossHpMul ?? 1) * (effect.bossHpMul ?? 1);
+    acc.counterMul = (acc.counterMul ?? 1) * (effect.counterMul ?? 1);
+    acc.synergyMul = (acc.synergyMul ?? 1) * (effect.synergyMul ?? 1);
+  }
+
+  /** A3：取契约累积倍率（引擎各系统乘算用） */
+  pactMul(key: keyof PactEffect): number {
+    return this.pactEffectAcc[key] ?? 1;
+  }
+
+  // ============ v11 A4：多结局剧情 ============
+
+  /** A4：剧情模式关卡开始时检查分支触发点 */
+  private checkStoryBranchTrigger(): void {
+    if (this.gameMode !== "story" || !this.storyStage) return;
+    if (!this.storyStage.isBranchTrigger) return;
+    const multi = getStoryMultiEnding();
+    const node = multi.branchNodes.find(n => n.id === this.storyStage?.branchNodeId);
+    if (!node) return;
+    this.storyBranchNode = node;
+  }
+
+  /** A4：玩家选择剧情分支（场景层调用），返回是否成功 */
+  chooseStoryBranch(choiceIdx: number): boolean {
+    if (this.waveGapPhase !== "storyBranch" || !this.storyBranchNode) return false;
+    const choice = this.storyBranchNode.choices[choiceIdx];
+    if (!choice) return false;
+    this.storyEndingPath = choice.leadsTo;
+    this.storyOptimalChoices.push(!!choice.optimal);
+    if (choice.nextStageBossHpMul && choice.nextStageBossHpMul !== 1) {
+      this.pendingStoryBossHpMul *= choice.nextStageBossHpMul;
+    }
+    this.floats.push({
+      x: PARK_CX, y: PARK_BASE_Y - PARK_H / 2,
+      text: `📜 ${choice.result}`,
+      color: choice.optimal ? "#FFD666" : Theme.colors.info.DEFAULT, life: 2.5, maxLife: 2.5, size: 16,
+    });
+    playSfx("click");
+    this.storyBranchNode = null;
+    this.waveGapPhase = "none";
+    // 分支结束后进入 RTS 面板
+    this.waveGapPhase = "rtsPanel";
+    this.rtsOfferings = pickRTSOfferings(this.rtsUpgrades, 3);
+    this.emitHud();
+    return true;
+  }
+
+  /** A4：剧情通关时结算结局（在 checkModeEndAfterClear 中调用） */
+  private resolveStoryEnding(): void {
+    if (this.gameMode !== "story") return;
+    const multi = getStoryMultiEnding();
+    const { type, ending } = resolveStoryEnding(this.storyOptimalChoices);
+    this.storyEndingPath = type;
+    this.storyEnding = { type, name: ending.name, desc: ending.desc, themeColor: ending.themeColor };
+    // 结局奖励碎片
+    this.clueFragments += ending.rewardFragments;
+    addClueFragments(ending.rewardFragments);
+  }
+
+  // ============ v11 波次间隙链式调度 ============
+
+  /** v11：波次间隙阶段链式推进（RTS→动态事件/问答→契约→下一波） */
+  private enterPactOrNextWave(): void {
+    // 每 2 波（偶数波）且未签过契约时触发契约面板
+    if (this.wave >= 2 && this.wave % 2 === 0 && this.pactsSigned < 3) {
+      this.offerPacts();
+      return;
+    }
+    this.waveGapPhase = "none";
+    this.startWave(this.wave + 1);
   }
 
   // ============ 渲染 ============
@@ -1781,6 +4406,8 @@ export class BombIslandEngine extends GameEngine {
     this.drawSky(ctx);
     this.drawPark(ctx);
     this.drawTrees(ctx); // 公园树木（障碍/护盾）
+    this.drawVictims(ctx); // v5 受害者：地面层，在炮兵之下
+    this.drawMinions(ctx); // v5 小怪：地面层，在炮兵之下
     this.drawDots(ctx);
     this.drawStrikes(ctx);
     this.drawBeams(ctx);
@@ -1797,8 +4424,18 @@ export class BombIslandEngine extends GameEngine {
     // 左侧列 UI（覆盖在最上）
     this.drawLeftPanel(ctx);
 
+    // v5 过载大招按钮（炮兵上方，仅当 overdriveReady 时显示）
+    this.drawOverdriveButton(ctx);
+
+    // v5 Boss 阶段切换横幅（全屏覆盖层，置于 UI 之上）
+    this.drawBossPhaseBanner(ctx);
+
     // 视觉干扰 debuff 渲染（覆盖全屏，最后绘制）
     this.drawVisionJam(ctx);
+
+    // v8：案例档案弹窗 + 受害者档案提示（场景层叠加，置于最上）
+    this.drawCaseArchiveOverlay(ctx);
+    this.drawVictimProfileOverlay(ctx);
 
     ctx.restore();
   }
@@ -1839,6 +4476,155 @@ export class BombIslandEngine extends GameEngine {
     }
     ctx.restore();
     ctx.globalAlpha = 1;
+  }
+
+  /**
+   * v8 案例档案弹窗：Boss 击败后展示真实反诈案例档案（6 秒）。
+   * 居中半透明卡片，含标题/来源/日期/正文/防骗要点/热线。
+   */
+  private drawCaseArchiveOverlay(ctx: CanvasRenderingContext2D): void {
+    if (this.caseArchiveRemain <= 0 || !this.pendingCaseArchive) return;
+    const ca = this.pendingCaseArchive;
+    // 淡入淡出：前 0.4s 淡入，后 0.4s 淡出
+    const total = 6.0;
+    const elapsed = total - this.caseArchiveRemain;
+    let alpha = 1;
+    if (elapsed < 0.4) alpha = elapsed / 0.4;
+    else if (this.caseArchiveRemain < 0.4) alpha = this.caseArchiveRemain / 0.4;
+    const cw = 520, ch = 280;
+    const cx = (W - cw) / 2, cy = (H - ch) / 2;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    // 半透明背景遮罩
+    ctx.fillStyle = "rgba(0,0,0,0.55)";
+    ctx.fillRect(0, 0, W, H);
+    // 卡片背景
+    ctx.fillStyle = "rgba(10,25,41,0.96)";
+    ctx.fillRect(cx, cy, cw, ch);
+    ctx.strokeStyle = "#FFB020";
+    ctx.lineWidth = 2;
+    ctx.shadowColor = "#FFB020"; ctx.shadowBlur = 12;
+    ctx.strokeRect(cx, cy, cw, ch);
+    ctx.shadowBlur = 0;
+    // 标题栏
+    ctx.fillStyle = "rgba(255,176,32,0.18)";
+    ctx.fillRect(cx, cy, cw, 36);
+    drawText(ctx, "📋 反诈案例档案 · CASE ARCHIVE", cx + cw / 2, cy + 18, {
+      size: 14, color: "#FFD666", weight: "900", align: "center", baseline: "middle", font: Theme.fonts.mono,
+    });
+    // 标题
+    drawText(ctx, ca.title, cx + 16, cy + 52, {
+      size: 13, color: "#F0F4FF", weight: "700", align: "left", font: Theme.fonts.body,
+    });
+    // 来源 + 日期
+    drawText(ctx, `${ca.source}  ·  ${ca.date}`, cx + 16, cy + 72, {
+      size: 10, color: "#7A8FB0", weight: "400", align: "left", font: Theme.fonts.mono,
+    });
+    // 关键启示
+    ctx.fillStyle = "rgba(82,196,26,0.12)";
+    ctx.fillRect(cx + 16, cy + 84, cw - 32, 24);
+    drawText(ctx, `💡 ${ca.takeaway}`, cx + cw / 2, cy + 96, {
+      size: 11, color: "#52C41A", weight: "700", align: "center", baseline: "middle", font: Theme.fonts.body,
+    });
+    // 正文（截断）
+    const bodyMaxLen = 90;
+    const body = ca.body.length > bodyMaxLen ? ca.body.slice(0, bodyMaxLen) + "…" : ca.body;
+    this.drawWrappedText(ctx, body, cx + 16, cy + 122, cw - 32, 14, 10, "#B8C5D9");
+    // 防骗要点
+    drawText(ctx, "🛡 防骗要点：", cx + 16, cy + 178, {
+      size: 10, color: "#FFB020", weight: "700", align: "left", font: Theme.fonts.mono,
+    });
+    for (let i = 0; i < Math.min(3, ca.points.length); i++) {
+      drawText(ctx, `• ${ca.points[i]}`, cx + 20, cy + 194 + i * 14, {
+        size: 9, color: "#B8C5D9", weight: "400", align: "left", font: Theme.fonts.body,
+      });
+    }
+    // 热线
+    drawText(ctx, `☎ 举报/求助热线：${ca.hotline}`, cx + 16, cy + ch - 22, {
+      size: 11, color: "#E5353B", weight: "900", align: "left", font: Theme.fonts.mono,
+    });
+    // 倒计时进度条
+    const prog = this.caseArchiveRemain / total;
+    ctx.fillStyle = "rgba(255,176,32,0.3)";
+    ctx.fillRect(cx, cy + ch - 4, cw * prog, 4);
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+
+  /**
+   * v8 受害者档案提示：救援数达阈值时展示受害者档案（5 秒）。
+   * 右下角小卡片，含档案名/描述/防护建议。
+   */
+  private drawVictimProfileOverlay(ctx: CanvasRenderingContext2D): void {
+    if (this.victimProfileHintRemain <= 0 || !this.matchedVictimProfile) return;
+    const vp = this.matchedVictimProfile;
+    const total = 5.0;
+    const elapsed = total - this.victimProfileHintRemain;
+    let alpha = 1;
+    if (elapsed < 0.3) alpha = elapsed / 0.3;
+    else if (this.victimProfileHintRemain < 0.3) alpha = this.victimProfileHintRemain / 0.3;
+    const cw = 280, ch = 120;
+    const cx = W - cw - 12, cy = H - ch - 12;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    // 卡片背景
+    ctx.fillStyle = "rgba(10,25,41,0.95)";
+    ctx.fillRect(cx, cy, cw, ch);
+    ctx.strokeStyle = vp.color;
+    ctx.lineWidth = 2;
+    ctx.shadowColor = vp.color; ctx.shadowBlur = 8;
+    ctx.strokeRect(cx, cy, cw, ch);
+    ctx.shadowBlur = 0;
+    // 标题
+    drawText(ctx, `📋 受害者档案解锁`, cx + 12, cy + 14, {
+      size: 9, color: "#7A8FB0", weight: "700", align: "left", font: Theme.fonts.mono,
+    });
+    drawText(ctx, vp.name, cx + 12, cy + 30, {
+      size: 13, color: vp.color, weight: "900", align: "left", font: Theme.fonts.body,
+    });
+    // 描述（截断）
+    const descMax = 50;
+    const desc = vp.desc.length > descMax ? vp.desc.slice(0, descMax) + "…" : vp.desc;
+    this.drawWrappedText(ctx, desc, cx + 12, cy + 48, cw - 24, 12, 9, "#B8C5D9");
+    // 防护建议（取第一条）
+    if (vp.advice.length > 0) {
+      drawText(ctx, `💡 ${vp.advice[0]}`, cx + 12, cy + ch - 18, {
+        size: 9, color: "#52C41A", weight: "700", align: "left", font: Theme.fonts.body,
+      });
+    }
+    // 倒计时进度条
+    const prog = this.victimProfileHintRemain / total;
+    ctx.fillStyle = vp.color;
+    ctx.globalAlpha = alpha * 0.5;
+    ctx.fillRect(cx, cy + ch - 3, cw * prog, 3);
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+
+  /** 简易文本换行绘制（按字符宽度估算） */
+  private drawWrappedText(
+    ctx: CanvasRenderingContext2D, text: string,
+    x: number, y: number, maxW: number, lineHeight: number, size: number, color: string,
+  ): void {
+    ctx.save();
+    ctx.font = `400 ${size}px ${Theme.fonts.body}`;
+    ctx.fillStyle = color;
+    ctx.textAlign = "left"; ctx.textBaseline = "top";
+    let line = "";
+    let curY = y;
+    const charW = size * 0.6; // 估算字符宽度
+    const maxChars = Math.floor(maxW / charW);
+    for (let i = 0; i < text.length; i++) {
+      line += text[i];
+      if (line.length >= maxChars) {
+        ctx.fillText(line, x, curY);
+        curY += lineHeight;
+        line = "";
+        if (curY > y + lineHeight * 4) break; // 最多 5 行
+      }
+    }
+    if (line) ctx.fillText(line, x, curY);
+    ctx.restore();
   }
 
   /** 顶部 BOSS 横幅：身份/技能/狂暴状态 */
@@ -2108,6 +4894,55 @@ export class BombIslandEngine extends GameEngine {
       ctx.fillStyle = thunderGrad;
       ctx.fillRect(0, 0, W, GROUND_Y);
       ctx.restore();
+    } else if (this.weather.id === "sandstorm") {
+      // v6 沙尘暴：黄褐色横向飞沙 + 全屏暖色蒙版
+      ctx.save();
+      // 暖色蒙版
+      const sandGrad = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+      sandGrad.addColorStop(0, "rgba(180,140,60,0.22)");
+      sandGrad.addColorStop(1, "rgba(140,100,40,0.08)");
+      ctx.fillStyle = sandGrad;
+      ctx.fillRect(0, 0, W, GROUND_Y);
+      // 横向飞沙粒子
+      ctx.strokeStyle = "rgba(200,170,100,0.5)";
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 50; i++) {
+        const seed = i * 41.3;
+        const baseX = (seed + this.weatherT * 500) % (W + 60) - 30;
+        const baseY = (seed * 1.3) % GROUND_Y;
+        const len = 8 + (i % 4) * 3;
+        ctx.beginPath();
+        ctx.moveTo(baseX, baseY);
+        ctx.lineTo(baseX + len, baseY + 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+    } else if (this.weather.id === "aurora") {
+      // v6 极光：顶部绿紫色波浪光带
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      for (let i = 0; i < 3; i++) {
+        const yBase = 40 + i * 30;
+        const color1 = i === 0 ? "rgba(82,196,26,0.25)" : i === 1 ? "rgba(0,229,255,0.18)" : "rgba(179,136,255,0.15)";
+        const color2 = i === 0 ? "rgba(82,196,26,0)" : i === 1 ? "rgba(0,229,255,0)" : "rgba(179,136,255,0)";
+        const wave = Math.sin(this.weatherT * 0.8 + i * 1.5) * 15;
+        const grad = ctx.createLinearGradient(0, yBase + wave - 30, 0, yBase + wave + 30);
+        grad.addColorStop(0, color2);
+        grad.addColorStop(0.5, color1);
+        grad.addColorStop(1, color2);
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.moveTo(0, yBase + wave);
+        for (let x = 0; x <= W; x += 20) {
+          const y = yBase + wave + Math.sin(x * 0.01 + this.weatherT * 1.2 + i) * 12;
+          ctx.lineTo(x, y);
+        }
+        ctx.lineTo(W, yBase + wave + 40);
+        ctx.lineTo(0, yBase + wave + 40);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
     }
   }
 
@@ -2374,6 +5209,79 @@ export class BombIslandEngine extends GameEngine {
       ctx.beginPath(); ctx.arc(m.x + m.w - 6, m.y + 6, 2, 0, Math.PI * 2); ctx.fill();
       ctx.shadowBlur = 0;
       drawText(ctx, "白家武装", m.x + m.w / 2, m.y + m.h - 6, { size: 7, color: "#F0F4FF", weight: "900", align: "center" });
+    } else if (m.type === "minefarm") {
+      // v6 虚拟币矿场：3D 立方体 + 矿机阵列 + 金色辉光
+      this.extrudeBox(ctx, m.x, m.y, m.w, m.h, m.depth, colMid, colTop, colDark);
+      if (stage >= 1) this.drawCracks(ctx, m.x, m.y, m.w, m.h, stage);
+      // 矿机阵列（竖条）
+      ctx.strokeStyle = colDark; ctx.lineWidth = 1;
+      for (let i = 1; i < 4; i++) {
+        const lx = m.x + (m.w / 4) * i;
+        ctx.beginPath(); ctx.moveTo(lx, m.y + 6); ctx.lineTo(lx, m.y + m.h - 6); ctx.stroke();
+      }
+      // 矿机指示灯（金色闪烁）
+      for (let i = 0; i < 4; i++) {
+        const lx = m.x + (m.w / 4) * (i + 0.5);
+        const on = Math.floor(this.t * 2 + i) % 2 === 0;
+        ctx.fillStyle = on ? "#FFD666" : "rgba(255,214,102,0.2)";
+        ctx.shadowColor = "#FFD666"; ctx.shadowBlur = on ? 4 : 0;
+        ctx.beginPath(); ctx.arc(lx, m.y + m.h * 0.5, 2, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.shadowBlur = 0;
+      drawText(ctx, "矿场", m.x + m.w / 2, m.y + 9, { size: 8, color: "#FFD666", weight: "700", align: "center" });
+    } else if (m.type === "darkweb") {
+      // v6 暗网服务器：3D 立方体 + 服务器机架 + 紫色数据流
+      this.extrudeBox(ctx, m.x, m.y, m.w, m.h, m.depth, colMid, colTop, colDark);
+      if (stage >= 1) this.drawCracks(ctx, m.x, m.y, m.w, m.h, stage);
+      // 服务器机架横条
+      ctx.strokeStyle = colDark; ctx.lineWidth = 1;
+      for (let y = m.y + 10; y < m.y + m.h; y += 12) {
+        ctx.beginPath(); ctx.moveTo(m.x + 4, y); ctx.lineTo(m.x + m.w - 4, y); ctx.stroke();
+      }
+      // 数据流指示灯（紫色闪烁）
+      for (let i = 0; i < 3; i++) {
+        const ly = m.y + 14 + i * 12;
+        const on = Math.floor(this.t * 3 + i * 0.7) % 2 === 0;
+        ctx.fillStyle = on ? "#B388FF" : "rgba(179,136,255,0.2)";
+        ctx.shadowColor = "#B388FF"; ctx.shadowBlur = on ? 4 : 0;
+        ctx.beginPath(); ctx.arc(m.x + m.w - 8, ly, 1.5, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.shadowBlur = 0;
+      drawText(ctx, "暗网", m.x + m.w / 2, m.y + 9, { size: 8, color: "#B388FF", weight: "700", align: "center" });
+    } else if (m.type === "casino") {
+      // v6 赌博机房：3D 立方体 + 老虎机滚轮 + 红色警示
+      this.extrudeBox(ctx, m.x, m.y, m.w, m.h, m.depth, colMid, colTop, colDark);
+      if (stage >= 1) this.drawCracks(ctx, m.x, m.y, m.w, m.h, stage);
+      // 老虎机滚轮（3 列）
+      const reelW = (m.w - 16) / 3;
+      for (let i = 0; i < 3; i++) {
+        const rx = m.x + 8 + i * reelW;
+        ctx.fillStyle = "rgba(0,0,0,0.4)";
+        ctx.fillRect(rx, m.y + m.h * 0.35, reelW - 4, m.h * 0.4);
+        // 滚动符号
+        const sym = Math.floor(this.t * 5 + i * 3) % 4;
+        const symbols = ["7", "★", "$", "♠"];
+        drawText(ctx, symbols[sym], rx + (reelW - 4) / 2, m.y + m.h * 0.55, { size: 10, color: "#FFD666", weight: "900", align: "center" });
+      }
+      drawText(ctx, "赌博", m.x + m.w / 2, m.y + 9, { size: 8, color: "#E5353B", weight: "700", align: "center" });
+    } else if (m.type === "liveRoom") {
+      // v6 直播间：3D 立方体 + 摄像头 + 红色直播灯
+      this.extrudeBox(ctx, m.x, m.y, m.w, m.h, m.depth, colMid, colTop, colDark);
+      if (stage >= 1) this.drawCracks(ctx, m.x, m.y, m.w, m.h, stage);
+      // 直播屏幕
+      ctx.fillStyle = "rgba(0,0,0,0.35)";
+      ctx.fillRect(m.x + 6, m.y + m.h * 0.3, m.w - 12, m.h * 0.45);
+      // 屏幕闪烁内容
+      const flicker = Math.sin(this.t * 8) > 0;
+      ctx.fillStyle = flicker ? "rgba(255,90,96,0.4)" : "rgba(255,90,96,0.15)";
+      ctx.fillRect(m.x + 8, m.y + m.h * 0.32, m.w - 16, m.h * 0.41);
+      // LIVE 红点
+      const liveOn = Math.floor(this.t * 2) % 2 === 0;
+      ctx.fillStyle = liveOn ? "#E5353B" : "rgba(229,53,59,0.3)";
+      ctx.shadowColor = "#E5353B"; ctx.shadowBlur = liveOn ? 5 : 0;
+      ctx.beginPath(); ctx.arc(m.x + m.w - 8, m.y + 8, 2.5, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+      drawText(ctx, "直播", m.x + m.w / 2, m.y + 9, { size: 8, color: "#FF5A60", weight: "700", align: "center" });
     } else {
       // 电诈工位 / 苦工宿舍：3D 挤出立方体 + 窗户 + 裂痕
       this.extrudeBox(ctx, m.x, m.y, m.w, m.h, m.depth, colMid, colTop, colDark);
@@ -3033,6 +5941,19 @@ export class BombIslandEngine extends GameEngine {
       ctx.fillText(def.desc, r.x + 32, r.y + 23);
       ctx.restore();
 
+      // v7：道具星级指示（右上角小星标，1-5★）
+      const star = this.getItemStar(id);
+      if (star > 1) {
+        ctx.save();
+        ctx.font = `700 8px ${Theme.fonts.mono}`;
+        ctx.textAlign = "right"; ctx.textBaseline = "top";
+        ctx.fillStyle = star >= 4 ? "#FFD666" : star >= 2 ? "#FFB020" : "#7A8FB0";
+        if (star >= 3) { ctx.shadowColor = "#FFD666"; ctx.shadowBlur = 4; }
+        ctx.fillText("★".repeat(Math.min(5, star)), r.x + r.w - 4, r.y + 3);
+        ctx.shadowBlur = 0;
+        ctx.restore();
+      }
+
       // CD 覆盖
       if (cd > 0) {
         const ratio = clamp(cd / def.cd, 0, 1);
@@ -3090,6 +6011,20 @@ export class BombIslandEngine extends GameEngine {
         color: ammo === 0 ? "#E5353B" : active ? def.color : "#7A8FB0",
         weight: "700", align: "center", font: Theme.fonts.mono,
       });
+      // v7：武器升级分支指示（武器名下方小三角标记）
+      const branch = this.getWeaponBranch(kind);
+      if (branch) {
+        ctx.save();
+        ctx.fillStyle = branch.special ? "#B388FF" : "#52C41A";
+        ctx.beginPath();
+        ctx.moveTo(r.x + r.w - 6, r.y + 2);
+        ctx.lineTo(r.x + r.w - 2, r.y + 2);
+        ctx.lineTo(r.x + r.w - 4, r.y + 6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.restore();
+      }
     }
   }
 
@@ -3184,6 +6119,325 @@ export class BombIslandEngine extends GameEngine {
       size: 12, color: "#7A8FB0", weight: "500", align: "center", baseline: "middle",
     });
     ctx.restore();
+  }
+
+  // ============ v5 渲染：召唤小怪 ============
+
+  /** 绘制所有活动小怪（地面层）：身体 + 血条 + 出生动画 + 受击闪烁 */
+  private drawMinions(ctx: CanvasRenderingContext2D): void {
+    if (this.minions.length === 0) return;
+    for (const m of this.minions) {
+      if (m.state === 1) continue; // 已自爆的不画
+      const meta = MINION_META[m.kind];
+      const spawnT = clamp(m.spawnAnim, 0, 1); // 0..1 出生缩放
+      const scale = 0.4 + spawnT * 0.6;
+      const alpha = 0.5 + spawnT * 0.5;
+      // 受击闪烁：白色覆盖
+      const flash = m.hitFlash > 0;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.translate(m.x, m.y);
+      ctx.scale(scale, scale);
+
+      // 落地阴影
+      ctx.fillStyle = "rgba(0,0,0,0.35)";
+      ctx.beginPath();
+      ctx.ellipse(0, 12, 12, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 身体光晕
+      ctx.shadowColor = meta.color;
+      ctx.shadowBlur = 8;
+      // 圆形身体
+      ctx.fillStyle = flash ? "#FFFFFF" : meta.color;
+      ctx.beginPath();
+      ctx.arc(0, 0, 11, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // 内圈深色描边
+      ctx.strokeStyle = "rgba(0,0,0,0.55)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(0, 0, 11, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // emoji 形象
+      ctx.font = "14px " + Theme.fonts.body;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(meta.emoji, 0, 1);
+
+      // cyber-hacker：远程攻击预警环
+      if (m.kind === "cyber-hacker" && m.attackCd > 0) {
+        const ratio = 1 - clamp(m.attackCd / 1.6, 0, 1);
+        ctx.strokeStyle = meta.color;
+        ctx.lineWidth = 1.2;
+        ctx.globalAlpha = 0.5 * alpha;
+        ctx.beginPath();
+        ctx.arc(0, 0, 16, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ratio);
+        ctx.stroke();
+        ctx.globalAlpha = alpha;
+      }
+
+      ctx.restore();
+
+      // 血条（缩小到非缩放坐标系下绘制，保持视觉一致）
+      if (m.hp < m.maxHp) {
+        const bw = 24;
+        const bh = 3;
+        const bx = m.x - bw / 2;
+        const by = m.y - 18;
+        ctx.fillStyle = "rgba(0,0,0,0.6)";
+        ctx.fillRect(bx - 1, by - 1, bw + 2, bh + 2);
+        ctx.fillStyle = meta.color;
+        ctx.fillRect(bx, by, bw * clamp(m.hp / m.maxHp, 0, 1), bh);
+      }
+
+      // 抵达炮兵区域自爆光效（state=1 已被 continue 跳过，这里画即将自爆的脉冲）
+      const dx = m.x - CANNON_X;
+      const dy = m.y - CANNON_Y;
+      if (dx * dx + dy * dy <= MINION_PROXIMITY_R * MINION_PROXIMITY_R) {
+        const pulse = 0.5 + 0.5 * Math.sin(this.t * 18);
+        ctx.save();
+        ctx.strokeStyle = meta.color;
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.4 + pulse * 0.4;
+        ctx.beginPath();
+        ctx.arc(m.x, m.y, 18 + pulse * 6, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+  }
+
+  // ============ v5 渲染：受害者救援 ============
+
+  /** 绘制所有奔逃中的受害者（地面层，简化人形 + 奔跑动画） */
+  private drawVictims(ctx: CanvasRenderingContext2D): void {
+    if (this.victims.length === 0) return;
+    for (const v of this.victims) {
+      if (v.state === 1) continue; // 已逃脱的不画
+      const swing = Math.sin(v.anim) * 3; // 腿部摆动幅度
+      ctx.save();
+      ctx.translate(v.x, v.y);
+
+      // 落地阴影
+      ctx.fillStyle = "rgba(0,0,0,0.3)";
+      ctx.beginPath();
+      ctx.ellipse(0, 8, 7, 2.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 救援光晕（淡绿色，提示玩家这是被解救的人）
+      ctx.shadowColor = "#52C41A";
+      ctx.shadowBlur = 6;
+      ctx.globalAlpha = 0.85;
+
+      // 身体（矩形上衣）
+      ctx.fillStyle = "#FFD666";
+      ctx.fillRect(-4, -4, 8, 8);
+      // 头部
+      ctx.fillStyle = "#FFCBA4";
+      ctx.beginPath();
+      ctx.arc(0, -8, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // 腿（两条线段，随 anim 摆动）
+      ctx.strokeStyle = "#37527A";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-2, 4);
+      ctx.lineTo(-2 - swing, 10);
+      ctx.moveTo(2, 4);
+      ctx.lineTo(2 + swing, 10);
+      ctx.stroke();
+
+      // 手部（挥动，求救感）
+      ctx.beginPath();
+      ctx.moveTo(-4, -2);
+      ctx.lineTo(-7 - swing * 0.5, -6);
+      ctx.moveTo(4, -2);
+      ctx.lineTo(7 + swing * 0.5, -6);
+      ctx.stroke();
+
+      ctx.restore();
+
+      // 逃脱方向箭头（向左指示）
+      if (v.x < CANNON_X - 20) {
+        ctx.save();
+        ctx.fillStyle = "#52C41A";
+        ctx.globalAlpha = 0.6;
+        ctx.beginPath();
+        ctx.moveTo(v.x - 12, v.y - 14);
+        ctx.lineTo(v.x - 18, v.y - 17);
+        ctx.lineTo(v.x - 12, v.y - 20);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+  }
+
+  // ============ v5 渲染：Boss 阶段切换横幅 ============
+
+  /**
+   * Boss 阶段切换横幅：bossPhaseTransitionT > 0 时显示。
+   * 全屏暗化遮罩 + 中央大字阶段名 + 副标题过渡文本 + 进度环。
+   */
+  private drawBossPhaseBanner(ctx: CanvasRenderingContext2D): void {
+    if (this.bossPhaseTransitionT <= 0) return;
+    const total = 2.4; // 与 updateBossPhase 中赋值保持一致
+    const remain = this.bossPhaseTransitionT;
+    const elapsed = total - remain;
+    // 进度：0(开始) → 1(结束)；前 0.25 段淡入，后 0.25 段淡出
+    const p = clamp(elapsed / total, 0, 1);
+    let alpha: number;
+    if (p < 0.25) alpha = p / 0.25;
+    else if (p > 0.75) alpha = (1 - p) / 0.25;
+    else alpha = 1;
+    alpha = clamp(alpha, 0, 1);
+
+    const phase = this.bossDef.phases?.[this.bossPhaseIdx];
+    const phaseName = phase?.phaseName ?? `阶段 ${this.bossPhaseIdx + 1}`;
+    const transitionText = this.bossPhaseTransitionText || phase?.phaseTransitionText || "";
+
+    ctx.save();
+    // 全屏暗化
+    ctx.fillStyle = `rgba(8,14,28,${0.55 * alpha})`;
+    ctx.fillRect(0, 0, W, H);
+
+    // 中央竖向高光带
+    const grad = ctx.createLinearGradient(0, H / 2 - 80, 0, H / 2 + 80);
+    grad.addColorStop(0, `rgba(255,122,26,0)`);
+    grad.addColorStop(0.5, `rgba(255,122,26,${0.18 * alpha})`);
+    grad.addColorStop(1, `rgba(255,122,26,0)`);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, H / 2 - 80, W, 160);
+
+    // 阶段序号大字（左侧）
+    const cx = W / 2;
+    const cy = H / 2;
+    ctx.globalAlpha = alpha;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = `900 56px ${Theme.fonts.body}`;
+    ctx.shadowColor = "#FF7A1A";
+    ctx.shadowBlur = 20;
+    ctx.fillStyle = "#FF7A1A";
+    ctx.fillText(`PHASE ${this.bossPhaseIdx + 1}`, cx, cy - 24);
+
+    // 阶段名称
+    ctx.font = `700 22px ${Theme.fonts.body}`;
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillText(phaseName, cx, cy + 14);
+
+    // 过渡文本（叙事提示）
+    if (transitionText) {
+      ctx.font = `400 12px ${Theme.fonts.body}`;
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "#FFD666";
+      ctx.fillText(transitionText, cx, cy + 42);
+    }
+
+    // 顶部阶段进度点（3 个圆点，当前阶段高亮）
+    const dotY = 60;
+    const dotR = 5;
+    const dotGap = 22;
+    const dotsX = cx - dotGap;
+    for (let i = 0; i < 3; i++) {
+      const dx = dotsX + i * dotGap;
+      const active = i === this.bossPhaseIdx;
+      const done = i < this.bossPhaseIdx;
+      ctx.beginPath();
+      ctx.arc(dx, dotY, dotR, 0, Math.PI * 2);
+      if (active) {
+        ctx.fillStyle = "#FF7A1A";
+        ctx.shadowColor = "#FF7A1A";
+        ctx.shadowBlur = 12;
+      } else if (done) {
+        ctx.fillStyle = "rgba(82,196,26,0.7)";
+        ctx.shadowBlur = 0;
+      } else {
+        ctx.fillStyle = "rgba(255,255,255,0.25)";
+        ctx.shadowBlur = 0;
+      }
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+
+  // ============ v5 渲染：过载大招按钮 ============
+
+  /**
+   * 过载大招按钮：overdriveReady 时在炮兵上方显示一个发光的圆形按钮。
+   * 玩家点击后触发 triggerOverdriveUltimate（见 handleTap）。
+   */
+  private drawOverdriveButton(ctx: CanvasRenderingContext2D): void {
+    if (this.phase !== "fight") return;
+    if (!(this.overdriveManualLeft > 0 && this.overdrive >= OVERDRIVE_MAX)) return;
+    const r = this.getOverdriveButtonRect();
+    const cx = r.x + r.w / 2;
+    const cy = r.y + r.h / 2;
+    const pulse = 0.5 + 0.5 * Math.sin(this.t * 8);
+    // 窗口剩余比例（用于倒计时环）
+    const windowRatio = clamp(this.overdriveManualLeft / OVERDRIVE_MANUAL_WINDOW, 0, 1);
+
+    ctx.save();
+    // 外发光底
+    ctx.shadowColor = "#00E5FF";
+    ctx.shadowBlur = 18 + pulse * 10;
+    ctx.fillStyle = "#00E5FF";
+    ctx.beginPath();
+    ctx.roundRect(r.x, r.y, r.w, r.h, 8);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // 内层暗底（让文字可读）
+    ctx.fillStyle = "rgba(8,20,40,0.85)";
+    ctx.beginPath();
+    ctx.roundRect(r.x + 2, r.y + 2, r.w - 4, r.h - 4, 6);
+    ctx.fill();
+
+    // 倒计时环（沿按钮外缘收缩）
+    ctx.strokeStyle = "#00E5FF";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r.w / 2 + 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * windowRatio);
+    ctx.stroke();
+
+    // 文字：ULT
+    ctx.font = `900 14px ${Theme.fonts.mono}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#00E5FF";
+    ctx.shadowColor = "#00E5FF";
+    ctx.shadowBlur = 6;
+    ctx.fillText("⚡ 终极技", cx, cy - 4);
+    ctx.shadowBlur = 0;
+
+    // 副标题：剩余秒数
+    ctx.font = `500 8px ${Theme.fonts.mono}`;
+    ctx.fillStyle = "rgba(255,255,255,0.7)";
+    ctx.fillText(`${this.overdriveManualLeft.toFixed(1)}s`, cx, cy + 9);
+
+    // 闪烁箭头提示（点击）
+    if (pulse > 0.5) {
+      ctx.fillStyle = "#FFFFFF";
+      ctx.globalAlpha = 0.6;
+      ctx.beginPath();
+      ctx.moveTo(r.x - 6, cy);
+      ctx.lineTo(r.x - 2, cy - 4);
+      ctx.lineTo(r.x - 2, cy + 4);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+    ctx.globalAlpha = 1;
   }
 
   // 颜色明暗工具

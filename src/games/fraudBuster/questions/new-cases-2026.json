@@ -1,6 +1,6 @@
 [
   {
-    "id": "F26-001", "typeId": "F26", "type": "AI换脸视频诈骗", "cardType": "video", "difficulty": 3,
+    "id": "F78-001", "typeId": "F78", "type": "AI换脸视频诈骗", "cardType": "video", "difficulty": 3,
     "kind": "single",
     "title": "微信视频通话 / \"老朋友\"急借钱",
     "body": "多年未联系的老友突然视频通话，画面里确实是本人模样，称遇到急事需借3万元周转。注意：画面偶有卡顿，口型与声音略有偏差，光线不自然。",
@@ -18,7 +18,7 @@
     }
   },
   {
-    "id": "F26-002", "typeId": "F26", "type": "AI换脸视频诈骗", "cardType": "audio", "difficulty": 4,
+    "id": "F78-002", "typeId": "F78", "type": "AI换脸视频诈骗", "cardType": "audio", "difficulty": 4,
     "kind": "single",
     "title": "语音消息 / \"妈妈\"急要钱",
     "body": "收到\"女儿\"发来的语音消息，声音与女儿极其相似，称手机丢失借同学手机发消息，急需交培训费8000元。请判断这条语音的真伪。",
@@ -43,7 +43,7 @@
     }
   },
   {
-    "id": "F27-001", "typeId": "F27", "type": "数字人民币钓鱼", "cardType": "qrcode", "difficulty": 3,
+    "id": "F79-001", "typeId": "F79", "type": "数字人民币钓鱼", "cardType": "qrcode", "difficulty": 3,
     "kind": "judge",
     "title": "微信群 / \"数字人民币红包兑换码\"",
     "body": "群里发\"数字人民币红包兑换码\"，扫码后跳转到非官方页面要求输入钱包密码和验证码\"领取\"。判断：扫码输密码即可领取。",
@@ -61,7 +61,7 @@
     }
   },
   {
-    "id": "F28-001", "typeId": "F28", "type": "短视频平台杀猪盘", "cardType": "chat", "difficulty": 2,
+    "id": "F80-001", "typeId": "F80", "type": "短视频平台杀猪盘", "cardType": "chat", "difficulty": 2,
     "kind": "single",
     "title": "小红书私信 / \"高收益理财导师\"",
     "body": "私信里说\"姐姐我看你也在理财，我跟着这个老师稳赚，拉你进群\"。群里晒单动辄日入过万，要求下载某APP注册入金。",
@@ -79,7 +79,7 @@
     }
   },
   {
-    "id": "F29-001", "typeId": "F29", "type": "AI客服仿声诈骗", "cardType": "audio", "difficulty": 3,
+    "id": "F81-001", "typeId": "F81", "type": "AI客服仿声诈骗", "cardType": "audio", "difficulty": 3,
     "kind": "single",
     "title": "来电 / 自称\"支付宝客服\"",
     "body": "电话里\"客服\"声音专业，称你的花呗存在异常需核实身份，要求按提示操作。声音听起来像官方客服录音。请判断。",
@@ -104,7 +104,7 @@
     }
   },
   {
-    "id": "F30-001", "typeId": "F30", "type": "春运退票诈骗", "cardType": "sms", "difficulty": 2,
+    "id": "F82-001", "typeId": "F82", "type": "春运退票诈骗", "cardType": "sms", "difficulty": 2,
     "kind": "single",
     "title": "+86 10XXX",
     "body": "【铁路客服】您的G1234次列车因故停运，请点击 http://12306-refund.xyz 办理退票退款，需填写银行卡信息。",
@@ -122,7 +122,7 @@
     }
   },
   {
-    "id": "F31-001", "typeId": "F31", "type": "双11虚假快递理赔", "cardType": "call", "difficulty": 2,
+    "id": "F83-001", "typeId": "F83", "type": "双11虚假快递理赔", "cardType": "call", "difficulty": 2,
     "kind": "single",
     "title": "未知号码 / 自称\"双11快递理赔\"",
     "body": "双11期间，自称快递员称您的包裹丢失双倍赔偿，要求下载会议APP共享屏幕操作退款。",
@@ -140,7 +140,7 @@
     }
   },
   {
-    "id": "F32-001", "typeId": "F32", "type": "暑期兼职刷单", "cardType": "sms", "difficulty": 1,
+    "id": "F84-001", "typeId": "F84", "type": "暑期兼职刷单", "cardType": "sms", "difficulty": 1,
     "kind": "single",
     "title": "+86 13XXX",
     "body": "【暑期兼职】学生专属，点赞关注日结300-800，时间自由，加微信xxx领任务，暑假赚生活费。",
@@ -158,7 +158,7 @@
     }
   },
   {
-    "id": "F33-001", "typeId": "F33", "type": "年终虚假理财", "cardType": "popup", "difficulty": 3,
+    "id": "F85-001", "typeId": "F85", "type": "年终虚假理财", "cardType": "popup", "difficulty": 3,
     "kind": "single",
     "title": "理财广告 / \"年终高收益\"",
     "body": "█▌年终限享█▌内部理财产品，年化18%，保本保息，仅剩最后10个名额，扫码下载APP抢购。",
@@ -176,7 +176,7 @@
     }
   },
   {
-    "id": "F34-001", "typeId": "F34", "type": "开学季冒充老师收费", "cardType": "chat", "difficulty": 2,
+    "id": "F86-001", "typeId": "F86", "type": "开学季冒充老师收费", "cardType": "chat", "difficulty": 2,
     "kind": "single",
     "title": "家长微信群 / \"班主任\"",
     "body": "群里\"班主任\"发消息：\"各位家长，新学期资料费298元，请扫码缴纳，截止今天18点\"。注意：头像和昵称与班主任一致。",

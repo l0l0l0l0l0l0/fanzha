@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>反诈游戏 · 开放输入标注原型（CBT 思维记录）</title>
+<style>
+  :root{
+    --bg:#0f1419; --panel:#161d26; --panel2:#1c2530; --line:#2a3542;
+    --txt:#e6edf3; --sub:#9fb0c0; --accent:#5b8cff; --warn:#ff8a5b; --warn2:#ffcf6b;
+    --ok:#39d98a; --bad:#ff6b6b; --chip:#3a2a1c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;line-height:1.7}
+  .wrap{max-width:860px;margin:0 auto;padding:24px 18px 60px}
+  h1{font-size:21px;margin:0 0 4px}
+  .lead{color:var(--sub);font-size:13px;margin:0 0 18px}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+  .tab{padding:7px 14px;border:1px solid var(--line);background:var(--panel);border-radius:999px;cursor:pointer;font-size:13px;color:var(--sub)}
+  .tab.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px}
+  .label{font-size:12px;color:var(--sub);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+  .situation{border-left:3px solid var(--accent);padding:10px 14px;background:var(--panel2);border-radius:8px;color:var(--txt);font-size:15px}
+  textarea{width:100%;min-height:96px;margin-top:10px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;color:var(--txt);padding:12px;font-size:15px;font-family:inherit;resize:vertical}
+  textarea:focus{outline:none;border-color:var(--accent)}
+  .row{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
+  .hint{font-size:12px;color:var(--sub)}
+  .annotate{margin-top:14px}
+  .chip{display:inline-flex;align-items:center;gap:6px;background:var(--chip);border:1px solid var(--warn);color:var(--warn2);border-radius:999px;padding:5px 12px;font-size:13px;margin:4px 6px 4px 0}
+  .chip b{color:#fff}
+  .exp{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-top:8px;font-size:14px;color:var(--txt)}
+  .exp .k{color:var(--warn2);font-weight:600}
+  .muted{color:var(--sub);font-size:13px;font-style:italic}
+  details{margin-top:12px}
+  summary{cursor:pointer;color:var(--accent);font-size:13px}
+  .gold{background:var(--panel2);border:1px dashed var(--line);border-radius:10px;padding:10px 14px;margin-top:8px;font-size:13px}
+  .gold li{margin:3px 0}
+  .note{font-size:12px;color:var(--sub);margin-top:18px;border-top:1px solid var(--line);padding-top:12px}
+  code{background:var(--panel2);padding:1px 5px;border-radius:4px;color:var(--warn2)}
+  .loading{padding:40px;text-align:center;color:var(--sub)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>反诈游戏 · 开放输入标注原型</h1>
+  <p class="lead">选一类诈骗 → 读情境 → <b>用你自己的话</b>写下当时脑子里闪过的那句话 → 系统实时标注你命中的认知扭曲。
+  这是「代入」的升级：不再是选选项，而是你亲口承认那句话。规则引擎演示版，已预留 LLM 接口。</p>
+
+  <div class="tabs" id="tabs"></div>
+  <div id="app" class="loading">加载 levels.json 中…（需经 HTTP 访问，file:// 双击会被 CORS 拦截）</div>
+</div>
+
+<script>
+/* ===================== 认知扭曲标注词典（规则引擎） =====================
+   按品类组织。每个扭曲含：label 名称、kw 触发关键词、exp 教育解释。
+   匹配逻辑：玩家输入包含任一 kw 即命中该 label（去重）。
+   这是「本地规则降级」版；接入 LLM 后由 llmAnnotate() 返回同结构数据覆盖。 */
+const ANNOTATOR = {
+  '杀猪盘': [
+    {label:'情感推理', kw:['对我好','关心','懂我','喜欢','爱','在乎','应该','心疼'], exp:'你把"他对我好"等同于"他是真心的"——感受不能证明事实。骗子卖的正是这份被在乎的甜。'},
+    {label:'确认偏误', kw:['印证','果然','本来','证明','没错','对得上'], exp:'你只挑吻合"他是好人"的细节看，自动忽略所有 red flag。'},
+    {label:'沉没成本', kw:['都投了','已经花','不甘心','退不了','前面','已经投','舍不得'], exp:'越投越深，是因为不甘心"已经投入"，而不是项目本身靠谱。'},
+    {label:'读心/应该思维', kw:['不会害我','应该','肯定为我好','他不会','不会骗','为我好'], exp:'你替对方推定善意，把"希望"当成了"事实"。'},
+    {label:'损失厌恶', kw:['错过','亏','赔','没了','来不及','可惜'], exp:'怕错过比想赚钱更推着你走——骗子用紧迫感锁死你的理性。'}
+  ],
+  '刷单返利': [
+    {label:'控制错觉', kw:['稳赚','包赚','肯定','一定','没问题','我能控制','有把握','稳'], exp:'你以为自己在"操作盈利"，其实点数和到账都是后台剧本。'},
+    {label:'锚定', kw:['前面赚','上次','已经返','第一单','之前','上次赚'], exp:'你用"第一单真返现"去锚定"这平台可信"——一次返现只是诱饵，不是证据。'},
+    {label:'沉没成本', kw:['都充了','已经投','不甘心','退不了','前面','花了'], exp:'为了拿回之前的本金，你越垫越多——这恰是收割的设计。'},
+    {label:'从众/社会认同', kw:['大家','群里','都在','别人','朋友','托','晒'], exp:'群里的"都在赚"几乎都是托。虚构的多数，制造了真实的跟风。'},
+    {label:'即时满足', kw:['动动手指','轻松','马上','躺赚','快钱','小赚'], exp:'"动动手指就赚"击中想走捷径的念头——而捷径尽头是收割。'}
+  ],
+  '养老诈骗': [
+    {label:'情感推理', kw:['比亲','亲儿女','对我好','关心','干儿子','惦记','懂我'], exp:'你把"他比亲儿女还亲"当成"他不会害我"——孤立中的温暖最易被利用。'},
+    {label:'权威偏见', kw:['教授','专家','协会','单位','教授说','权威','老中医','研究院'], exp:'假权威头衔压住了你的判断。真专家不靠吓你、更不私下卖货。'},
+    {label:'损失厌恶/稀缺', kw:['名额','错过','最后','限时','涨价','抢','不多'], exp:'"最后几个名额"制造稀缺恐慌，催你不等儿女知情就掏钱。'},
+    {label:'隐瞒倾向', kw:['别告诉','瞒着','别说','怕儿女','丢人','别让'], exp:'骗子最怕你跟儿女核实——"别告诉子女"本身就是最大 red flag。'}
+  ],
+  '冒充公检法': [
+    {label:'权威偏见', kw:['警察','法院','检察官','公安','领导','官方','逮捕','通缉','协查'], exp:'制服和官腔让你自动服从。但真办案从不在电话里、更不让你转账。'},
+    {label:'灾难化', kw:['坐牢','抓','通缉','违法','后果','完蛋','逮捕','判刑','蹲'], exp:'你把"可能"当成"马上发生"，恐惧窄化了理性——这正是孤立切断核实的目的。'},
+    {label:'责任转移', kw:['配合','听安排','按说','照做','他们让我','为了清白'], exp:'你把判断权交给了"权威"，用"配合"逃避思考。责任永远该在自己手里。'},
+    {label:'孤立', kw:['别告诉','保密','不能讲','瞒','别让','只信我'], exp:'要求"保密、别告诉家人"是为了切断你唯一的核实渠道——真办案不会怕你求证。'}
+  ]
+};
+
+/* ===== 接入真实 LLM 时，把下面函数体替换为你的 API 调用 =====
+   期望返回 [{label, exp}]，与 ANNOTATOR 结构一致；本地规则作为降级。
+   例：async function llmAnnotate(text, category){
+     const r = await fetch('/api/annotate',{method:'POST',body:JSON.stringify({text,category})});
+     return (await r.json()).hits;
+   } */
+async function llmAnnotate(text, category){ return null; }
+
+/* ===================== 渲染 ===================== */
+let LEVELS = [];
+let cur = null;
+
+const tabsEl = document.getElementById('tabs');
+const appEl = document.getElementById('app');
+
+fetch('levels.json')
+  .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+  .then(data=>{
+    LEVELS = data;
+    buildTabs();
+    select(LEVELS[0]);
+  })
+  .catch(e=>{
+    appEl.className='loading';
+    appEl.innerHTML='读取 levels.json 失败：'+e.message+'<br><br>请通过 HTTP 访问（如 <code>python -m http.server</code>），不要 file:// 双击。';
+  });
+
+function buildTabs(){
+  LEVELS.forEach(l=>{
+    const b=document.createElement('button');
+    b.className='tab'; b.textContent=l.meta.key;
+    b.onclick=()=>select(l);
+    b.dataset.key=l.meta.key;
+    tabsEl.appendChild(b);
+  });
+}
+
+function select(level){
+  cur = level;
+  [...tabsEl.children].forEach(t=>t.classList.toggle('on', t.dataset.key===level.meta.key));
+  render();
+}
+
+function render(){
+  const r = cur.review;
+  appEl.className='';
+  appEl.innerHTML = `
+    <div class="card">
+      <div class="label">情境 · ${cur.meta.key}（${r.shape}）</div>
+      <div class="situation">${r.tr.event}</div>
+    </div>
+    <div class="card">
+      <div class="label">此刻你脑子里闪过哪句话？（自由写，越真实越好）</div>
+      <textarea id="inp" placeholder="例：他不会害我的，前面都赚到了，错过这波就亏了……"></textarea>
+      <div class="row">
+        <span class="hint">输入即实时标注 · 这是你自己的内心独白，不会被评判</span>
+        <span class="hint" id="cnt"></span>
+      </div>
+      <div class="annotate" id="out"></div>
+      <details>
+        <summary>看设计稿的「标准答案」对照（${cur.meta.key} 复盘标注）</summary>
+        <div class="gold"><ul>${
+          r.dist.map(d=>`<li><b>${d.l}</b> — 玩家原话示例：「${d.t}」</li>`).join('')
+        }</ul></div>
+      </details>
+    </div>`;
+  const inp = document.getElementById('inp');
+  const cnt = document.getElementById('cnt');
+  inp.addEventListener('input', ()=>{
+    cnt.textContent = inp.value.length + ' 字';
+    annotate(inp.value);
+  });
+}
+
+let t=null;
+function annotate(text){
+  clearTimeout(t);
+  t = setTimeout(async ()=>{
+    const out = document.getElementById('out');
+    if(!text.trim()){ out.innerHTML=''; return; }
+    let hits = localAnnotate(text, cur.meta.key);
+    const llm = await llmAnnotate(text, cur.meta.key);
+    if(llm && llm.length) hits = llm; // LLM 优先，规则降级
+    if(!hits.length){
+      out.innerHTML = `<p class="muted">未命中明显扭曲——可能你写得克制，也可能这只是个安全念头。真实被诈时，往往几种扭曲叠在一起推着你。</p>`;
+      return;
+    }
+    out.innerHTML = `<div class="label">实时标注 · 命中 ${hits.length} 个认知扭曲</div>` +
+      hits.map(h=>`<span class="chip">⚠ <b>${h.label}</b></span>`).join('') +
+      hits.map(h=>`<div class="exp"><span class="k">${h.label}：</span>${h.exp}</div>`).join('');
+  }, 250);
+}
+
+function localAnnotate(text, category){
+  const dict = ANNOTATOR[category] || [];
+  const seen = new Set(); const hits=[];
+  dict.forEach(d=>{
+    if(d.kw.some(k=>text.includes(k)) && !seen.has(d.label)){
+      seen.add(d.label); hits.push({label:d.label, exp:d.exp});
+    }
+  });
+  return hits;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>反诈游戏 · 关卡：杀猪盘（可玩）</title>
+<style>
+  :root{--bg:#0f1320;--panel:#171c2e;--panel2:#1f2740;--line:#2c3656;--txt:#e7ecf6;--sub:#9aa6c4;--acc:#5b8cff;--warn:#ff7a7a;--ok:#4fd6a3;--gold:#ffcf6b}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;line-height:1.6}
+  .wrap{max-width:900px;margin:0 auto;padding:24px 18px 60px}
+  header h1{font-size:21px;margin:0 0 4px}
+  header p{color:var(--sub);margin:0 0 16px;font-size:13px}
+  .warnbar{background:#2a1c22;border:1px solid #5c2a33;color:var(--warn);font-size:12.5px;padding:8px 12px;border-radius:8px;margin-bottom:16px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
+  .card h2{font-size:15px;margin:0 0 12px;color:var(--acc);letter-spacing:.5px}
+  .track{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+  .track .ph{font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);color:var(--sub)}
+  .track .ph.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+  .track .ph.done{color:var(--txt);border-color:#3a4a72}
+  .scene{font-size:15px;min-height:64px}.scene .who{color:var(--gold);font-weight:600}
+  .choices{display:flex;flex-direction:column;gap:9px;margin-top:14px}
+  .choice{padding:11px 14px;border:1px solid var(--line);background:var(--panel2);border-radius:10px;cursor:pointer;font-size:14px;transition:.18s;text-align:left;color:var(--txt)}
+  .choice:hover{border-color:var(--acc);background:#232c46}
+  .choice.safe{border-color:#2f6b52}.choice.safe:hover{background:#1c3329;border-color:var(--ok)}
+  .choice .tag{font-size:11px;padding:1px 8px;border-radius:999px;margin-left:8px;vertical-align:1px}
+  .choice .tag.exit{background:#33203a;color:var(--warn);border:1px solid #5c2a44}
+  .choice .tag.good{background:#13301f;color:var(--ok);border:1px solid #2f6b52}
+  .outcome{font-size:15px}.outcome.immune{border-left:3px solid var(--ok);padding-left:12px}
+  .outcome.scammed{border-left:3px solid var(--warn);padding-left:12px}.outcome b{color:var(--gold)}
+  .btn{background:var(--acc);color:#fff;border:none;padding:9px 16px;border-radius:8px;cursor:pointer;font-size:13px;margin-top:14px}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--sub)}
+  .duo{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .duo .box{border-radius:10px;padding:14px;font-size:13.5px}
+  .duo .left{background:#1a2438;border:1px solid #2a3a5c}.duo .right{background:#2a1c22;border:1px solid #5c2a33}
+  .duo .box b{display:block;font-size:12px;color:var(--sub);margin-bottom:6px}
+  .meta{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--sub);margin-bottom:10px}.meta b{color:var(--txt)}
+  .note{background:var(--panel2);border-left:3px solid var(--gold);padding:10px 12px;border-radius:8px;font-size:13.5px;color:var(--gold)}
+  .note code{background:#0d1322;padding:1px 6px;border-radius:5px;color:var(--txt)}
+  svg{width:100%;height:auto;display:block}
+  .legend{display:flex;gap:16px;font-size:12px;color:var(--sub);margin-top:8px;flex-wrap:wrap}
+  .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:var(--sub);font-weight:600}
+  .row{display:grid;grid-template-columns:90px 1fr;gap:8px;align-items:start;margin-bottom:8px}
+  .row label{color:var(--sub);font-size:12.5px;padding-top:6px}
+  .row input{width:100%;background:#0d1322;border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:8px;font-size:13px;font-family:inherit}
+  .dist{margin-top:12px;display:none}.dist.show{display:block}
+  .tag2{display:inline-block;background:#33203a;color:var(--warn);border:1px solid #5c2a44;padding:3px 9px;border-radius:999px;font-size:12px;margin:3px 4px 0 0}
+  .lenses{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+  .lens{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:13px}.lens b{color:var(--ok);font-size:13px}
+  .defense li{margin-bottom:8px;font-size:13.5px}.defense b{color:var(--gold)}
+  footer{text-align:center;color:var(--sub);font-size:12.5px;margin-top:20px}
+  footer .hot{color:var(--warn);font-weight:700}
+  @media(max-width:680px){.duo,.lenses{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>反诈游戏 · 关卡：杀猪盘</h1>
+    <p>你扮演「林姐」——一个被偶然加进投资群、渴望被认真对待的人。每一步都由你选。标 ⚠️ 的是「可退出点」：在这里起疑并核实，就能止损全身而退。</p>
+  </header>
+  <div class="warnbar">⚠️ 本关为已被拆解的套路模拟，仅用于反诈教育；现实中绝不向网友转账、不提供验证码，遇疑拨 96110。</div>
+
+  <div class="card" id="stage">
+    <h2>① 关卡进程 · 你的选择</h2>
+    <div class="track" id="track"></div>
+    <div class="scene" id="scene"></div>
+    <div class="choices" id="choices"></div>
+  </div>
+
+  <div id="review" style="display:none">
+    <div class="card">
+      <h2 id="out-h"></h2>
+      <div class="outcome" id="out-body"></div>
+      <button class="btn ghost" onclick="location.reload()">↻ 重玩本关</button>
+    </div>
+    <div class="card">
+      <h2>② 双屏对比 · 你以为的 vs 真相</h2>
+      <div class="meta"><span>核心钩子：<b>被爱 + 被重视</b></span><span>需求空白：<b>情感 / 意义 / 掌控感</b></span><span>示例：<b>林姐（38 岁，离异独居）</b></span></div>
+      <div class="duo"><div class="box left"><b>你以为的</b><span id="d-left"></span></div><div class="box right"><b>实际上的</b><span id="d-right"></span></div></div>
+      <div class="note" id="d-note" style="margin-top:12px"></div>
+    </div>
+    <div class="card">
+      <h2>③ 熵曲线 · 信任如何建立又崩塌（<span id="ent-shape"></span>）</h2>
+      <svg id="chart" viewBox="0 0 600 300" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="legend"><span><i style="background:#5b8cff"></i>认知熵（对方是谁的不确定性）</span><span><i style="background:#ffcf6b"></i>行为熵（行为反常度）</span><span><i style="background:#ff7a7a"></i>意义熵（关系算什么）</span></div>
+      <div class="note" id="ent-hint" style="margin-top:10px"></div>
+    </div>
+    <div class="card">
+      <h2>④ CBT 思维记录 · 复盘你当时脑子里的那句话</h2>
+      <div class="row"><label>事件</label><input id="tr-event"></div>
+      <div class="row"><label>想法</label><input id="tr-thought"></div>
+      <div class="row"><label>情绪</label><input id="tr-emotion"></div>
+      <div class="row"><label>行为</label><input id="tr-behavior"></div>
+      <div class="row"><label>更健康的想法</label><input id="tr-healthy"></div>
+      <button class="btn" onclick="analyze()">标注命中的认知扭曲</button>
+      <div class="dist" id="tr-dist"></div>
+    </div>
+    <div class="card">
+      <h2>⑤ 三透镜复盘 · 多视角解释你为何信了</h2>
+      <div class="lenses" id="lenses"></div>
+    </div>
+    <div class="card">
+      <h2>⑥ 防御锦囊 · 可带走的 3 条</h2>
+      <ul class="defense" id="defense"></ul>
+    </div>
+    <footer>真实出口：遇可疑情况拨 <span class="hot">96110</span> / <span class="hot">110</span>，下载国家反诈中心 App 自检。<br>你刚才经历的是已被拆解的套路——现实里没有「复盘」按钮，先按暂停。</footer>
+  </div>
+</div>
+
+<script>
+/* ===================== 数据外置：从 levels.json 加载「杀猪盘」 ===================== */
+let CLS = null, cur = "", exitAt = "";
+
+function showLoadError(err){
+  document.getElementById('stage').style.display='none';
+  document.getElementById('review').style.display='block';
+  document.getElementById('out-h').textContent='⚠️ 关卡数据加载失败';
+  const body=document.getElementById('out-body'); body.className='outcome scammed';
+  body.innerHTML='本页通过 <b>fetch</b> 读取 <code>levels.json</code>。浏览器禁止用 <code>file://</code> 双击打开时读取本地 JSON（CORS 限制）。<br><br>'+
+    '请在本目录启动本地服务器，例如：<br><code>python -m http.server 8000</code><br>再访问 <code>http://localhost:8000/level-杀猪盘-可玩.html</code><br><br>错误：'+String(err);
+}
+
+/* ===================== 关卡引擎 ===================== */
+function renderTrack(){
+  const t=document.getElementById('track');t.innerHTML='';
+  const idx = CLS.phases.indexOf(CLS.scenes[cur]?CLS.scenes[cur].phase:CLS.phases[CLS.phases.length-1]);
+  CLS.phases.forEach((p,i)=>{
+    const d=document.createElement('div');
+    d.className='ph'+(i===idx?' on':(i<idx?' done':''));
+    d.textContent=p;t.appendChild(d);
+  });
+}
+function render(){
+  const s=CLS.scenes[cur];
+  renderTrack();
+  document.getElementById('scene').innerHTML='<span class="who">▎</span> '+s.text;
+  const c=document.getElementById('choices');c.innerHTML='';
+  s.choices.forEach(ch=>{
+    const b=document.createElement('button');
+    b.className='choice'+(ch.safe?' safe':'');
+    let tag='';
+    if(ch.safe) tag='<span class="tag good">安全 · 止损</span>';
+    else if(s.exitPoint) tag='<span class="tag exit">⚠️ 可退出点</span>';
+    b.innerHTML=ch.label+tag;
+    b.onclick=()=>choose(ch);
+    c.appendChild(b);
+  });
+}
+function choose(ch){
+  if(ch.exitNote) exitAt = ch.exitNote;
+  if(ch.next==='IMMUNE'||ch.next==='SCAMMED'){ showOutcome(ch.next); return; }
+  cur=ch.next; render();
+}
+function showOutcome(type){
+  document.getElementById('stage').style.display='none';
+  document.getElementById('review').style.display='block';
+  const o=CLS.outcomes[type];
+  document.getElementById('out-h').textContent=o.title;
+  const body=document.getElementById('out-body');
+  body.className='outcome '+o.cls;
+  body.innerHTML=o.body;
+  if(type==='IMMUNE' && exitAt) document.getElementById('exit-at').textContent=exitAt;
+  const r=CLS.review;
+  document.getElementById('d-left').textContent=r.left;
+  document.getElementById('d-right').textContent=r.right;
+  document.getElementById('d-note').textContent=r.note;
+  document.getElementById('ent-shape').textContent=r.shape;
+  document.getElementById('ent-hint').textContent=r.hint;
+  renderChart(r);
+  document.getElementById('tr-event').value=r.tr.event;
+  document.getElementById('tr-thought').value=r.tr.thought;
+  document.getElementById('tr-emotion').value=r.tr.emotion;
+  document.getElementById('tr-behavior').value=r.tr.behavior;
+  document.getElementById('tr-healthy').value=r.tr.healthy;
+  document.getElementById('tr-dist').className='dist';document.getElementById('tr-dist').innerHTML='';
+  const lens=document.getElementById('lenses');lens.innerHTML='';
+  r.lenses.forEach(l=>{const c=document.createElement('div');c.className='lens';c.innerHTML='<b>'+l.t+'</b><br>'+l.b;lens.appendChild(c);});
+  const def=document.getElementById('defense');def.innerHTML='';
+  r.defense.forEach(x=>{const li=document.createElement('li');li.innerHTML='<b>• </b>'+x;def.appendChild(li);});
+  window.scrollTo(0,0);
+}
+function renderChart(d){
+  const svg=document.getElementById('chart');
+  const W=600,H=300,padL=34,padR=14,padT=18,padB=40;
+  const n=d.phases.length;
+  const x=i=>padL+(W-padL-padR)*(i/(n-1));
+  const y=v=>H-padB-(H-padT-padB)*(v/100);
+  let s=`<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H-padB}" stroke="#2c3656"/>`;
+  s+=`<line x1="${padL}" y1="${H-padB}" x2="${W-padR}" y2="${H-padB}" stroke="#2c3656"/>`;
+  [0,25,50,75,100].forEach(v=>{s+=`<text x="${padL-6}" y="${y(v)+4}" fill="#9aa6c4" font-size="10" text-anchor="end">${v}</text>`;});
+  d.phases.forEach((p,i)=>{s+=`<text x="${x(i)}" y="${H-padB+18}" fill="#9aa6c4" font-size="11" text-anchor="middle">${p}</text>`;});
+  const COLORS={cog:"#5b8cff",beh:"#ffcf6b",mean:"#ff7a7a"};
+  Object.keys(d.series).forEach(key=>{
+    const pts=d.series[key].map((v,i)=>x(i)+','+y(v)).join(' ');
+    s+=`<polyline points="${pts}" fill="none" stroke="${COLORS[key]}" stroke-width="2.5" pathLength="1" class="draw"/>`;
+    d.series[key].forEach((v,i)=>{s+=`<circle cx="${x(i)}" cy="${y(v)}" r="3.5" fill="${COLORS[key]}"/>`;});
+  });
+  svg.innerHTML=s;
+  requestAnimationFrame(()=>{svg.querySelectorAll('.draw').forEach((p,i)=>{p.style.strokeDasharray=1;p.style.strokeDashoffset=1;p.style.transition=`stroke-dashoffset 1.1s ease ${i*0.15}s`;requestAnimationFrame(()=>{p.style.strokeDashoffset=0;});});});
+}
+function analyze(){
+  const r=CLS.review;const box=document.getElementById('tr-dist');
+  let html='<b style="color:var(--warn)">命中的认知扭曲：</b><br>';
+  r.dist.forEach(x=>{html+=`<span class="tag2">「${x.t}」→ ${x.l}</span>`;});
+  html+='<div style="margin-top:10px;color:var(--sub);font-size:12.5px">提示：这些扭曲单独看都「合理」，串起来就成了陷阱。下次它再出现，你会认得它。</div>';
+  box.innerHTML=html;box.className='dist show';
+}
+
+/* 启动：加载独立 JSON 数据源，取杀猪盘 */
+fetch('levels.json')
+  .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+  .then(data=>{
+    CLS = data.find(x=>x.meta && x.meta.key==='杀猪盘');
+    if(!CLS) throw new Error('levels.json 中未找到「杀猪盘」数据');
+    cur = CLS.start; render();
+  })
+  .catch(err=>showLoadError(err));
+</script>
+</body>
+</html>

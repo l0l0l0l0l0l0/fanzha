@@ -21,92 +21,35 @@ import {
   pickChainFollowUp, pickNormalQuestion,
 } from "./data";
 import { MAN_TIERS } from "./data";
-import type { FBQuestion, FBHud, FBHudSecondCard, FBQuestionKind, FBItemType, FBBoss, FBSpecialEvent, FBBossSkill, FBStats, FBDifficulty, FBWrongRecord, FBPsychology, FBSwipeDir, FBVictimProfile, FBKnowledgeGraph, FBCaseArchive, FBBranchStep, FBBranchChoice, FBAudioClip, FBSeason, FBHudBranchState, FBHudAudioState } from "./types";
-import { updateFBSaveAfterRun, loadFBSave, getItemLevel, currentBossWeekKey } from "./storage";
-import { matchVictimProfile, buildKnowledgeGraph, collectCaseArchives, getItemUpgradeDef, currentSeason, pickBossWeek } from "./dataV2";
+import type { FBQuestion, FBHud, FBHudSecondCard, FBQuestionKind, FBItemType, FBBoss, FBSpecialEvent, FBBossSkill, FBStats, FBDifficulty, FBWrongRecord, FBPsychology, FBSwipeDir, FBVictimProfile, FBKnowledgeGraph, FBCaseArchive, FBBranchStep, FBBranchChoice, FBAudioClip, FBSeason, FBHudBranchState, FBHudAudioState, FBGameMode, FBStoryStage, FBMiniLesson } from "./types";
+import { updateFBSaveAfterRun, loadFBSave, getItemLevel, currentBossWeekKey, saveFBSave } from "./storage";
+import { issuePendingCertificates } from "./certificate";
+import { buildMiniLesson } from "./miniLesson";
+import {
+  matchVictimProfile, buildKnowledgeGraph, collectCaseArchives, getItemUpgradeDef, currentSeason, pickBossWeek,
+  STORY_STAGES, getStoryStage, pickQuestionsByIds, pickDailyQuestions, dailyKey,
+  FB_MODE_LABELS, FB_MODE_HINTS, SPEEDRUN_CONFIG, DAILY_CONFIG, REVIEW_NIGHTMARE_CONFIG,
+  buildWeaknessReport,
+} from "./dataV2";
+import { AIBattleRunner, DeconstructRunner, VersusRunner } from "./v5Modes";
+import { DetectiveRunner } from "./v6Modes";
 
-const W = 800;
-const H = 480;
-const ACCENT = "#1AD670";
+import {
+  W,
+  H,
+  ACCENT,
+  CARD_X,
+  CARD_Y,
+  CARD_W,
+  CARD_H,
+  CARD_CX,
+  CARD_CY,
+  MAX_STAMINA,
+  type Card,
+} from "./engine/constants";
+import { itemLabel, itemEmoji } from "./engine/helpers";
 
-/** 道具中文名 */
-export function itemLabel(type: FBItemType): string {
-  switch (type) {
-    case "freeze": return "❄ 时间冻结";
-    case "fifty": return "🧰 50-50";
-    case "skip": return "⏭ 跳过";
-    case "double": return "✨ 双倍分";
-    case "hint": return "💡 提示";
-    case "undo": return "↩ 撤销";
-  }
-}
-
-/** 道具图例 emoji */
-export function itemEmoji(type: FBItemType): string {
-  switch (type) {
-    case "freeze": return "❄";
-    case "fifty": return "🧰";
-    case "skip": return "⏭";
-    case "double": return "✨";
-    case "hint": return "💡";
-    case "undo": return "↩";
-  }
-}
-
-// 卡片位于左半区，选项按钮由场景在右半区绘制（同一画布坐标系，避免错位遮挡）
-const CARD_X = 20;
-const CARD_Y = 80;
-const CARD_W = 360;
-const CARD_H = 380;
-const CARD_CX = CARD_X + CARD_W / 2; // 200
-const CARD_CY = CARD_Y + CARD_H / 2; // 270
-
-const MAX_STAMINA = 3;
-
-interface Card {
-  q: FBQuestion;
-  spawnTs: number;
-  duration: number;
-  entered: number;
-  exited: number;
-  state: "in" | "show" | "reveal" | "out";
-  /** 单选/判断题：玩家所选索引（原始索引，非显示顺序） */
-  selectedIdx: number | null;
-  /** 单选/判断题：已选未提交索引（原始索引，null=未选） */
-  pendingIdx: number | null;
-  /** 多选题：玩家所选索引列表（原始索引） */
-  multiSelected: number[];
-  /** 是否正确 */
-  correct: boolean;
-  /** 是否触发风险惩罚 */
-  riskTriggered: boolean;
-  /** 50-50 道具移除的错误选项索引 */
-  fiftyRemoved: number[];
-  /** 提示道具高亮的选项索引 */
-  hintHighlighted: number[];
-  /** 是否通过跳过道具判定为正确（避免触发 fx） */
-  skippedViaItem: boolean;
-  /** 选项显示顺序：optionOrder[displayIdx] = originalIdx（shuffle 后打乱） */
-  optionOrder: number[];
-  /** 连锁题组ID */
-  chainGroup?: string;
-  /** 是否为连锁追问 */
-  isChainFollowUp?: boolean;
-  /** 3D 翻转进度 0..1（0=正面题目，1=反面答案），reveal 阶段推进 */
-  flipProgress: number;
-  /** 滑动手势偏移比 -1..1（判断题，负=左滑举报，正=右滑通过），0=未滑动 */
-  swipeOffset: number;
-  /** 双卡模式下的卡位索引（0=左卡，1=右卡），undefined=单卡模式 */
-  dualIndex?: number;
-  /** 填空题：玩家输入文本（kind=fill） */
-  fillInput: string;
-  /** 连线题：玩家配对 linkSel[i] = 玩家为左列第 i 项选择的右列下标，-1=未选 */
-  linkSel: number[];
-  /** 连线题：右列呈现顺序（打乱后的原始下标序列） */
-  linkRightOrder: number[];
-  /** 排序题：玩家当前排列（选项索引序列） */
-  sortArr: number[];
-}
+export { itemLabel, itemEmoji } from "./engine/helpers";
 
 export class FraudBusterEngine extends GameEngine {
   private particles = new ParticleSystem();
@@ -138,6 +81,9 @@ export class FraudBusterEngine extends GameEngine {
   private revealUntil = 0;
   private manHurtUntil = 0;
   private grainSeed = 0;
+  /** v6：答错即时小课堂状态（available=可展示按钮, lesson=当前展示的教学卡） */
+  private miniLessonAvailable = false;
+  private miniLesson: FBMiniLesson | null = null;
   /** 诈骗分子挑衅文案及持续到的时间 */
   private taunt: { text: string; until: number } | null = null;
   /** 屏幕裂纹：错答/风险触发，随时间淡出 */
@@ -243,6 +189,51 @@ export class FraudBusterEngine extends GameEngine {
   private reviewQueue: FBQuestion[] = [];
   /** 错题复盘已清除 ID（A5） */
   private reviewClearedIds: string[] = [];
+  // ===== v3 升级：游戏模式状态 =====
+  /** 当前游戏模式（默认 endless） */
+  private mode: FBGameMode = "endless";
+  /** 模式题目队列（story/daily/review 共用，按顺序出题） */
+  private modeQueue: FBQuestion[] = [];
+  /** 模式队列当前索引 */
+  private modeQueueIdx = 0;
+  /** 模式开始时间戳（speedrun 用） */
+  private modeStartTs = 0;
+  /** 极速模式剩余秒数 */
+  private speedrunRemain = 0;
+  /** 极速模式已答题数 */
+  private speedrunAnswered = 0;
+  /** 极速模式正确数 */
+  private speedrunCorrect = 0;
+  /** 极速模式总题数 */
+  private speedrunTotal = 0;
+  /** 剧情模式当前关卡索引（null=未开始） */
+  private storyStageIdx: number | null = null;
+  /** 剧情模式当前关卡已答题数 */
+  private storyStageAnswered = 0;
+  /** 剧情模式当前关卡正确数 */
+  private storyStageCorrect = 0;
+  /** 每日挑战日期 key */
+  private dailyKeyVal = "";
+  /** 每日挑战已答题数 */
+  private dailyAnswered = 0;
+  /** 错题噩梦已答题数 */
+  private reviewNightmareAnswered = 0;
+  /** 错题噩梦清除题数 */
+  private reviewNightmareCleared = 0;
+  /** 硬核模式标记 */
+  private hardcoreMode = false;
+  /** 模式胜利标记（speedrun/story/daily/review 通关） */
+  private modeWin = false;
+  // ===== v5 升级：新模式 Runner 实例 =====
+  /** AI 对战 Runner（mode="aiBattle" 时有效） */
+  private aiBattleRunner: AIBattleRunner | null = null;
+  /** 骗局拆解 Runner（mode="deconstruct" 时有效） */
+  private deconstructRunner: DeconstructRunner | null = null;
+  /** 双人对战 Runner（mode="versus" 时有效） */
+  private versusRunner: VersusRunner | null = null;
+  // ===== v6 升级：新模式 Runner 实例 =====
+  /** 反诈侦探 Runner（mode="detective" 时有效） */
+  private detectiveRunner: DetectiveRunner | null = null;
 
   constructor(canvas: GameCanvas) {
     super(canvas);
@@ -262,6 +253,453 @@ export class FraudBusterEngine extends GameEngine {
       this.bossWeekBossId = save.bossWeek.bossId;
     }
   }
+
+  // ===== v3 升级：游戏模式启动入口 =====
+
+  /** 启动模式配置（由场景在 spawnEngine 后调用） */
+  startMode(mode: FBGameMode, opts?: {
+    storyStageIdx?: number;
+    reviewQuestions?: FBQuestion[];
+  }): void {
+    this.mode = mode;
+    this.modeQueue = [];
+    this.modeQueueIdx = 0;
+    this.modeStartTs = this.t;
+    this.modeWin = false;
+
+    switch (mode) {
+      case "endless":
+        // 默认模式，无需特殊处理
+        break;
+      case "story": {
+        // 剧情模式：加载指定关卡的题目队列
+        const stageIdx = opts?.storyStageIdx ?? 0;
+        this.storyStageIdx = stageIdx;
+        this.storyStageAnswered = 0;
+        this.storyStageCorrect = 0;
+        const stage = getStoryStage(stageIdx);
+        if (stage) {
+          this.modeQueue = pickQuestionsByIds(QUESTION_BANK, stage.questionIds);
+        }
+        break;
+      }
+      case "speedrun": {
+        // 极速模式：30 题 / 5 分钟，从全题库随机
+        this.speedrunRemain = SPEEDRUN_CONFIG.durationSec;
+        this.speedrunAnswered = 0;
+        this.speedrunCorrect = 0;
+        this.speedrunTotal = SPEEDRUN_CONFIG.totalQuestions;
+        // 从全题库（含 NEW_QUESTIONS）随机选取 30 题
+        const allQs = QUESTION_BANK;
+        const shuffled = [...allQs].sort(() => Math.random() - 0.5);
+        this.modeQueue = shuffled.slice(0, Math.min(SPEEDRUN_CONFIG.totalQuestions, shuffled.length));
+        break;
+      }
+      case "hardcore": {
+        // 硬核模式：1 点体力、无道具、答错即终局
+        this.hardcoreMode = true;
+        this.state.stamina = 1;
+        this.items = { freeze: 0, fifty: 0, skip: 0, double: 0, hint: 0, undo: 0 };
+        // 题目从全题库随机，使用 wave 推进
+        break;
+      }
+      case "daily": {
+        // 每日挑战：基于日期 key 选取 10 题
+        this.dailyKeyVal = dailyKey();
+        this.dailyAnswered = 0;
+        this.modeQueue = pickDailyQuestions(QUESTION_BANK, this.dailyKeyVal, DAILY_CONFIG.totalQuestions);
+        break;
+      }
+      case "review": {
+        // 错题噩梦：使用传入的错题队列（场景层从存档 wrongRecords 重建）
+        const reviewQs = opts?.reviewQuestions ?? [];
+        // 不足 20 题时用全题库随机补足
+        const need = REVIEW_NIGHTMARE_CONFIG.totalQuestions - reviewQs.length;
+        if (need > 0) {
+          const fillers = QUESTION_BANK
+            .filter((q) => !reviewQs.some((r) => r.id === q.id))
+            .sort(() => Math.random() - 0.5)
+            .slice(0, need);
+          this.modeQueue = [...reviewQs, ...fillers];
+        } else {
+          this.modeQueue = reviewQs.slice(0, REVIEW_NIGHTMARE_CONFIG.totalQuestions);
+        }
+        this.reviewNightmareAnswered = 0;
+        this.reviewNightmareCleared = 0;
+        break;
+      }
+      // ===== v5 升级：三种新模式委托给独立 Runner =====
+      case "aiBattle": {
+        // AI 对战：与 AI 骗子多轮对话识破，不使用常规卡片状态机
+        this.aiBattleRunner = new AIBattleRunner();
+        // 这些模式不消耗护盾/连击/段位，重置为初始态避免误显示
+        this.state.stamina = MAX_STAMINA;
+        // 骗子来电铃声：代入感
+        setTimeout(() => playSfx("phoneRing"), 300);
+        break;
+      }
+      case "deconstruct": {
+        // 骗局拆解：观看骗子剧本逐句拆解，纯教育模式
+        this.deconstructRunner = new DeconstructRunner();
+        this.state.stamina = MAX_STAMINA;
+        // 拆解模式启动提示音
+        setTimeout(() => playSfx("messageBeep"), 200);
+        break;
+      }
+      case "versus": {
+        // 双人对战：同设备双人轮流答题，答对攻击对方血量
+        this.versusRunner = new VersusRunner();
+        this.state.stamina = MAX_STAMINA;
+        // 双人对战开始：战斗音效
+        setTimeout(() => playSfx("versusHit"), 200);
+        break;
+      }
+      // ===== v6 升级：反诈侦探模式委托给独立 Runner =====
+      case "detective": {
+        // 反诈侦探：多证据链交叉推理还原诈骗剧本
+        this.detectiveRunner = new DetectiveRunner();
+        this.state.stamina = MAX_STAMINA;
+        // 侦探模式启动：接警音效
+        setTimeout(() => playSfx("messageBeep"), 200);
+        break;
+      }
+    }
+    this.emitHud();
+  }
+
+  // ===== v5 升级：新模式输入入口（由场景调用，委托给 Runner） =====
+
+  /** v5 模式操作结果：供场景层触发屏幕级 FX */
+  v5Result: {
+    kind: "aiBattle" | "deconstruct" | "versus" | null;
+    /** AI 对战：是否识破红旗 */
+    bust: boolean;
+    /** AI 对战：本次选择判定 right/warn/wrong */
+    verdict: string;
+    /** AI 对战：本回合累计识破分变化（+N） */
+    bustScoreDelta: number;
+    /** 骗局拆解：本次动作 */
+    action: "showLine" | "showDeconstruct" | "showSummary" | "ended" | null;
+    /** 骗局拆解：当前行红旗等级（0-5） */
+    lineRedFlag: number;
+    /** 双人对战：本次答题是否正确 */
+    correct: boolean;
+    /** 双人对战：伤害值 */
+    damage: number;
+    /** 双人对战：受击方 */
+    target: "P1" | "P2" | null;
+    /** 是否触发结局 */
+    ended: boolean;
+    /** 结局类型（busted/scammed/timeout/draw 等） */
+    ending: string | null;
+  } = { kind: null, bust: false, verdict: "", bustScoreDelta: 0, action: null, lineRedFlag: 0, correct: false, damage: 0, target: null, ended: false, ending: null };
+
+  /** AI 对战：玩家选择第 idx 个回复 */
+  chooseAIDialog(idx: number): void {
+    if (this.state.over || !this.aiBattleRunner) return;
+    const prevBustScore = this.aiBattleRunner.getBustScore();
+    const result = this.aiBattleRunner.choose(idx);
+    const bustScoreDelta = this.aiBattleRunner.getBustScore() - prevBustScore;
+    // 反馈音效：识破=redFlag+good，错误=bad，警告=messageBeep
+    if (result.bust) {
+      playSfx("redFlag");
+      playSfx("good");
+    } else if (result.verdict === "wrong") {
+      playSfx("bad");
+    } else {
+      playSfx("messageBeep");
+    }
+    // 识破时给点视觉反馈
+    if (result.bust) {
+      this.particles.spawnBurst(CARD_CX, CARD_CY, "#FFD666", { ring: true, sparks: 10, dots: 12, speed: 200, life: 0.6, size: 3, color2: "#FFFFFF" });
+    }
+    // 错误选择触发 glitch 强化压迫感
+    if (result.verdict === "wrong") {
+      postFX.glitch(0.5, 2.5);
+      postFX.flash("#E5353B", 0.3, 2);
+      postFX.shake(5, 10);
+    } else if (result.bust) {
+      postFX.flash("#FFD666", 0.22, 1.6);
+    }
+    // 暴露结果给场景层
+    const ended = this.aiBattleRunner.isOver();
+    this.v5Result = {
+      kind: "aiBattle", bust: result.bust, verdict: result.verdict, bustScoreDelta,
+      action: null, lineRedFlag: this.aiBattleRunner.getCurrentNode().redFlag ?? 0,
+      correct: false, damage: 0, target: null,
+      ended, ending: ended ? (this.aiBattleRunner.getEnding() ?? null) : null,
+    };
+    if (ended) {
+      // 结束：根据 ending 判定胜负
+      this.modeWin = this.aiBattleRunner.getEnding() === "busted";
+      // 通关时金光闪屏 + 强震屏
+      if (this.modeWin) {
+        postFX.flash("#FFD666", 0.5, 1.4);
+        postFX.shake(8, 8);
+        this.particles.spawnBurst(CARD_CX, CARD_CY, "#FFD666", { ring: true, shockwave: true, sparks: 24, dots: 28, speed: 320, life: 1.0, size: 4, color2: "#1AD670" });
+      } else {
+        postFX.flash("#E5353B", 0.5, 1.4);
+        postFX.glitch(0.8, 3);
+        postFX.shake(10, 8);
+      }
+      this.gameOver();
+    } else {
+      this.emitHud();
+    }
+  }
+
+  /** 骗局拆解：推进到下一行 / 显示拆解 / 显示总结 */
+  advanceDeconstruct(): void {
+    if (this.state.over || !this.deconstructRunner) return;
+    const res = this.deconstructRunner.advance();
+    const line = this.deconstructRunner.getCurrentLine();
+    const lineRedFlag = line?.redFlag ?? 0;
+    if (res.action === "showLine") {
+      // 新对白出现：消息提示音；若该行有高红旗，叠加警示
+      playSfx("messageBeep");
+      if (lineRedFlag >= 4) {
+        playSfx("redFlag");
+        postFX.glitch(0.35, 1.8);
+        postFX.flash("#E5353B", 0.18, 1.2);
+      }
+    } else if (res.action === "showDeconstruct") {
+      playSfx("good");
+      // 拆解揭示：金色闪光 + 弱震屏
+      postFX.flash("#FFD666", 0.2, 1.0);
+      this.particles.spawnBurst(CARD_CX, CARD_CY, "#FFD666", { ring: true, sparks: 8, dots: 10, speed: 160, life: 0.6, size: 3 });
+    } else if (res.action === "showSummary") {
+      // 总结：金光闪屏 + 强震屏
+      playSfx("achievement");
+      postFX.flash("#1AD670", 0.35, 1.4);
+      postFX.shake(6, 8);
+      this.particles.spawnBurst(CARD_CX, CARD_CY, "#1AD670", { ring: true, shockwave: true, sparks: 20, dots: 24, speed: 280, life: 0.9, size: 4, color2: "#FFD666" });
+    }
+    const ended = res.action === "ended" || this.deconstructRunner.isOver();
+    this.v5Result = {
+      kind: "deconstruct", bust: false, verdict: "", bustScoreDelta: 0,
+      action: res.action, lineRedFlag,
+      correct: false, damage: 0, target: null,
+      ended, ending: ended ? "busted" : null,
+    };
+    if (ended) {
+      // 拆解完成视为通关（教育模式）
+      this.modeWin = true;
+      this.gameOver();
+    } else {
+      this.emitHud();
+    }
+  }
+
+  /** 骗局拆解：跳过到结尾 */
+  skipDeconstructToEnd(): void {
+    if (this.state.over || !this.deconstructRunner) return;
+    this.deconstructRunner.skipToEnd();
+    this.v5Result = {
+      kind: "deconstruct", bust: false, verdict: "", bustScoreDelta: 0,
+      action: "ended", lineRedFlag: 0,
+      correct: false, damage: 0, target: null,
+      ended: true, ending: "busted",
+    };
+    this.modeWin = true;
+    this.gameOver();
+  }
+
+  // ===== v6 升级：反诈侦探模式输入入口（由场景调用，委托给 Runner） =====
+
+  /** v6 模式操作结果：供场景层触发屏幕级 FX */
+  v6Result: {
+    kind: "detective" | null;
+    /** 本次动作类型 */
+    action: "enterEvidence" | "selectEvidence" | "closeEvidence" | "enterReasoning" | "answer" | "nextQuestion" | "enterSummary" | "archive" | "timeoutToReasoning" | null;
+    /** 本次答题是否正确 */
+    correct: boolean;
+    /** 是否触发破局点发现 */
+    breakingPointFound: boolean;
+    /** 是否答错锁定 */
+    locked: boolean;
+    /** 是否所有问题答完 */
+    allAnswered: boolean;
+    /** 是否触发结局 */
+    ended: boolean;
+    /** 结局说明 */
+    endingDesc: string;
+  } = { kind: null, action: null, correct: false, breakingPointFound: false, locked: false, allAnswered: false, ended: false, endingDesc: "" };
+
+  /** 侦探：进入证据浏览阶段（从简报调用） */
+  enterEvidenceStage(): void {
+    if (this.state.over || !this.detectiveRunner) return;
+    this.detectiveRunner.enterEvidenceStage();
+    playSfx("messageBeep");
+    this.v6Result = {
+      kind: "detective", action: "enterEvidence", correct: false,
+      breakingPointFound: false, locked: false, allAnswered: false,
+      ended: false, endingDesc: "",
+    };
+    this.emitHud();
+  }
+
+  /** 侦探：选择证据查看 */
+  selectDetectiveEvidence(evidenceId: string): void {
+    if (this.state.over || !this.detectiveRunner) return;
+    this.detectiveRunner.selectEvidence(evidenceId);
+    playSfx("messageBeep");
+    this.v6Result = {
+      kind: "detective", action: "selectEvidence", correct: false,
+      breakingPointFound: this.detectiveRunner.getBreakingPointFound(),
+      locked: false, allAnswered: false, ended: false, endingDesc: "",
+    };
+    this.emitHud();
+  }
+
+  /** 侦探：关闭当前证据查看 */
+  closeDetectiveEvidence(): void {
+    if (this.state.over || !this.detectiveRunner) return;
+    this.detectiveRunner.closeEvidence();
+    this.v6Result = {
+      kind: "detective", action: "closeEvidence", correct: false,
+      breakingPointFound: this.detectiveRunner.getBreakingPointFound(),
+      locked: false, allAnswered: false, ended: false, endingDesc: "",
+    };
+    this.emitHud();
+  }
+
+  /** 侦探：进入推理问答阶段（从证据浏览调用） */
+  enterReasoningStage(): void {
+    if (this.state.over || !this.detectiveRunner) return;
+    this.detectiveRunner.enterReasoningStage();
+    playSfx("good");
+    postFX.flash("#FFD666", 0.22, 1.0);
+    this.v6Result = {
+      kind: "detective", action: "enterReasoning", correct: false,
+      breakingPointFound: this.detectiveRunner.getBreakingPointFound(),
+      locked: false, allAnswered: false, ended: false, endingDesc: "",
+    };
+    this.emitHud();
+  }
+
+  /** 侦探：回答当前推理问题 */
+  answerDetectiveQuestion(playerAnswer: number | number[]): void {
+    if (this.state.over || !this.detectiveRunner) return;
+    const result = this.detectiveRunner.answerQuestion(playerAnswer);
+    // 音效与 FX 反馈
+    if (result.correct) {
+      playSfx("good");
+      this.particles.spawnBurst(CARD_CX, CARD_CY, "#FFD666", { ring: true, sparks: 8, dots: 10, speed: 160, life: 0.6, size: 3 });
+      if (result.breakingPointFound) {
+        // 破局点发现：额外金光闪屏
+        playSfx("achievement");
+        postFX.flash("#FFD666", 0.35, 1.4);
+        postFX.shake(6, 8);
+        this.particles.spawnBurst(CARD_CX, CARD_CY, "#FFD666", { ring: true, shockwave: true, sparks: 20, dots: 24, speed: 280, life: 0.9, size: 4, color2: "#1AD670" });
+      }
+    } else {
+      playSfx("bad");
+      postFX.glitch(0.4, 2);
+      postFX.flash("#E5353B", 0.25, 1.4);
+      postFX.shake(6, 10);
+    }
+    const ended = result.allAnswered;
+    this.v6Result = {
+      kind: "detective", action: "answer", correct: result.correct,
+      breakingPointFound: result.breakingPointFound, locked: result.locked,
+      allAnswered: result.allAnswered, ended,
+      endingDesc: ended ? this.detectiveRunner.getEndingDesc() : "",
+    };
+    if (ended) {
+      // 所有问题答完 → 自动进入复盘
+      this.detectiveRunner.enterSummaryStage();
+      this.modeWin = this.detectiveRunner.isCaseSolved();
+      if (this.modeWin) {
+        postFX.flash("#FFD666", 0.5, 1.4);
+        postFX.shake(8, 8);
+        this.particles.spawnBurst(CARD_CX, CARD_CY, "#FFD666", { ring: true, shockwave: true, sparks: 24, dots: 28, speed: 320, life: 1.0, size: 4, color2: "#1AD670" });
+      } else {
+        postFX.flash("#E5353B", 0.5, 1.4);
+        postFX.glitch(0.8, 3);
+        postFX.shake(10, 8);
+      }
+      this.gameOver();
+    } else {
+      this.emitHud();
+    }
+  }
+
+  /** 侦探：进入下一题（答对后或主动跳过） */
+  nextDetectiveQuestion(): void {
+    if (this.state.over || !this.detectiveRunner) return;
+    const hasMore = this.detectiveRunner.nextQuestion();
+    this.v6Result = {
+      kind: "detective", action: "nextQuestion", correct: false,
+      breakingPointFound: this.detectiveRunner.getBreakingPointFound(),
+      locked: false, allAnswered: !hasMore,
+      ended: !hasMore ? this.detectiveRunner.isOver() : false,
+      endingDesc: !hasMore ? this.detectiveRunner.getEndingDesc() : "",
+    };
+    if (!hasMore) {
+      // 所有问题答完 → 进入复盘（由 enterSummaryStage 内部处理）
+      this.modeWin = this.detectiveRunner.isCaseSolved();
+      this.gameOver();
+    } else {
+      playSfx("messageBeep");
+      this.emitHud();
+    }
+  }
+
+  /** 侦探：归档案件（从复盘调用，标记结案） */
+  archiveDetectiveCase(): void {
+    if (this.state.over || !this.detectiveRunner) return;
+    this.detectiveRunner.archiveCase();
+    playSfx("achievement");
+    this.v6Result = {
+      kind: "detective", action: "archive", correct: false,
+      breakingPointFound: this.detectiveRunner.getBreakingPointFound(),
+      locked: false, allAnswered: true, ended: true,
+      endingDesc: this.detectiveRunner.getEndingDesc(),
+    };
+    this.emitHud();
+  }
+
+  /** 侦探：获取 Runner（供场景层查询案件详情、当前问题等） */
+  getDetectiveRunner(): DetectiveRunner | null { return this.detectiveRunner; }
+
+  /** 双人对战：当前回合玩家选择第 idx 个选项 */
+  answerVersus(idx: number): void {
+    if (this.state.over || !this.versusRunner) return;
+    const result = this.versusRunner.answer(idx);
+    if (result.correct) {
+      playSfx("versusHit");
+      this.particles.spawnBurst(CARD_CX, CARD_CY, "#1AD670", { ring: true, sparks: 10, dots: 12, speed: 220, life: 0.6, size: 3 });
+      postFX.shake(4, 8);
+    } else {
+      playSfx("bad");
+      postFX.glitch(0.4, 2);
+      postFX.flash("#E5353B", 0.25, 1.4);
+      postFX.shake(6, 10);
+    }
+    const ended = this.versusRunner.isOver();
+    this.v5Result = {
+      kind: "versus", bust: false, verdict: "", bustScoreDelta: 0,
+      action: null, lineRedFlag: 0,
+      correct: result.correct, damage: result.damage, target: result.target,
+      ended, ending: ended ? (this.versusRunner.getWinner() ?? "draw") : null,
+    };
+    if (ended) {
+      // 完成即通关（双人模式以完成计，胜者在 stats 中）
+      this.modeWin = true;
+      postFX.flash("#FFD666", 0.45, 1.4);
+      postFX.shake(8, 8);
+      this.particles.spawnBurst(CARD_CX, CARD_CY, "#FFD666", { ring: true, shockwave: true, sparks: 24, dots: 28, speed: 320, life: 1.0, size: 4, color2: "#1AD670" });
+      this.gameOver();
+    } else {
+      this.emitHud();
+    }
+  }
+
+  /** 获取当前模式 */
+  getMode(): FBGameMode { return this.mode; }
+
+  /** 是否为模式胜利（speedrun/story/daily/review 通关） */
+  isModeWin(): boolean { return this.modeWin; }
 
   /**
    * 场景按钮入口：选择第 idx 个选项
@@ -395,7 +833,42 @@ export class FraudBusterEngine extends GameEngine {
     if (this.audioState.finished) return;
     this.audioState.playing = !this.audioState.playing;
     playSfx("tick");
+    // v3 升级：接入 Web Speech API 真实语音合成
+    if (this.audioState.playing) {
+      this.speakTTS(c.q.audioClip.transcript, c.q.audioClip.duration);
+    } else {
+      this.cancelTTS();
+    }
     this.emitHud();
+  }
+
+  /** v3 升级：Web Speech API 语音合成（浏览器原生 TTS） */
+  private speakTTS(text: string, duration: number): void {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = "zh-CN";
+      utter.rate = 0.95;
+      utter.pitch = 1.0;
+      utter.volume = 1.0;
+      // 按 duration 调整速率（避免过长/过短）
+      // Web Speech API 无精确时长控制，rate 已足够接近
+      void duration;
+      window.speechSynthesis.speak(utter);
+    } catch (e) {
+      console.warn("[fb:tts] speak failed", e);
+    }
+  }
+
+  /** v3 升级：取消 TTS 播放 */
+  private cancelTTS(): void {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+    } catch (e) {
+      console.warn("[fb:tts] cancel failed", e);
+    }
   }
 
   /** 构建分支题 HUD 状态（B3） */
@@ -653,6 +1126,13 @@ export class FraudBusterEngine extends GameEngine {
    */
   useItem(type: FBItemType): void {
     if (this.state.over) return;
+    // v3 升级：硬核模式禁用所有道具
+    if (this.hardcoreMode) {
+      playSfx("bad");
+      this.toast = { text: "💀 硬核模式：道具已封印！", tone: "bad", until: this.t + 1.6 };
+      this.emitHud();
+      return;
+    }
     // Boss lockItem 技能封印道具
     if (this.itemLocked && type !== "undo") {
       playSfx("bad");
@@ -680,10 +1160,10 @@ export class FraudBusterEngine extends GameEngine {
       return;
     }
     if (type === "fifty") {
-      // 50-50 需有题在展示，且仅 single/judge
+      // 50-50 需有题在展示，且仅 single/judge/crisis（evidence 题答案在 evidenceAnswer，不支持）
       if (!this.current || this.current.state !== "show") { playSfx("bad"); return; }
       const kind = this.current.q.kind ?? "single";
-      if (kind === "multi") { playSfx("bad"); return; }
+      if (kind === "multi" || kind === "evidence") { playSfx("bad"); return; }
       const correct = this.current.q.answer ?? -1;
       const wrongs = this.current.q.options.map((_, i) => i).filter((i) => i !== correct);
       if (wrongs.length < 2) { playSfx("bad"); return; }
@@ -740,7 +1220,7 @@ export class FraudBusterEngine extends GameEngine {
       // 提示：高亮正确倾向的选项（不移除，仅视觉标记）
       if (!this.current || this.current.state !== "show") { playSfx("bad"); return; }
       const kind = this.current.q.kind ?? "single";
-      if (kind === "multi") { playSfx("bad"); return; }
+      if (kind === "multi" || kind === "evidence") { playSfx("bad"); return; }
       if (this.current.hintHighlighted.length > 0) { playSfx("bad"); return; }
       const correct = this.current.q.answer ?? -1;
       // B4: 根据升级等级决定高亮行为
@@ -867,6 +1347,10 @@ export class FraudBusterEngine extends GameEngine {
       c.correct = correct.length === c.sortArr.length &&
         correct.every((v, i) => c.sortArr[i] === v);
       c.riskTriggered = false;
+    } else if (kind === "evidence") {
+      // v4: 证据判断题：玩家选中的消息索引与 evidenceAnswer 比对
+      c.correct = idx === (c.q.evidenceAnswer ?? -1);
+      c.riskTriggered = false;
     } else {
       c.correct = idx === (c.q.answer ?? -1);
       const riskList = c.q.risk ?? [];
@@ -880,6 +1364,34 @@ export class FraudBusterEngine extends GameEngine {
       prev.total += 1;
       if (c.correct) prev.correct += 1;
       this.stats.byType[typeId] = prev;
+    }
+    // ===== v3 升级：模式专属答题计数（非跳过道具） =====
+    if (!c.skippedViaItem) {
+      if (this.mode === "speedrun") {
+        this.speedrunAnswered += 1;
+        if (c.correct) this.speedrunCorrect += 1;
+        // 极速模式：答完 30 题即胜利
+        if (this.speedrunAnswered >= this.speedrunTotal) {
+          this.triggerModeWin();
+          return;
+        }
+      } else if (this.mode === "daily") {
+        this.dailyAnswered += 1;
+        if (this.dailyAnswered >= DAILY_CONFIG.totalQuestions) {
+          this.triggerModeWin();
+          return;
+        }
+      } else if (this.mode === "story") {
+        this.storyStageAnswered += 1;
+        if (c.correct) this.storyStageCorrect += 1;
+      } else if (this.mode === "review") {
+        this.reviewNightmareAnswered += 1;
+        if (c.correct) this.reviewNightmareCleared += 1;
+        if (this.reviewNightmareAnswered >= REVIEW_NIGHTMARE_CONFIG.totalQuestions) {
+          this.triggerModeWin();
+          return;
+        }
+      }
     }
     // Boss 模式：单独处理命中/未命中，不走常规计分与扣血
     if (this.boss?.active) {
@@ -973,10 +1485,14 @@ export class FraudBusterEngine extends GameEngine {
       }
       // 心理手法统计（答错）
       this.trackPsychology(c.q, false);
-      // 风险选项：扣 2 血；普通错答：扣 1 血
+      // v3 升级：模式专属体力处理
+      // - endless/hardcore：扣体力（hardcore 1 点体力即终局）
+      // - story/daily/review/speedrun：不扣体力，答错仅扣分，队列耗尽才结束
       const penalty = c.riskTriggered ? 2 : 1;
-      this.state.stamina -= penalty;
-      this.manHurtUntil = this.t + 0.6;
+      if (this.mode === "endless" || this.mode === "hardcore") {
+        this.state.stamina -= penalty;
+        this.manHurtUntil = this.t + 0.6;
+      }
       // 错答掉段机制：错答扣分（风险 -100，普通 -50），分数不低于 0
       const scorePenalty = c.riskTriggered ? 100 : 50;
       const prevScore = this.state.score;
@@ -1003,6 +1519,8 @@ export class FraudBusterEngine extends GameEngine {
   private gameOver(): void {
     if (this.state.over) return;
     this.state.over = true;
+    // v3 升级：游戏结束时取消 TTS
+    this.cancelTTS();
     // 同步最终 maxCombo
     this.stats.maxCombo = Math.max(this.stats.maxCombo, this.state.maxCombo);
     // ===== v2 升级：计算受害者档案 / 知识图谱 / 案例档案 =====
@@ -1023,6 +1541,85 @@ export class FraudBusterEngine extends GameEngine {
       (q) => q.cardType === "audio",
     ).length > 0 ? this.stats.correctCount : 0;
     // B3: 分支题完成数（已在 onBranchComplete 累加）
+    // ===== v3 升级：模式统计注入 =====
+    this.stats.gameMode = this.mode;
+    this.stats.perfectRun = this.stats.wrongCount === 0 && this.stats.totalAnswered > 0;
+    if (this.mode === "speedrun") {
+      this.stats.speedrunDuration = Math.round(this.t - this.modeStartTs);
+      this.stats.speedrunCorrect = this.speedrunCorrect;
+      this.stats.speedrunTotal = this.speedrunTotal;
+    }
+    if (this.mode === "story") {
+      this.stats.storyStageIdx = this.storyStageIdx ?? undefined;
+      this.stats.storyStagesCleared = this.modeWin ? (this.storyStageIdx ?? 0) + 1 : (this.storyStageIdx ?? 0);
+    }
+    if (this.mode === "daily") {
+      this.stats.dailyKey = this.dailyKeyVal;
+      this.stats.dailyCorrect = this.dailyAnswered - this.stats.wrongCount;
+    }
+    if (this.mode === "review") {
+      this.stats.reviewNightmareCleared = this.reviewNightmareCleared;
+    }
+    // ===== v5 升级：新模式统计注入（从 Runner 合并） =====
+    if (this.mode === "aiBattle" && this.aiBattleRunner) {
+      const v5s = this.aiBattleRunner.getStats();
+      this.stats.aiBattleBustScore = v5s.aiBattleBustScore;
+      this.stats.aiBattleTurns = v5s.aiBattleTurns;
+      this.stats.aiBattleEnding = v5s.aiBattleEnding;
+      this.stats.totalAnswered = v5s.totalAnswered ?? 1;
+      this.stats.correctCount = v5s.correctCount ?? 0;
+      this.stats.wrongCount = v5s.wrongCount ?? 0;
+      // AI 对战积分：识破红旗数 × 100
+      this.state.score = (v5s.aiBattleBustScore ?? 0) * 100;
+      this.state.wave = this.aiBattleRunner.getTurnCount();
+      this.state.busted = v5s.aiBattleBustScore ?? 0;
+    }
+    if (this.mode === "deconstruct" && this.deconstructRunner) {
+      const v5s = this.deconstructRunner.getStats();
+      this.stats.deconstructCompleted = v5s.deconstructCompleted ?? 1;
+      this.stats.deconstructRedFlags = v5s.deconstructRedFlags ?? 0;
+      this.stats.totalAnswered = 1;
+      this.stats.correctCount = 1;
+      this.stats.wrongCount = 0;
+      // 拆解积分：识别红旗数 × 50
+      this.state.score = (v5s.deconstructRedFlags ?? 0) * 50;
+      this.state.wave = this.deconstructRunner.getTotalLines();
+      this.state.busted = v5s.deconstructRedFlags ?? 0;
+    }
+    if (this.mode === "versus" && this.versusRunner) {
+      const v5s = this.versusRunner.getStats();
+      this.stats.versusWinner = v5s.versusWinner ?? null;
+      this.stats.versusP1Correct = v5s.versusP1Correct ?? 0;
+      this.stats.versusP2Correct = v5s.versusP2Correct ?? 0;
+      this.stats.totalAnswered = v5s.totalAnswered ?? 0;
+      this.stats.correctCount = v5s.correctCount ?? 0;
+      this.stats.wrongCount = v5s.wrongCount ?? 0;
+      // 双人对战积分：两人答对总数 × 30
+      this.state.score = (v5s.correctCount ?? 0) * 30;
+      this.state.wave = this.versusRunner.getCurrentQuestionIdx() + 1;
+      this.state.busted = v5s.correctCount ?? 0;
+    }
+    // ===== v6 升级：反诈侦探模式统计注入 =====
+    if (this.mode === "detective" && this.detectiveRunner) {
+      const v6s = this.detectiveRunner.getStats();
+      this.stats.detectiveScore = v6s.detectiveScore ?? 0;
+      this.stats.detectiveSolved = v6s.detectiveSolved ?? false;
+      this.stats.detectiveBreakingPoints = v6s.detectiveBreakingPoints ?? 0;
+      this.stats.totalAnswered = v6s.totalAnswered ?? 0;
+      this.stats.correctCount = v6s.correctCount ?? 0;
+      this.stats.wrongCount = v6s.wrongCount ?? 0;
+      // 侦探积分：推理得分 × 20（破案额外 +500）
+      this.state.score = (v6s.detectiveScore ?? 0) * 20 + (v6s.detectiveSolved ? 500 : 0);
+      this.state.wave = this.detectiveRunner.getCurrentQuestionIdx() + 1;
+      this.state.busted = v6s.correctCount ?? 0;
+    }
+    // ===== v5 升级：智能错题画像（基于存档生成本周弱点报告） =====
+    try {
+      const saveForReport = loadFBSave();
+      this.stats.weaknessReport = buildWeaknessReport(saveForReport);
+    } catch {
+      this.stats.weaknessReport = undefined;
+    }
     // ===== 存档系统：局后结算（累计识破/Boss/最高分/段位/成就） =====
     const saveResult = updateFBSaveAfterRun({
       score: this.state.score,
@@ -1037,6 +1634,8 @@ export class FraudBusterEngine extends GameEngine {
       bossWeekBossId: this.bossWeekBossId ?? undefined,
       clearedWrongIds: this.reviewClearedIds,
     });
+    // ===== v3 升级：模式专属存档更新 =====
+    this.updateModeSave(saveResult.save);
     // 成就解锁音效 + 段位晋级音效
     if (saveResult.newAchievements.length > 0) {
       playSfx("achievementUnlock");
@@ -1046,7 +1645,7 @@ export class FraudBusterEngine extends GameEngine {
     }
     this.result = {
       gameId: "fraud-buster",
-      win: false,
+      win: this.modeWin,
       score: this.state.score,
       wave: this.state.wave,
       bustedCount: this.state.busted,
@@ -1060,11 +1659,137 @@ export class FraudBusterEngine extends GameEngine {
         rankUp: saveResult.rankUp,
       },
     };
-    postFX.flash("#E5353B", 0.5, 2);
-    postFX.glitch(0.8, 4);
-    postFX.shake(10, 16);
-    playSfx("lose");
+    if (this.modeWin) {
+      // 模式胜利：金光 + 升调音效
+      postFX.flash("#FFD666", 0.4, 2);
+      postFX.shake(6, 10);
+      playSfx("good");
+      this.particles.spawnBurst(CARD_CX, CARD_CY, "#FFD666", { ring: true, sparks: 20, dots: 24, speed: 300, life: 1.2, size: 5, color2: "#FFFFFF", shockwave: true });
+      this.particles.spawnText(CARD_CX, CARD_CY - 40, "🎉 通关！", "#FFD666", { size: 28, life: 1.6 });
+    } else {
+      postFX.flash("#E5353B", 0.5, 2);
+      postFX.glitch(0.8, 4);
+      postFX.shake(10, 16);
+      playSfx("lose");
+    }
     this.emit({ type: "result", payload: this.result });
+  }
+
+  /** v3 升级：模式专属存档更新（剧情/极速/硬核/每日/错题噩梦） */
+  private updateModeSave(save: import("./storage").FBSaveData): void {
+    let dirty = false;
+    if (this.mode === "story" && this.modeWin && this.storyStageIdx !== null) {
+      // 剧情模式通关：记录已通关关卡
+      if (!save.storyClearedStages.includes(this.storyStageIdx)) {
+        save.storyClearedStages.push(this.storyStageIdx);
+        save.storyClearedStages.sort((a, b) => a - b);
+        dirty = true;
+      }
+      // 自动推进到下一关
+      const nextIdx = this.storyStageIdx + 1;
+      if (nextIdx < STORY_STAGES.length) {
+        save.storyCurrentStage = nextIdx;
+        dirty = true;
+      } else {
+        // 全部通关：重置到 null（已通关全部）
+        save.storyCurrentStage = null;
+        dirty = true;
+      }
+    }
+    if (this.mode === "speedrun" && this.modeWin) {
+      // 极速模式：记录最佳用时（仅完美通关 30 题后记录）
+      const duration = Math.round(this.t - this.modeStartTs);
+      if (save.speedrunBestTime === 0 || duration < save.speedrunBestTime) {
+        save.speedrunBestTime = duration;
+        save.speedrunBestCorrect = this.speedrunCorrect;
+        dirty = true;
+      }
+    }
+    if (this.mode === "hardcore") {
+      // 硬核模式：记录最高连对题数
+      const streak = this.state.maxCombo;
+      if (streak > save.hardcoreBestStreak) {
+        save.hardcoreBestStreak = streak;
+        dirty = true;
+      }
+      // v6：硬核完美通关计数（用于"硬核完美"证书）
+      if (this.modeWin && this.stats.wrongCount === 0 && this.stats.totalAnswered > 0) {
+        save.hardcorePerfectCount += 1;
+        dirty = true;
+      }
+    }
+    if (this.mode === "daily") {
+      // 每日挑战：记录当日正确数（保留最近 30 天）
+      if (!save.dailyHistory) save.dailyHistory = {};
+      save.dailyHistory[this.dailyKeyVal] = this.dailyAnswered - this.stats.wrongCount;
+      // 清理超过 30 天的历史
+      const keys = Object.keys(save.dailyHistory).sort();
+      while (keys.length > 30) {
+        const oldKey = keys.shift();
+        if (oldKey) delete save.dailyHistory[oldKey];
+      }
+      dirty = true;
+    }
+    if (this.mode === "review" && this.reviewNightmareCleared > 0) {
+      // 错题噩梦：累加清除题数
+      save.reviewNightmareTotalCleared += this.reviewNightmareCleared;
+      dirty = true;
+    }
+    // 完美一局：零失误通关
+    if (this.modeWin && this.stats.wrongCount === 0 && this.stats.totalAnswered > 0) {
+      save.perfectRunCount += 1;
+      dirty = true;
+    }
+    // v6：拆解剧本通关追踪（玩家看完剧本即视为完成）
+    if (this.mode === "deconstruct" && this.deconstructRunner) {
+      const scenarioId = this.deconstructRunner.getScenario().id;
+      if (!save.deconstructClearedIds.includes(scenarioId)) {
+        save.deconstructClearedIds.push(scenarioId);
+        dirty = true;
+      }
+    }
+    // v6：AI 对战剧本通关追踪（仅 modeWin 即识破骗局才算通关）
+    if (this.mode === "aiBattle" && this.aiBattleRunner && this.modeWin) {
+      const scenarioId = this.aiBattleRunner.getScenario().id;
+      if (!save.aiBattleClearedIds.includes(scenarioId)) {
+        save.aiBattleClearedIds.push(scenarioId);
+        dirty = true;
+      }
+    }
+    // v6：反诈侦探案件破案追踪（仅破案即 modeWin 才算通关）
+    if (this.mode === "detective" && this.detectiveRunner && this.modeWin) {
+      const caseId = this.detectiveRunner.getCase().id;
+      const score = this.detectiveRunner.getReasoningScore();
+      if (!save.detectiveSolvedCases.includes(caseId)) {
+        save.detectiveSolvedCases.push(caseId);
+        save.detectiveSolvedCount += 1;
+        dirty = true;
+      }
+      save.detectiveTotalScore += score;
+      dirty = true;
+    }
+    if (dirty) saveFBSave(save);
+    // v6：颁发新解锁的反诈证书（在存档写入之后调用，避免覆盖）
+    try {
+      issuePendingCertificates();
+    } catch (e) {
+      console.warn("[fb:certificate] issuePendingCertificates failed", e);
+    }
+  }
+
+  /** v3 升级：触发模式胜利（speedrun/story/daily/review 题队列耗尽时调用） */
+  private triggerModeWin(): void {
+    if (this.state.over) return;
+    this.modeWin = true;
+    // 延迟一帧后触发 gameOver（让最后一题的 reveal 完成）
+    this.revealUntil = this.t + 0.8;
+    // 标记当前卡片已退出，直接进入 gameOver 流程
+    if (this.current) {
+      this.current.state = "out";
+      this.current.exited = 1;
+    }
+    this.current = null;
+    this.gameOver();
   }
 
   /** 聚合知识点统计（从 byType 与 knowledgePoints 映射） */
@@ -1098,6 +1823,54 @@ export class FraudBusterEngine extends GameEngine {
     this.t += dt;
     this.grainSeed += 1;
 
+    // ===== v5 升级：新模式不使用常规卡片状态机，跳过 spawn/timer/spawn 逻辑 =====
+    // 仅保留粒子/t 推进与 hit-stop，HUD 由 Runner 驱动
+    if (this.mode === "aiBattle" || this.mode === "deconstruct" || this.mode === "versus") {
+      // 心跳强度保持低位（避免误触发红屏脉动）
+      this.heartbeat = 0;
+      return;
+    }
+
+    // ===== v6 升级：反诈侦探模式 =====
+    if (this.mode === "detective") {
+      this.heartbeat = 0;
+      // 证据浏览阶段倒计时
+      if (this.detectiveRunner && this.detectiveRunner.getStage() === "evidence") {
+        const prevSec = Math.ceil(this.detectiveRunner.getEvidenceRemainSec());
+        const timedOut = this.detectiveRunner.tickEvidenceTimer(dt);
+        const newSec = Math.ceil(this.detectiveRunner.getEvidenceRemainSec());
+        // 每秒触发一次 HUD 更新（倒计时显示）
+        if (newSec !== prevSec || timedOut) {
+          if (timedOut) {
+            // 超时自动进入推理阶段
+            playSfx("good");
+            postFX.flash("#FFD666", 0.22, 1.0);
+            this.v6Result = {
+              kind: "detective", action: "timeoutToReasoning", correct: false,
+              breakingPointFound: this.detectiveRunner.getBreakingPointFound(),
+              locked: false, allAnswered: false, ended: false, endingDesc: "",
+            };
+          }
+          this.emitHud();
+        }
+      }
+      return;
+    }
+
+    // ===== v3 升级：极速模式倒计时 =====
+    if (this.mode === "speedrun" && !this.state.over) {
+      this.speedrunRemain = Math.max(0, this.speedrunRemain - dt);
+      if (this.speedrunRemain <= 0) {
+        // 时间到：触发 gameOver（未答完 30 题即失败）
+        this.gameOver();
+        return;
+      }
+      // 每秒触发一次 HUD 更新（避免每帧触发）
+      if (Math.floor(this.speedrunRemain) !== Math.floor(this.speedrunRemain + dt)) {
+        this.emitHud();
+      }
+    }
+
     // 道具：时间冻结——推进 spawnTs 抵消倒计时（仅 show 态生效）
     if (this.freezeRemaining > 0) {
       if (this.current && this.current.state === "show") {
@@ -1114,6 +1887,8 @@ export class FraudBusterEngine extends GameEngine {
       if (this.audioState.progress >= 1) {
         this.audioState.playing = false;
         this.audioState.finished = true;
+        // v3 升级：TTS 播放完成，取消 Web Speech
+        this.cancelTTS();
       }
       this.emitHud();
     }
@@ -1173,8 +1948,39 @@ export class FraudBusterEngine extends GameEngine {
             c.state = "reveal";
             this.revealUntil = this.t + 1.0;
             this.state.combo = 0;
-            this.state.stamina -= 1;
-            this.manHurtUntil = this.t + 0.6;
+            // v3 升级：模式专属体力处理（仅 endless/hardcore 扣体力）
+            if (this.mode === "endless" || this.mode === "hardcore") {
+              this.state.stamina -= 1;
+              this.manHurtUntil = this.t + 0.6;
+            }
+            // v3 升级：模式专属答题计数（超时也算答题）
+            this.stats.totalAnswered += 1;
+            this.stats.wrongCount += 1;
+            const typeId = c.q.typeId;
+            const prev = this.stats.byType[typeId] ?? { correct: 0, total: 0 };
+            prev.total += 1;
+            this.stats.byType[typeId] = prev;
+            if (this.mode === "speedrun") {
+              this.speedrunAnswered += 1;
+              if (this.speedrunAnswered >= this.speedrunTotal) {
+                this.triggerModeWin();
+                return;
+              }
+            } else if (this.mode === "daily") {
+              this.dailyAnswered += 1;
+              if (this.dailyAnswered >= DAILY_CONFIG.totalQuestions) {
+                this.triggerModeWin();
+                return;
+              }
+            } else if (this.mode === "story") {
+              this.storyStageAnswered += 1;
+            } else if (this.mode === "review") {
+              this.reviewNightmareAnswered += 1;
+              if (this.reviewNightmareAnswered >= REVIEW_NIGHTMARE_CONFIG.totalQuestions) {
+                this.triggerModeWin();
+                return;
+              }
+            }
             // 超时扣分 -30（轻于错答，分数不低于 0）
             const prevScore = this.state.score;
             this.state.score = Math.max(0, this.state.score - 30);
@@ -1364,6 +2170,78 @@ export class FraudBusterEngine extends GameEngine {
   }
 
   private spawnCard(): void {
+    // v6：新题开始时重置即时小课堂状态
+    this.miniLessonAvailable = false;
+    this.miniLesson = null;
+    // ===== v3 升级：模式驱动出题（story/daily/review/speedrun 使用 modeQueue） =====
+    // 这些模式跳过 Boss/特殊波次/连锁逻辑，按队列顺序出题
+    const useModeQueue = (this.mode === "story" || this.mode === "daily" || this.mode === "review" || this.mode === "speedrun")
+      && this.modeQueue.length > 0;
+    if (useModeQueue) {
+      if (this.modeQueueIdx >= this.modeQueue.length) {
+        // 队列已耗尽：判定模式胜负
+        if (this.mode === "story") {
+          // 剧情模式：需达到 passCorrect 才算通关
+          const stage = getStoryStage(this.storyStageIdx ?? 0);
+          const passCorrect = stage?.passCorrect ?? 0;
+          if (this.storyStageCorrect >= passCorrect) {
+            this.triggerModeWin();
+          } else {
+            // 未达标：失败
+            this.gameOver();
+          }
+        } else {
+          // speedrun/daily/review：队列耗尽即胜利
+          this.triggerModeWin();
+        }
+        return;
+      }
+      const q = this.modeQueue[this.modeQueueIdx];
+      this.modeQueueIdx += 1;
+      this.usedIds.add(q.id);
+      this.encounteredQuestions.push(q);
+      const cfg = waveConfig(this.state.wave);
+      // 模式题目时长：固定 15 秒（speedrun 10 秒），不受难度/事件影响
+      const duration = this.mode === "speedrun" ? 10 : 15;
+      void cfg; // 模式不使用 cfg.duration
+      this.current = {
+        q,
+        spawnTs: this.t,
+        duration,
+        entered: 0,
+        exited: 0,
+        state: "in",
+        selectedIdx: null,
+        pendingIdx: null,
+        multiSelected: [],
+        correct: false,
+        riskTriggered: false,
+        fiftyRemoved: [],
+        hintHighlighted: [],
+        optionOrder: q.options.map((_, i) => i),
+        skippedViaItem: false,
+        flipProgress: 0,
+        swipeOffset: 0,
+        fillInput: "",
+        linkSel: [],
+        linkRightOrder: [],
+        sortArr: [],
+      };
+      // 重置分支题状态（B3）
+      if ((q.kind ?? "single") === "branch" && q.branchSteps) {
+        this.branchState = {
+          stepId: q.branchSteps[0]?.id ?? "",
+          history: [],
+          ended: false,
+        };
+      }
+      // 重置音频播放状态（A2）
+      if (q.cardType === "audio" && q.audioClip) {
+        this.audioState = { playing: false, progress: 0, finished: false };
+      }
+      this.emitHud();
+      return;
+    }
     // Boss 波次（每 20 波）：生成 Boss 卡片
     if (isBossWave(this.state.wave) && !this.boss?.active) {
       this.spawnBoss();
@@ -1457,6 +2335,10 @@ export class FraudBusterEngine extends GameEngine {
     if (this.specialEvent === "itemLock") {
       this.itemLockActive = true;
     }
+    // v4: 危机决策题使用题面自定义限时（默认 5 秒），不受难度/事件影响
+    if (q.kind === "crisis" && q.crisisTimeLimit) {
+      duration = q.crisisTimeLimit;
+    }
 
     this.current = {
       q: finalQ,
@@ -1538,10 +2420,12 @@ export class FraudBusterEngine extends GameEngine {
     if (this.usedIds.size > QUESTION_BANK.length - 4) {
       this.usedIds = new Set(Array.from(this.usedIds).slice(-6));
     }
+    // v4: 危机决策题使用自定义限时
+    const bossDur = (q.kind === "crisis" && q.crisisTimeLimit) ? q.crisisTimeLimit : cfg.duration * this.diffDurationMult();
     this.current = {
       q,
       spawnTs: this.t,
-      duration: cfg.duration * this.diffDurationMult(),
+      duration: bossDur,
       entered: 0,
       exited: 0,
       state: "in",
@@ -1577,7 +2461,7 @@ export class FraudBusterEngine extends GameEngine {
     }
     c.q = q;
     c.spawnTs = this.t;
-    c.duration = waveConfig(this.state.wave).duration * this.diffDurationMult();
+    c.duration = (q.kind === "crisis" && q.crisisTimeLimit) ? q.crisisTimeLimit : waveConfig(this.state.wave).duration * this.diffDurationMult();
     c.state = "show";
     c.selectedIdx = null;
     c.pendingIdx = null;
@@ -1810,6 +2694,31 @@ export class FraudBusterEngine extends GameEngine {
     if (this.stats.wrongRecords.length > 20) {
       this.stats.wrongRecords.shift();
     }
+    // v6：标记可展示即时小课堂（供场景层在揭示态画"小课堂"按钮）
+    this.miniLessonAvailable = true;
+  }
+
+  /**
+   * v6 教育功能 C3：展示答错即时小课堂。
+   * 由场景层在揭示态点击"小课堂"按钮时调用。
+   * 基于当前答错的题目生成教学卡并填充 HUD。
+   */
+  showMiniLesson(): void {
+    if (this.state.over) return;
+    if (!this.miniLessonAvailable) return;
+    const c = this.current ?? this.dualCards[0] ?? this.dualCards[1];
+    if (!c) return;
+    this.miniLesson = buildMiniLesson(c.q);
+    this.emitHud();
+  }
+
+  /**
+   * v6 教育功能 C3：关闭即时小课堂。
+   * 由场景层点击教学卡"关闭"按钮时调用。
+   */
+  closeMiniLesson(): void {
+    this.miniLesson = null;
+    this.emitHud();
   }
 
   /**
@@ -2116,6 +3025,31 @@ export class FraudBusterEngine extends GameEngine {
       caseArchive: c && c.state === "reveal" ? (c.q.caseArchive ?? null) : null,
       seasonTag: this.currentSeasonTag,
       bossWeekActive: this.bossWeekActive,
+      // ===== v3 升级：游戏模式字段 =====
+      gameMode: this.mode,
+      speedrunRemain: this.mode === "speedrun" ? this.speedrunRemain : undefined,
+      speedrunTotal: this.mode === "speedrun" ? this.speedrunTotal : undefined,
+      speedrunAnswered: this.mode === "speedrun" ? this.speedrunAnswered : undefined,
+      storyStageIdx: this.mode === "story" ? (this.storyStageIdx ?? undefined) : undefined,
+      storyStageName: this.mode === "story" ? getStoryStage(this.storyStageIdx ?? 0)?.name : undefined,
+      storyStageTotal: this.mode === "story" ? (this.modeQueue.length || undefined) : undefined,
+      storyStageAnswered: this.mode === "story" ? this.storyStageAnswered : undefined,
+      dailyKey: this.mode === "daily" ? this.dailyKeyVal : undefined,
+      modeHint: FB_MODE_HINTS[this.mode],
+      // ===== v4 升级新增字段（危机决策/证据判断题） =====
+      crisisRemainSec: c && kind === "crisis" ? Math.max(0, c.duration - (this.t - c.spawnTs)) : undefined,
+      crisisTotalSec: c && kind === "crisis" ? c.duration : undefined,
+      evidenceSelectedIdx: c && kind === "evidence" ? (c.state === "show" ? c.pendingIdx : c.selectedIdx) : undefined,
+      evidenceMessages: c && kind === "evidence" ? c.q.evidenceImage : undefined,
+      // ===== v5 升级新增字段（三种新模式 HUD 状态） =====
+      aiDialog: this.aiBattleRunner ? this.aiBattleRunner.getHud() : null,
+      deconstruct: this.deconstructRunner ? this.deconstructRunner.getHud() : null,
+      versus: this.versusRunner ? this.versusRunner.getHud() : null,
+      // ===== v6 升级新增字段（即时小课堂） =====
+      miniLessonAvailable: this.miniLessonAvailable,
+      miniLesson: this.miniLesson,
+      // ===== v6 升级新增字段（反诈侦探模式 HUD） =====
+      detective: this.detectiveRunner ? this.detectiveRunner.getHud() : null,
     };
     this.emit({ type: "hud", payload: hud as unknown as Record<string, string | number> });
     if (this.toast && this.t < this.toast.until) {
@@ -2171,6 +3105,15 @@ export class FraudBusterEngine extends GameEngine {
     this.drawScreenCrack(ctx);
 
     ctx.restore();
+  }
+
+  /**
+   * v5 升级：在 v5 模式渲染分支中渲染引擎粒子系统
+   * FraudBusterScene 的 v5 渲染分支不调用 engine.render()，
+   * 但识破/攻击等事件触发的粒子仍需可见，故暴露此入口。
+   */
+  renderV5Particles(ctx: CanvasRenderingContext2D): void {
+    this.particles.render(ctx);
   }
 
   /** 心跳红屏脉动：心跳越强，红屏越明显，模拟紧张压迫 */

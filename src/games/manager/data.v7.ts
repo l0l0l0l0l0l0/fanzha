@@ -12,6 +12,7 @@ import type {
   LeaderboardEntry,
   ManagerMode,
   QuizQuestion,
+  WrongQuestionRecord,
 } from "./types";
 import { MAZE_TERMS } from "./maze";
 
@@ -189,6 +190,147 @@ export const REAL_CASES: RealCaseDef[] = [
     color: "#9B59B6",
     emoji: "📚",
   },
+  // ===== v9 新增：2024-2026 真实案例补充（10 条，覆盖 v8/v9 新敌人） =====
+  {
+    id: "case_aiVoiceClone",
+    refEnemyId: "aiVoiceClone",
+    title: "AI 拟声冒充亲属诈骗案",
+    year: "2024",
+    summary: "犯罪团伙用开源语音克隆模型，仅凭社交平台 10 秒语音素材即合成受害人儿子声音，电话中以'出车祸需急救'为由骗转 280 万。受害人察觉口吻不对报警。",
+    amount: 2800000,
+    victim: "中老年父母",
+    bustedBy: "公安部督办",
+    tip: "AI 拟声核实。电话借钱务必用私密问题（家事/童年昵称）核实本人。",
+    hotline: "96110 提醒：声音可伪造，私密问题不可伪造。",
+    color: "#7E57C2",
+    emoji: "🎙️",
+  },
+  {
+    id: "case_fakeLivestream",
+    refEnemyId: "fakeLivestream",
+    title: "直播间虚假字画诈骗案",
+    year: "2025",
+    summary: "团伙在短视频平台开直播，雇 30 名'托儿'烘托气氛，将百元地摊字画炒至 8 万一幅。受害人为'大师真迹'先后花费 130 万，鉴定后全为印刷品。",
+    amount: 1300000,
+    victim: "中老年收藏爱好者",
+    bustedBy: "杭州网警",
+    tip: "直播带货认官方店铺。托儿烘托、限时抢购、大师背书三件套，是直播间诈骗典型特征。",
+    hotline: "96110 提醒：直播高价值商品务必线下鉴定后再付款。",
+    color: "#FF4081",
+    emoji: "📺",
+  },
+  {
+    id: "case_cryptoWalletPhish",
+    refEnemyId: "cryptoWalletPhish",
+    title: "数字钱包授权钓鱼案",
+    year: "2025",
+    summary: "骗子伪造'USDT 空投'页面，诱导受害人点击授权链接。授权后钱包内 18 万 USDT（折合 130 万元）被瞬间转走。链上追踪显示资金经混币器清洗后无法追回。",
+    amount: 1300000,
+    victim: "数字货币投资者",
+    bustedBy: "网安局联动",
+    tip: "钱包授权需谨慎。'无限授权'等于交出钱包控制权，不明链接坚决不点。",
+    hotline: "96110 提醒：数字货币交易不受法律保护，授权即风险。",
+    color: "#00BCD4",
+    emoji: "🪙",
+  },
+  {
+    id: "case_fakeGovApp",
+    refEnemyId: "fakeGovApp",
+    title: "仿冒国家反诈中心 APP 案",
+    year: "2024",
+    summary: "犯罪团伙仿冒'国家反诈中心'APP，在应用市场外通过短信链接传播，骗取受害人身份证、银行卡、人脸信息后冒名网贷 80 万。仿冒 APP 界面与官方相似度 90%。",
+    amount: 800000,
+    victim: "各年龄段",
+    bustedBy: "公安部反诈中心",
+    tip: "政务 APP 只在官方应用商店下载。任何短信链接要求下载'官方'政务 APP 都是骗局。",
+    hotline: "96110 提醒：国家反诈中心 APP 不会通过短信链接下发。",
+    color: "#1565C0",
+    emoji: "🏛️",
+  },
+  {
+    id: "case_pensionFraud",
+    refEnemyId: "pensionFraud",
+    title: "虚假养老理财集资案",
+    year: "2024",
+    summary: "钱生财团伙以'国家养老专项基金'名义，承诺年化 18% 保本收益，3 年吸收 1200 名老人存款 4500 万。资金实际用于个人挥霍与庞氏付息，暴雷时未兑付 3200 万。",
+    amount: 32000000,
+    victim: "退休老年人",
+    bustedBy: "银保监会联动",
+    tip: "养老理财认持牌机构。'高息保本''国家背景'是养老诈骗两大话术，证监会/银保监会官网可查资质。",
+    hotline: "96110 提醒：年化超过 8% 的'保本'理财都是骗局。",
+    color: "#FF8A65",
+    emoji: "👵",
+  },
+  {
+    id: "case_shortDramaTrap",
+    refEnemyId: "shortDramaTrap",
+    title: "短剧 APP 连环扣费案",
+    year: "2025",
+    summary: "某短剧 APP 以'免费看剧'引流，注册时默认勾选自动续费条款，首周 0.1 元，第 8 天起每周扣 38 元。受害人多为老年人，3 个月累计扣费 500 余元，退订入口深藏 5 级菜单。",
+    amount: 500,
+    victim: "中老年短剧用户",
+    bustedBy: "市场监管总局",
+    tip: "短剧订阅看清条款。注册时检查自动续费勾选，使用微信/支付宝'免密支付'管理及时关闭。",
+    hotline: "96110 提醒：'免费试用'后必自动续费，看清条款再开通。",
+    color: "#AB47BC",
+    emoji: "🎬",
+  },
+  {
+    id: "case_secondhandCutOrder",
+    refEnemyId: "secondhandCutOrder",
+    title: "二手平台切单诈骗案",
+    year: "2025",
+    summary: "骗子在二手平台发布低价 iPhone，以'平台手续费高'为由诱导买家加微信私下交易。买家转账 4500 元后立即被拉黑。同一团伙 2 个月作案 200 余起，涉案 90 余万。",
+    amount: 900000,
+    victim: "二手平台买家",
+    bustedBy: "深圳网警",
+    tip: "二手交易不脱离平台。私下转账无平台担保，被骗后无法维权。",
+    hotline: "96110 提醒：任何'加微信私下交易'的二手卖家都是骗子。",
+    color: "#26A69A",
+    emoji: "🛒",
+  },
+  {
+    id: "case_aiRefundVoice",
+    refEnemyId: "aiRefundVoice",
+    title: "AI 语音冒充客服退货案",
+    year: "2025",
+    summary: "骗子用 AI 合成'淘宝客服'声音，准确报出受害人订单号与商品信息，以'质量问题双倍理赔'为由诱导下载屏幕共享 APP，期间转走 23 万。后查实信息来源于撞库。",
+    amount: 230000,
+    victim: "网购用户",
+    bustedBy: "上海网警",
+    tip: "客服不主动。订单异常请通过官方 APP 核实，共享屏幕=交出手机控制权。",
+    hotline: "96110 提醒：AI 客服声音可合成，订单信息可撞库，唯官方 APP 可信。",
+    color: "#5C6BC0",
+    emoji: "🤙",
+  },
+  {
+    id: "case_fakeRecruit",
+    refEnemyId: "fakeRecruit",
+    title: "虚假招聘押金诈骗案",
+    year: "2024",
+    summary: "团伙注册空壳传媒公司，在招聘网站发布'高薪轻松'岗位，面试后以'服装费/培训费/押金'名义向 300 余名求职者收取 800-3000 元不等，2 个月骗得 60 余万后注销公司跑路。",
+    amount: 600000,
+    victim: "应届毕业生/求职者",
+    bustedBy: "人社部联动",
+    tip: "招聘不缴费。任何押金、培训费、服装费都是骗局，《劳动合同法》禁止用人单位收取任何费用。",
+    hotline: "96110 提醒：求职缴费即骗局，可向劳动监察部门举报。",
+    color: "#795548",
+    emoji: "📋",
+  },
+  {
+    id: "case_flightChange",
+    refEnemyId: "flightChange",
+    title: "机票退改签诈骗案",
+    year: "2024",
+    summary: "骗子通过非法渠道获取航班信息，精准发送'航班延误取消理赔'短信，诱导受害人拨打虚假客服电话，以'退改签需先行支付差价'为由骗转 12 万。受害人登机前才发现航班正常。",
+    amount: 120000,
+    victim: "商务出行人群",
+    bustedBy: "民航公安",
+    tip: "航班变动认官方 APP/电话。航司不会以短信链接索要银行卡与验证码。",
+    hotline: "96110 提醒：航班信息泄露严重，退改签务必通过航司官方渠道。",
+    color: "#4FC3F7",
+    emoji: "✈️",
+  },
 ];
 
 /** 根据敌人/BOSS id 取关联案例 */
@@ -288,6 +430,79 @@ export const KNOWLEDGE_GRAPH: KnowledgeGraphNode[] = [
     kind: "tactic",
     links: ["codex_popup", "codex_threat"],
     linkDesc: ["话术基础", "话术基础"],
+  },
+  // ===== v9 新增：2024-2026 新型诈骗节点（12 条） =====
+  {
+    codexId: "codex_aiVoiceClone",
+    kind: "fraudType",
+    links: ["codex_deepfake", "codex_fakeAccident"],
+    linkDesc: ["AI 技术演进", "结合虚构意外"],
+  },
+  {
+    codexId: "codex_fakeLivestream",
+    kind: "fraudType",
+    links: ["codex_investApp", "codex_popup"],
+    linkDesc: ["演变自虚假理财", "冒充客服引流"],
+  },
+  {
+    codexId: "codex_cryptoWalletPhish",
+    kind: "fraudType",
+    links: ["codex_phish", "codex_investApp"],
+    linkDesc: ["钓鱼变体", "结合虚假理财"],
+  },
+  {
+    codexId: "codex_fakeGovApp",
+    kind: "fraudType",
+    links: ["codex_threat", "codex_phish"],
+    linkDesc: ["冒充公检法变体", "钓鱼下载"],
+  },
+  {
+    codexId: "codex_pensionFraud",
+    kind: "fraudType",
+    links: ["codex_investApp", "codex_sweet"],
+    linkDesc: ["理财变体", "情感利用"],
+  },
+  {
+    codexId: "codex_shortDramaTrap",
+    kind: "fraudType",
+    links: ["codex_popup"],
+    linkDesc: ["弹窗引流变体"],
+  },
+  {
+    codexId: "codex_secondhandCutOrder",
+    kind: "fraudType",
+    links: ["codex_phish", "codex_ticketFraud"],
+    linkDesc: ["私下交易变体", "同类线下切单"],
+  },
+  {
+    codexId: "codex_aiRefundVoice",
+    kind: "fraudType",
+    links: ["codex_refundFraud", "codex_aiVoiceClone"],
+    linkDesc: ["AI 强化", "AI 语音技术"],
+  },
+  {
+    codexId: "codex_fakeRecruit",
+    kind: "fraudType",
+    links: ["codex_popup", "codex_loanCancel"],
+    linkDesc: ["冒充变体", "同针对年轻人"],
+  },
+  {
+    codexId: "codex_ticketFraud",
+    kind: "fraudType",
+    links: ["codex_secondhandCutOrder", "codex_phish"],
+    linkDesc: ["同类线下切单", "钓鱼链接"],
+  },
+  {
+    codexId: "codex_flightChange",
+    kind: "fraudType",
+    links: ["codex_phish", "codex_threat"],
+    linkDesc: ["钓鱼变体", "紧迫感催促"],
+  },
+  {
+    codexId: "codex_fakeAccident",
+    kind: "fraudType",
+    links: ["codex_threat", "codex_aiVoiceClone"],
+    linkDesc: ["恐吓变体", "AI 语音结合"],
   },
 ];
 
@@ -627,6 +842,364 @@ export const TOWER_EVENTS: TowerEventDef[] = [
       },
     ],
   },
+  // ===== v9 扩展：20 常规事件 + 5 商店层（合计 35 事件） =====
+  {
+    id: "evt_3",
+    floor: 3,
+    kind: "mysteryBox",
+    title: "神秘宝箱",
+    story: "路边一个无主包裹，写着'内含中奖信息'。打开还是上报？",
+    emoji: "📦",
+    color: "#9D6BFF",
+    options: [
+      { id: "mb_open", label: "打开看看", desc: "可能是惊喜，可能是陷阱", emoji: "🔓", outcome: { kind: "score", value: -200 } },
+      { id: "mb_report", label: "上报处理", desc: "交由反诈中心检测", emoji: "🛡️", outcome: { kind: "intel", value: 4 } },
+      { id: "mb_skip", label: "绕道而行", desc: "不碰不明包裹", emoji: "⏩", outcome: { kind: "skip" } },
+    ],
+  },
+  {
+    id: "evt_7",
+    floor: 7,
+    kind: "agentEncounter",
+    title: "探员遭遇",
+    story: "数据预测师路过战场，可临时协助一次。如何借力？",
+    emoji: "🔮",
+    color: "#00C9A7",
+    options: [
+      { id: "ae_charge", label: "请她充能大招", desc: "立即获得 40 能量", emoji: "⚡", outcome: { kind: "energy", value: 40 } },
+      { id: "ae_intel", label: "请教资金流向", desc: "获得情报", emoji: "📊", outcome: { kind: "intel", value: 6 } },
+      { id: "ae_skip", label: "婉言谢绝", desc: "继续独立作战", emoji: "🙏", outcome: { kind: "skip" } },
+    ],
+  },
+  {
+    id: "evt_13",
+    floor: 13,
+    kind: "fraudQuiz",
+    title: "反诈问答",
+    story: "社区宣防员出题：'客服主动来电要共享屏幕，该怎么办？'",
+    emoji: "❓",
+    color: "#FFB020",
+    options: [
+      { id: "fq_a", label: "立即挂断", desc: "共享屏幕=交出手机控制权", emoji: "✅", outcome: { kind: "score", value: 600 } },
+      { id: "fq_b", label: "配合操作", desc: "听客服指挥", emoji: "❌", outcome: { kind: "hp", value: -30 } },
+      { id: "fq_c", label: "反问核实", desc: "换官方渠道核实", emoji: "🔄", outcome: { kind: "intel", value: 5 } },
+    ],
+  },
+  {
+    id: "evt_17",
+    floor: 17,
+    kind: "mysteryBox",
+    title: "风险投资箱",
+    story: "有人兜售'稳赚不赔'的投资盲盒，号称年化 50%。要不要赌一把？",
+    emoji: "🎰",
+    color: "#FF3B6B",
+    options: [
+      { id: "ri_bet", label: "押注一把", desc: "高收益=高风险，可能是骗局", emoji: "💸", outcome: { kind: "hp", value: -40 } },
+      { id: "ri_reject", label: "果断拒绝", desc: "理财认持牌", emoji: "🛡️", outcome: { kind: "score", value: 400 } },
+      { id: "ri_report", label: "举报该平台", desc: "上报可疑投资平台", emoji: "📞", outcome: { kind: "codex", codexId: "codex_investApp" } },
+    ],
+  },
+  {
+    id: "evt_23",
+    floor: 23,
+    kind: "moralChoice",
+    title: "道德抉择",
+    story: "一个卡农主动投诚，愿交出上线名单换取从轻处理。是否接纳？",
+    emoji: "⚖️",
+    color: "#3D8BFD",
+    options: [
+      { id: "mc_accept", label: "接纳并保护", desc: "线索价值大于惩罚", emoji: "🤝", outcome: { kind: "intel", value: 10 } },
+      { id: "mc_reject", label: "依法处理", desc: "帮信罪必须付出代价", emoji: "🔒", outcome: { kind: "score", value: 500 } },
+      { id: "mc_condition", label: "有条件接纳", desc: "先核实名单真伪", emoji: "🔍", outcome: { kind: "case", caseId: "case_farmer" } },
+    ],
+  },
+  {
+    id: "evt_28",
+    floor: 28,
+    kind: "victimRescue",
+    title: "受害人求助",
+    story: "一名学生被'刷单返利'套住，已转 2000 元，对方还在催。如何处理？",
+    emoji: "🎓",
+    color: "#5BC0DE",
+    options: [
+      { id: "vr_stop", label: "立即阻止转账", desc: "刷单就是诈骗", emoji: "🛑", outcome: { kind: "score", value: 700 } },
+      { id: "vr_96110", label: "指导拨打 96110", desc: "反诈专线介入", emoji: "📞", outcome: { kind: "intel", value: 7 } },
+      { id: "vr_evidence", label: "协助保留证据", desc: "截图聊天记录报警", emoji: "📸", outcome: { kind: "codex", codexId: "codex_robot" } },
+    ],
+  },
+  {
+    id: "evt_33",
+    floor: 33,
+    kind: "clueDiscovery",
+    title: "线索发现",
+    story: "缴获一台电诈窝点的手机，里面有加密通讯录。如何处置？",
+    emoji: "📱",
+    color: "#00E5FF",
+    options: [
+      { id: "cd_crack", label: "网安解密", desc: "交给网安追踪师", emoji: "💻", outcome: { kind: "intel", value: 9 } },
+      { id: "cd_bait", label: "反向钓鱼", desc: "冒充卡农套取上线", emoji: "🎣", outcome: { kind: "score", value: 800 } },
+      { id: "cd_archive", label: "归档备查", desc: "作为证据封存", emoji: "🗄️", outcome: { kind: "term", termIdx: 12 } },
+    ],
+  },
+  {
+    id: "evt_37",
+    floor: 37,
+    kind: "mysteryBox",
+    title: "AI 换脸盲盒",
+    story: "收到一个'亲友'发来的视频借钱，画面卡顿眨眼异常。如何应对？",
+    emoji: "🎥",
+    color: "#A8E6CF",
+    options: [
+      { id: "ai_verify", label: "换问题核实", desc: "问只有对方知道的私密信息", emoji: "✅", outcome: { kind: "score", value: 650 } },
+      { id: "ai_transfer", label: "相信视频", desc: "画面就是亲友本人", emoji: "❌", outcome: { kind: "hp", value: -50 } },
+      { id: "ai_callback", label: "原号回拨", desc: "用存的号码回拨核实", emoji: "📞", outcome: { kind: "intel", value: 6 } },
+    ],
+  },
+  {
+    id: "evt_43",
+    floor: 43,
+    kind: "agentEncounter",
+    title: "探员遭遇",
+    story: "卧底侦查员带回一份园区内部名单，可换取不同资源。如何选择？",
+    emoji: "🥷",
+    color: "#E5353B",
+    options: [
+      { id: "ae2_raid", label: "立即收网", desc: "按名单突袭窝点", emoji: "🎯", outcome: { kind: "score", value: 900 } },
+      { id: "ae2_intel", label: "深挖资金链", desc: "顺名单查资金流向", emoji: "📊", outcome: { kind: "intel", value: 12 } },
+      { id: "ae2_case", label: "建案归档", desc: "移交检察起诉", emoji: "📁", outcome: { kind: "case", caseId: "case_threat" } },
+    ],
+  },
+  {
+    id: "evt_47",
+    floor: 47,
+    kind: "fraudQuiz",
+    title: "反诈问答",
+    story: "法务审计师出题：'有人高价租你的银行卡，月入 2000，这事能干吗？'",
+    emoji: "❓",
+    color: "#3D8BFD",
+    options: [
+      { id: "fq2_a", label: "绝对不行", desc: "租卡即帮信罪，最高判 3 年", emoji: "✅", outcome: { kind: "score", value: 700 } },
+      { id: "fq2_b", label: "可以试试", desc: "只是过账不会查到", emoji: "❌", outcome: { kind: "hp", value: -40 } },
+      { id: "fq2_c", label: "先收钱再说", desc: "拿了钱再举报", emoji: "💰", outcome: { kind: "hp", value: -20 } },
+    ],
+  },
+  {
+    id: "evt_53",
+    floor: 53,
+    kind: "moralChoice",
+    title: "道德抉择",
+    story: "一位老人执意要给'养生讲座'转账 5 万，儿女拦不住。是否强行介入？",
+    emoji: "👵",
+    color: "#52C41A",
+    options: [
+      { id: "mc2_block", label: "联系银行冻结", desc: "先止损再解释", emoji: "🏦", outcome: { kind: "score", value: 800 } },
+      { id: "mc2_persuade", label: "耐心劝导", desc: "用真实案例说服", emoji: "💬", outcome: { kind: "intel", value: 8 } },
+      { id: "mc2_family", label: "通知家属", desc: "让儿女带老人报警", emoji: "👨‍👩‍👧", outcome: { kind: "codex", codexId: "codex_pensionFraud" } },
+    ],
+  },
+  {
+    id: "evt_57",
+    floor: 57,
+    kind: "resourceTrade",
+    title: "资源交易",
+    story: "黑市情报贩子愿用一份跨境窝点坐标换你的部分得分。成交吗？",
+    emoji: "💱",
+    color: "#B388FF",
+    options: [
+      { id: "rt_deal", label: "成交", desc: "用 300 分换坐标", emoji: "🤝", outcome: { kind: "intel", value: 12 } },
+      { id: "rt_haggle", label: "讨价还价", desc: "争取更优条件", emoji: "💰", outcome: { kind: "intel", value: 8 } },
+      { id: "rt_arrest", label: "就地抓获", desc: "情报贩子本身也违法", emoji: "🚔", outcome: { kind: "score", value: 600 } },
+    ],
+  },
+  {
+    id: "evt_63",
+    floor: 63,
+    kind: "victimRescue",
+    title: "受害人求助",
+    story: "一位宝妈被'退费诈骗'诱导共享屏幕，正在读验证码。如何紧急处置？",
+    emoji: "🤱",
+    color: "#FF7043",
+    options: [
+      { id: "vr2_hangup", label: "让其挂断电话", desc: "立刻切断与骗子的联系", emoji: "📵", outcome: { kind: "score", value: 850 } },
+      { id: "vr2_freeze", label: "指导冻结账户", desc: "立即银行冻结", emoji: "🏦", outcome: { kind: "intel", value: 9 } },
+      { id: "vr2_96110", label: "转接 96110", desc: "反诈专员远程介入", emoji: "📞", outcome: { kind: "case", caseId: "case_refundFraud" } },
+    ],
+  },
+  {
+    id: "evt_68",
+    floor: 68,
+    kind: "clueDiscovery",
+    title: "线索发现",
+    story: "查获一台伪造政务 APP 的服务器，内有 10 万条公民信息。如何优先？",
+    emoji: "💾",
+    color: "#00E5FF",
+    options: [
+      { id: "cd2_data", label: "保护公民信息", desc: "先脱敏再溯源", emoji: "🔒", outcome: { kind: "score", value: 1000 } },
+      { id: "cd2_trace", label: "溯源服务器", desc: "追查幕后团伙", emoji: "🕵️", outcome: { kind: "intel", value: 14 } },
+      { id: "cd2_warn", label: "发布预警", desc: "通知潜在受害人", emoji: "📢", outcome: { kind: "codex", codexId: "codex_fakeGovApp" } },
+    ],
+  },
+  {
+    id: "evt_73",
+    floor: 73,
+    kind: "mysteryBox",
+    title: "数字货币空投",
+    story: "钱包收到一笔'免费空投'，要求授权合约才能领取。领不领？",
+    emoji: "🪙",
+    color: "#FFD666",
+    options: [
+      { id: "ai2_revoke", label: "拒绝并撤销授权", desc: "授权=交出资产控制权", emoji: "✅", outcome: { kind: "score", value: 750 } },
+      { id: "ai2_claim", label: "领取空投", desc: "免费币不要白不要", emoji: "❌", outcome: { kind: "hp", value: -60 } },
+      { id: "ai2_verify", label: "查合约地址", desc: "用 revoke.cash 核实", emoji: "🔍", outcome: { kind: "intel", value: 10 } },
+    ],
+  },
+  {
+    id: "evt_77",
+    floor: 77,
+    kind: "agentEncounter",
+    title: "探员遭遇",
+    story: "AI 鉴伪师带来最新的换脸检测模型，可为本局探员强化。如何赋能？",
+    emoji: "🤖",
+    color: "#A8E6CF",
+    options: [
+      { id: "ae3_shield", label: "部署鉴伪护盾", desc: "全探员回血 40%", emoji: "💚", outcome: { kind: "agentHp", value: 0.4 } },
+      { id: "ae3_bond", label: "强化羁绊协同", desc: "推进羁绊进度 8 击杀", emoji: "🔗", outcome: { kind: "bondsKills", value: 8 } },
+      { id: "ae3_energy", label: "充能鉴伪模型", desc: "获得 50 能量", emoji: "⚡", outcome: { kind: "energy", value: 50 } },
+    ],
+  },
+  {
+    id: "evt_83",
+    floor: 83,
+    kind: "fraudQuiz",
+    title: "反诈问答",
+    story: "校园宣讲官出题：'网友推荐稳赚不赔的理财 APP，群内天天晒单，该跟吗？'",
+    emoji: "❓",
+    color: "#5BC0DE",
+    options: [
+      { id: "fq3_a", label: "坚决不跟", desc: "理财认持牌，晒单多为水军", emoji: "✅", outcome: { kind: "score", value: 800 } },
+      { id: "fq3_b", label: "小额试水", desc: "先投 1000 试试", emoji: "❌", outcome: { kind: "hp", value: -50 } },
+      { id: "fq3_c", label: "查平台资质", desc: "到证监会官网核实", emoji: "🔍", outcome: { kind: "intel", value: 10 } },
+    ],
+  },
+  {
+    id: "evt_87",
+    floor: 87,
+    kind: "moralChoice",
+    title: "道德抉择",
+    story: "跨境围剿中，一名电诈'员工'自称被拐卖入园区，请求保护。是否信任？",
+    emoji: "🌐",
+    color: "#FF8A3D",
+    options: [
+      { id: "mc3_protect", label: "保护并核实", desc: "先救人再查证", emoji: "🛡️", outcome: { kind: "intel", value: 15 } },
+      { id: "mc3_verify", label: "严格审查", desc: "不轻信，先甄别", emoji: "🔍", outcome: { kind: "score", value: 700 } },
+      { id: "mc3_case", label: "建立档案", desc: "移交反拐办", emoji: "📁", outcome: { kind: "case", caseId: "case_kingpin" } },
+    ],
+  },
+  {
+    id: "evt_93",
+    floor: 93,
+    kind: "resourceTrade",
+    title: "资源交易",
+    story: "战间整补：可用分数兑换不同战术资源，为登顶做准备。",
+    emoji: "🛒",
+    color: "#FFD666",
+    options: [
+      { id: "rt2_hp", label: "兑换基地血量", desc: "用分数换 +60 基地血", emoji: "❤️", outcome: { kind: "hp", value: 60 } },
+      { id: "rt2_energy", label: "兑换能量", desc: "用分数换 +50 能量", emoji: "⚡", outcome: { kind: "energy", value: 50 } },
+      { id: "rt2_bond", label: "强化羁绊", desc: "推进羁绊进度 10 击杀", emoji: "🔗", outcome: { kind: "bondsKills", value: 10 } },
+      { id: "rt2_skip", label: "不换", desc: "保留分数", emoji: "⏩", outcome: { kind: "skip" } },
+    ],
+  },
+  {
+    id: "evt_98",
+    floor: 98,
+    kind: "mysteryBox",
+    title: "终极宝箱",
+    story: "登顶前最后一道考验：一个写着'内部数据，开启即通关'的宝箱。如何处置？",
+    emoji: "🗝️",
+    color: "#9D6BFF",
+    options: [
+      { id: "mb2_cautious", label: "谨慎上报", desc: "天上不会掉馅饼", emoji: "🛡️", outcome: { kind: "score", value: 1200 } },
+      { id: "mb2_upgrade", label: "换免费升级", desc: "用宝箱换一次强化", emoji: "⬆️", outcome: { kind: "freeUpgrade" } },
+      { id: "mb2_term", label: "解锁口诀", desc: "宝箱内是反诈心法", emoji: "📜", outcome: { kind: "term", termIdx: 40 } },
+    ],
+  },
+  // ===== v9 商店层（每 20 层一处，花费分数购买强化） =====
+  {
+    id: "evt_shop_12",
+    floor: 12,
+    kind: "shop",
+    title: "战间商店 · 初级",
+    story: "反诈补给站：用分数购买装备，为后续战斗补给。",
+    emoji: "🏪",
+    color: "#FFB020",
+    options: [
+      { id: "s12_relic", label: "能量电池", desc: "遗物·开局能量 +30（500 分）", emoji: "🔋", cost: 500, outcome: { kind: "relic", relicId: "relic_energy_cell" } },
+      { id: "s12_hp", label: "基地维修", desc: "基地血量 +50（300 分）", emoji: "❤️", cost: 300, outcome: { kind: "hp", value: 50 } },
+      { id: "s12_energy", label: "能量包", desc: "能量 +40（200 分）", emoji: "⚡", cost: 200, outcome: { kind: "energy", value: 40 } },
+      { id: "s12_leave", label: "离开商店", desc: "什么都不买", emoji: "🚪", outcome: { kind: "skip" } },
+    ],
+  },
+  {
+    id: "evt_shop_32",
+    floor: 32,
+    kind: "shop",
+    title: "战间商店 · 中级",
+    story: "反诈补给站：中级装备上架，价格略涨。",
+    emoji: "🏪",
+    color: "#FFB020",
+    options: [
+      { id: "s32_relic", label: "连击稳定器", desc: "遗物·连击衰减 +3 秒（800 分）", emoji: "🔗", cost: 800, outcome: { kind: "relic", relicId: "relic_combo_extender" } },
+      { id: "s32_agenthp", label: "探员医疗", desc: "全探员回血 50%（500 分）", emoji: "💚", cost: 500, outcome: { kind: "agentHp", value: 0.5 } },
+      { id: "s32_energy", label: "能量包", desc: "能量 +50（250 分）", emoji: "⚡", cost: 250, outcome: { kind: "energy", value: 50 } },
+      { id: "s32_leave", label: "离开商店", desc: "什么都不买", emoji: "🚪", outcome: { kind: "skip" } },
+    ],
+  },
+  {
+    id: "evt_shop_52",
+    floor: 52,
+    kind: "shop",
+    title: "战间商店 · 高级",
+    story: "反诈补给站：高级装备与战术扩展上架。",
+    emoji: "🏪",
+    color: "#FFB020",
+    options: [
+      { id: "s52_relic", label: "聚变核心", desc: "遗物·开局能量 +60（1200 分）", emoji: "🔆", cost: 1200, outcome: { kind: "relic", relicId: "relic_t2_fusion_core" } },
+      { id: "s52_pierce", label: "穿透弹幕", desc: "遗物·投射物穿透所有敌人（1000 分）", emoji: "➡️", cost: 1000, outcome: { kind: "relic", relicId: "relic_pierce_all" } },
+      { id: "s52_upgrade", label: "战术扩展", desc: "立即免费升级一次（900 分）", emoji: "⬆️", cost: 900, outcome: { kind: "freeUpgrade" } },
+      { id: "s52_leave", label: "离开商店", desc: "什么都不买", emoji: "🚪", outcome: { kind: "skip" } },
+    ],
+  },
+  {
+    id: "evt_shop_72",
+    floor: 72,
+    kind: "shop",
+    title: "战间商店 · 精英",
+    story: "反诈补给站：精英装备上架，含复活装置。",
+    emoji: "🏪",
+    color: "#FFB020",
+    options: [
+      { id: "s72_relic", label: "黄金引擎", desc: "遗物·得分 +40% / 金币 +50%（1500 分）", emoji: "🌟", cost: 1500, outcome: { kind: "relic", relicId: "relic_t2_golden_engine" } },
+      { id: "s72_revive", label: "复活装置", desc: "遗物·基地失守复活一次（1300 分）", emoji: "💗", cost: 1300, outcome: { kind: "relic", relicId: "relic_revive" } },
+      { id: "s72_hp", label: "基地大修", desc: "基地血量 +80（400 分）", emoji: "❤️", cost: 400, outcome: { kind: "hp", value: 80 } },
+      { id: "s72_leave", label: "离开商店", desc: "什么都不买", emoji: "🚪", outcome: { kind: "skip" } },
+    ],
+  },
+  {
+    id: "evt_shop_92",
+    floor: 92,
+    kind: "shop",
+    title: "战间商店 · 登顶",
+    story: "登顶前最后补给：顶级装备上架。",
+    emoji: "🏪",
+    color: "#FFB020",
+    options: [
+      { id: "s92_relic", label: "奇点核心", desc: "遗物·开局能量 +100 / 大招 +60%（2000 分）", emoji: "⚪", cost: 2000, outcome: { kind: "relic", relicId: "relic_t3_singularity" } },
+      { id: "s92_invuln", label: "三秒无敌", desc: "遗物·开局 3 秒探员无敌（1800 分）", emoji: "✨", cost: 1800, outcome: { kind: "relic", relicId: "relic_t3_invincible_3s" } },
+      { id: "s92_agenthp", label: "全员满血", desc: "全探员回血 100%（800 分）", emoji: "💚", cost: 800, outcome: { kind: "agentHp", value: 1.0 } },
+      { id: "s92_leave", label: "离开商店", desc: "什么都不买", emoji: "🚪", outcome: { kind: "skip" } },
+    ],
+  },
 ];
 
 /** 根据层数取事件（floor % 10 !== 0 且 floor % 5 === 0） */
@@ -934,35 +1507,96 @@ export function randomShareTip(): string {
 
 // ====================================================================
 // v7：自适应答题系统（基于错题记录动态调整难度）
+// v10 升级：直接消费 v9 结构化错题本 wrongQuestions，真正还原题面重练
 // ====================================================================
 
 /**
  * 根据错题记录选取下一题
- * - 优先重练错题（连续错误 ≥ 2 次的题目）
- * - 没有错题时按当前难度抽题
- * - 答对后错题计数 -1，答错后 +1
+ * - 优先重练错题（wrongCount 越高，被抽中概率越大，加权抽样）
+ * - 错题来源限定 source="battle" 或 "case"（战间答题/案例复盘产生的错题）
+ * - 没有错题或抽不中时按当前难度抽新题
+ * - 答对后错题计数 -1，答错后 +1（由 platformStore 维护）
+ *
+ * @param baseQuizPicker 调用方传入的常规抽题函数（避免循环依赖）
+ * @param wrongQuestions v9 结构化错题本（含题面/选项/正确答案）
+ * @param wave 当前波数（决定新题难度）
+ * @param seed 随机种子
+ * @param preferSource 可选：优先重练指定来源的错题（如 "case"），缺省=null 不限
  */
 export function pickAdaptiveQuiz(
   baseQuizPicker: (wave: number, seed: string) => QuizQuestion,
-  wrongRecords: Record<string, number>,
+  wrongQuestions: Record<string, WrongQuestionRecord>,
   wave: number,
   seed: string,
+  preferSource?: "battle" | "case" | null,
 ): { question: QuizQuestion; isRetry: boolean } {
-  // 找出连续错误 ≥ 2 次的题目，优先重练
-  const retryCandidates = Object.entries(wrongRecords)
-    .filter(([_, count]) => count >= 2)
-    .map(([id]) => id);
-  if (retryCandidates.length > 0) {
-    // 70% 概率重练错题
-    if (Math.random() < 0.7) {
-      const retryId = retryCandidates[Math.floor(Math.random() * retryCandidates.length)];
-      // 这里需要从 QUIZ_BANK 取题，但为避免循环依赖，由调用方传入
-      // 简化：返回标记，调用方自行处理
-      const baseQuestion = baseQuizPicker(wave, seed);
-      return { question: { ...baseQuestion, id: retryId }, isRetry: true };
+  // 筛选错题：wrongCount ≥ 1，来源为 battle 或 case
+  let retryPool = Object.values(wrongQuestions)
+    .filter((r) => (r.source === "battle" || r.source === "case") && r.wrongCount >= 1);
+
+  // 若指定优先来源，先尝试只从该来源抽
+  if (preferSource) {
+    const preferred = retryPool.filter((r) => r.source === preferSource);
+    if (preferred.length > 0) retryPool = preferred;
+  }
+
+  // 错题越多，重练概率越高（上限 75%），保证新题教学仍占比例
+  const retryChance = Math.min(0.75, 0.35 + retryPool.length * 0.08);
+
+  if (retryPool.length > 0 && Math.random() < retryChance) {
+    // 按 wrongCount 加权抽样：错次越多越可能被抽中
+    const totalWeight = retryPool.reduce((sum, r) => sum + r.wrongCount, 0);
+    let roll = Math.random() * totalWeight;
+    let picked: WrongQuestionRecord = retryPool[0];
+    for (const r of retryPool) {
+      roll -= r.wrongCount;
+      if (roll <= 0) { picked = r; break; }
+    }
+    // 从结构化错题本还原 QuizQuestion
+    const restored = wrongRecordToQuizQuestion(picked, wave);
+    if (restored) {
+      return { question: restored, isRetry: true };
     }
   }
   return { question: baseQuizPicker(wave, seed), isRetry: false };
+}
+
+/**
+ * 将 WrongQuestionRecord 还原为 QuizQuestion
+ * - 修正 v7 旧版"只改 id 不换题面"的 bug
+ * - difficulty 取当前 wave 推算值（错题本身不存 difficulty，避免难度错配）
+ * - correctAnswer 字符串解析回 correctIdx 数字
+ * @returns 还原失败返回 null（字段缺失时回退到新题）
+ */
+function wrongRecordToQuizQuestion(
+  rec: WrongQuestionRecord,
+  wave: number,
+): QuizQuestion | null {
+  if (!rec.questionText || !rec.options || rec.options.length === 0) return null;
+  const correctIdx = parseInt(rec.correctAnswer, 10);
+  if (!Number.isFinite(correctIdx) || correctIdx < 0 || correctIdx >= rec.options.length) {
+    // 多选题 correctAnswer 可能是 "0,2,3" 形式，战间题目前仅单选/判断，取首个
+    const first = parseInt(rec.correctAnswer.split(",")[0] ?? "", 10);
+    if (!Number.isFinite(first)) return null;
+    return {
+      id: rec.questionId,
+      question: rec.questionText,
+      options: rec.options,
+      correctIdx: first,
+      explanation: rec.explanation ?? "（错题解析缺失）请回顾本题考点。",
+      fraudType: rec.category || "通用反诈",
+      difficulty: (wave <= 10 ? 1 : wave <= 20 ? 2 : 3) as 1 | 2 | 3,
+    };
+  }
+  return {
+    id: rec.questionId,
+    question: rec.questionText,
+    options: rec.options,
+    correctIdx,
+    explanation: rec.explanation ?? "（错题解析缺失）请回顾本题考点。",
+    fraudType: rec.category || "通用反诈",
+    difficulty: (wave <= 10 ? 1 : wave <= 20 ? 2 : 3) as 1 | 2 | 3,
+  };
 }
 
 // ====================================================================

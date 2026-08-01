@@ -1,0 +1,1235 @@
+[
+  {
+    "id": "DC-001",
+    "typeId": "F02",
+    "type": "杀猪盘",
+    "title": "优质异性带你投资：从暧昧到收割的完整剧本",
+    "difficulty": 2,
+    "scenario": "30岁单身男性，交友软件遇到优质异性，被带入投资骗局的全过程",
+    "duration": 11,
+    "tags": ["杀猪盘", "情感操控", "投资理财", "高收益"],
+    "updateDate": "2026-07",
+    "severity": 5,
+    "script": [
+      {
+        "from": "scammer",
+        "text": "你好呀，看你头像挺阳光的，喜欢健身吗？我平时也爱运动，刚跑完步回来。",
+        "tactic": "建立人设",
+        "psychology": ["intimacy", "curiosity"],
+        "deconstruct": "骗子用假照片打造'优质异性'人设（健身/旅行/美食），开放式提问引导你回复。陌生人过度热情+完美人设=剧本开端。",
+        "redFlag": 1
+      },
+      {
+        "from": "scammer",
+        "text": "我是做金融分析的，平时工作忙但收入还行。你呢？做什么工作呀？",
+        "tactic": "植入身份背景",
+        "psychology": ["trust", "intimacy"],
+        "deconstruct": "提前铺垫'金融'背景，为后续推荐投资埋伏笔。骗子最爱用人设：金融精英/IT高管/海归创业。正常交友不会主动亮收入。",
+        "redFlag": 2
+      },
+      {
+        "from": "scammer",
+        "text": "这几天看你朋友圈挺压抑的，是不是工作不顺心？我陪你聊聊，做人嘛开心最重要。",
+        "tactic": "情感拉拢",
+        "psychology": ["intimacy", "trust"],
+        "deconstruct": "主动扮演'知心人'，建立情感依赖。骗子会持续嘘寒问暖数周，待你卸下防备再下手。情感升温越快，风险越高。",
+        "redFlag": 2
+      },
+      {
+        "from": "victim",
+        "text": "最近确实压力大，有什么副业推荐吗？想多赚点钱。",
+        "tactic": "受害者上钩",
+        "psychology": ["greed"],
+        "deconstruct": "受害者主动询问副业，骗子判断'猪已养肥'，进入收割阶段。这是骗局转折点。",
+        "redFlag": 0
+      },
+      {
+        "from": "scammer",
+        "text": "我舅舅在金融监管单位，发现了系统漏洞，稳赚不赔，但只能内部人参与。我可以带你。",
+        "tactic": "利益诱惑+稀缺性",
+        "psychology": ["greed", "scarcity", "trust"],
+        "deconstruct": "经典话术三件套：①内部消息/漏洞 ②稳赚不赔 ③限定参与。任何'稳赚不赔'都是诈骗，金融监管漏洞不可能让你薅羊毛。",
+        "redFlag": 5
+      },
+      {
+        "from": "victim",
+        "text": "真的吗？需要多少钱？",
+        "tactic": "受害者上钩",
+        "psychology": ["greed"],
+        "deconstruct": "受害者开始感兴趣，询问门槛。此时骗子已锁定猎物。",
+        "redFlag": 0
+      },
+      {
+        "from": "scammer",
+        "text": "先5000试水，赚到钱你请我吃饭就行。但这件事千万不能告诉别人，监管查到就麻烦了。",
+        "tactic": "小额试水+保密要求",
+        "psychology": ["trust", "fear", "conformity"],
+        "deconstruct": "①小额试水是诱饵，让你尝到甜头 ②保密要求切断你寻求帮助的渠道。任何'保密参与'都是诈骗，正规投资无保密要求。",
+        "redFlag": 5
+      },
+      {
+        "from": "system",
+        "text": "三天后，账户显示盈利2000元，提现秒到账。",
+        "tactic": "制造甜头",
+        "psychology": ["trust", "sunkCost"],
+        "deconstruct": "小额返利是骗局关键环节，让你建立'平台可信'的错觉。骗子的钱就是诱饵，目的是钓大鱼。返利越顺，陷阱越深。",
+        "redFlag": 2
+      },
+      {
+        "from": "scammer",
+        "text": "加大投入博高收益，3万返5万，机会难得，下周漏洞就修复了。",
+        "tactic": "加大收割+稀缺性",
+        "psychology": ["greed", "scarcity", "sunkCost"],
+        "deconstruct": "利用已建立的信任+紧迫感，诱导大额投入。'机会难得''即将修复'是标准催单话术。任何限时博高收益=诈骗。",
+        "redFlag": 5
+      },
+      {
+        "from": "victim",
+        "text": "好，我转账3万，期待5万回报。",
+        "tactic": "受害者深陷",
+        "psychology": ["sunkCost", "greed"],
+        "deconstruct": "受害者被甜头+情感双重裹挟，投入大额资金。此时账户余额是数字游戏，无法提现。",
+        "redFlag": 0
+      },
+      {
+        "from": "scammer",
+        "text": "提现需要缴8%个人所得税和5000反洗钱认证金，缴清后一次性到账。",
+        "tactic": "连环收割",
+        "psychology": ["sunkCost", "fear"],
+        "deconstruct": "提现要交钱=100%诈骗。此时受害者已投入沉没成本，容易继续转账。正规平台税费自动扣除，无需额外缴纳。立即止损报警。",
+        "redFlag": 5
+      }
+    ],
+    "summary": {
+      "totalRedFlags": 4,
+      "keyCues": ["稳赚不赔", "保密参与", "内部消息", "提现缴税", "反洗钱认证金"],
+      "victimProfile": "情感型+贪婪型受害者（单身、渴望情感、追求高收益）",
+      "lesson": "优质异性带投资=杀猪盘，稳赚不赔+保密参与+提现缴税是连环套"
+    }
+  },
+  {
+    "id": "DC-002",
+    "typeId": "F01",
+    "type": "冒充公检法",
+    "title": "涉嫌洗钱案：从警官来电到安全账户转账的完整剧本",
+    "difficulty": 2,
+    "scenario": "上班族接到自称公安局电话，被指控涉嫌洗钱，逐步被诱导转账自证清白",
+    "duration": 12,
+    "tags": ["冒充公检法", "电话办案", "安全账户", "恐吓"],
+    "updateDate": "2026-07",
+    "severity": 5,
+    "script": [
+      {
+        "from": "system",
+        "text": "午休时接到自称'市公安局刑侦支队'的电话，来电显示为带+号的境外号码。",
+        "tactic": "来电伪装",
+        "psychology": ["authority", "fear"],
+        "deconstruct": "公检法不会用境外号码来电。+号开头、00开头都是境外号码，自称国内公检法的=诈骗。",
+        "redFlag": 1
+      },
+      {
+        "from": "scammer",
+        "text": "你是XXX吗？身份证号XXXX，你名下银行卡涉嫌洗钱200万，现对你立案侦查。",
+        "tactic": "权威压迫+精准信息",
+        "psychology": ["authority", "fear"],
+        "deconstruct": "骗子通过黑产获取你的精准信息制造可信度。但真警察不会电话立案，立案必当面送达文书。",
+        "redFlag": 3
+      },
+      {
+        "from": "victim",
+        "text": "我没做过啊，这是怎么回事？",
+        "tactic": "受害者恐慌",
+        "psychology": ["fear"],
+        "deconstruct": "受害者陷入恐慌，理性思考能力下降。骗子正是利用恐惧让你失去判断力。",
+        "redFlag": 0
+      },
+      {
+        "from": "scammer",
+        "text": "案件涉密，不能告诉任何人，包括家人和单位，否则追究你泄露机密的法律责任。",
+        "tactic": "保密要求+恐吓",
+        "psychology": ["fear", "conformity"],
+        "deconstruct": "保密要求是切断你求助渠道的关键话术。真警察办案不会禁止你告知家人。任何'案件保密'都是诈骗。",
+        "redFlag": 5
+      },
+      {
+        "from": "scammer",
+        "text": "加我QQ接收'逮捕令'和'通缉令'，你自己看看涉案多严重。",
+        "tactic": "视觉恐吓",
+        "psychology": ["authority", "fear"],
+        "deconstruct": "骗子用PS的假文书恐吓你。真逮捕令由公安机关当面送达，不会通过QQ发送。看到'通缉令'截图=诈骗。",
+        "redFlag": 4
+      },
+      {
+        "from": "scammer",
+        "text": "现在进行视频办案，你找个没人的房间，对着摄像头做笔录。",
+        "tactic": "假冒办案流程",
+        "psychology": ["authority", "fear"],
+        "deconstruct": "公检法不进行视频办案，笔录必须当面进行。'视频办案''隔离做笔录'都是骗子让你与外界断联的手段。",
+        "redFlag": 4
+      },
+      {
+        "from": "victim",
+        "text": "我配合调查，要怎么做才能证明清白？",
+        "tactic": "受害者配合",
+        "psychology": ["fear", "authority"],
+        "deconstruct": "受害者急于自证清白，正中骗子下怀。记住：清白不需要用钱证明。",
+        "redFlag": 0
+      },
+      {
+        "from": "scammer",
+        "text": "把所有资金转入我们指定的'安全账户'清查，确认与案件无关后原路退回。",
+        "tactic": "安全账户转账",
+        "psychology": ["authority", "fear", "urgency"],
+        "deconstruct": "不存在'安全账户'！这是诈骗核心话术。公安机关不会要求公民转账至任何账户。听到'安全账户'立即挂断。",
+        "redFlag": 5
+      },
+      {
+        "from": "scammer",
+        "text": "下载'检务通'APP，按指引操作，全程配合我们的资金清查。",
+        "tactic": "远程控制+假APP",
+        "psychology": ["authority", "fear"],
+        "deconstruct": "'检务通''公安认证'等APP全是假的，用于窃取你的银行信息或远程控制手机。正规办案不要求下载任何APP。",
+        "redFlag": 5
+      },
+      {
+        "from": "scammer",
+        "text": "你晚一分钟转，就多一分钟涉案嫌疑，立即操作！",
+        "tactic": "紧迫催促",
+        "psychology": ["urgency", "fear"],
+        "deconstruct": "骗子用紧迫感阻止你思考和核实。真警察会给你充分时间，不会催促转账。任何'立即转账'要求=诈骗。",
+        "redFlag": 5
+      },
+      {
+        "from": "victim",
+        "text": "好，我现在就转，能不能晚点还给我？",
+        "tactic": "受害者深陷",
+        "psychology": ["fear", "authority"],
+        "deconstruct": "受害者已被恐惧+权威双重裹挟，准备转账。这是最后止损窗口。",
+        "redFlag": 0
+      },
+      {
+        "from": "system",
+        "text": "正确做法：挂断电话，立即拨打96110或到就近派出所核实。",
+        "tactic": "正确应对",
+        "psychology": ["trust"],
+        "deconstruct": "96110是全国反诈专线。任何自称公检法的电话，都应挂断后通过96110或就近派出所核实。真警察会让你当面配合。",
+        "redFlag": 0
+      }
+    ],
+    "summary": {
+      "totalRedFlags": 4,
+      "keyCues": ["境外号码", "电话立案", "案件保密", "逮捕令", "视频办案", "安全账户", "检务通APP"],
+      "victimProfile": "权威服从型受害者（遵纪守法、对公权力高度信任、缺乏反诈知识）",
+      "lesson": "公检法不电话办案、无安全账户、无视频办案，任何要求转账的都是诈骗"
+    }
+  },
+  {
+    "id": "DC-003",
+    "typeId": "F03",
+    "type": "刷单返利",
+    "title": "轻松兼职日入800：从点赞返佣到连环垫付的完整剧本",
+    "difficulty": 3,
+    "scenario": "大学生在兼职群看到点赞关注返佣，从5元小利到垫付数万的完整套路",
+    "duration": 12,
+    "tags": ["刷单", "垫付", "卡单", "解冻金"],
+    "updateDate": "2026-07",
+    "severity": 5,
+    "script": [
+      {
+        "from": "system",
+        "text": "兼职群看到广告：'点赞关注日结300-800，手机操作时间自由，无需押金'。",
+        "tactic": "群内引流",
+        "psychology": ["greed", "conformity"],
+        "deconstruct": "刷单本身就是违法行为。任何'轻松高薪手机操作'的兼职都要警惕，群内多人晒单是骗子群演。",
+        "redFlag": 2
+      },
+      {
+        "from": "scammer",
+        "text": "先做几单试试，关注这几个公众号，每单返5元，做完秒结。",
+        "tactic": "小利试水",
+        "psychology": ["greed", "trust"],
+        "deconstruct": "前几单确实返钱，这是建立信任的关键。骗子用5元、10元钓大鱼。返佣越痛快，陷阱越大。",
+        "redFlag": 2
+      },
+      {
+        "from": "system",
+        "text": "三单后，确实收到5元、8元、10元返佣，秒到账。",
+        "tactic": "制造甜头",
+        "psychology": ["trust", "sunkCost"],
+        "deconstruct": "真实返现是骗局最强诱饵。但这5元、10元是诱饵成本，目的是让你垫付数千数万。",
+        "redFlag": 2
+      },
+      {
+        "from": "victim",
+        "text": "还真给钱了，怎么赚更多？",
+        "tactic": "受害者上钩",
+        "psychology": ["greed"],
+        "deconstruct": "受害者尝到甜头，主动求'升级'，进入垫付阶段。这是骗局转折点。",
+        "redFlag": 0
+      },
+      {
+        "from": "scammer",
+        "text": "现在做连单任务，垫付500返650，3分钟到账，比点赞赚得多多了。",
+        "tactic": "垫付连单",
+        "psychology": ["greed", "sunkCost"],
+        "deconstruct": "从'点赞返佣'升级到'垫付任务'是刷单骗局的标志。任何需要你先垫钱的兼职都是诈骗。",
+        "redFlag": 4
+      },
+      {
+        "from": "victim",
+        "text": "好，我垫付500，等返650。",
+        "tactic": "受害者配合",
+        "psychology": ["greed", "sunkCost"],
+        "deconstruct": "受害者首次垫付，进入收割阶段。500元是新的诱饵。",
+        "redFlag": 0
+      },
+      {
+        "from": "scammer",
+        "text": "系统提示你操作失误导致任务卡单，需再垫付3000解冻，才能一并提现，否则本金无法退回。",
+        "tactic": "卡单解冻",
+        "psychology": ["fear", "sunkCost"],
+        "deconstruct": "'操作失误''卡单''解冻金'是刷单诈骗标准话术。所谓失误是骗子编造的，目的是套更多钱。听到'卡单'立即止损。",
+        "redFlag": 5
+      },
+      {
+        "from": "victim",
+        "text": "那我再垫3000解冻。",
+        "tactic": "受害者深陷",
+        "psychology": ["sunkCost", "fear"],
+        "deconstruct": "受害者被沉没成本裹挟继续转账。记住：任何继续转账都是扩大损失。",
+        "redFlag": 0
+      },
+      {
+        "from": "scammer",
+        "text": "系统判定你操作超时，需再垫付8000才能一并提现，这是最后一次。",
+        "tactic": "连环收割",
+        "psychology": ["fear", "sunkCost", "urgency"],
+        "deconstruct": "'最后一次'是标准话术，骗完这次还有下一次。提现门槛只会越来越高，永远提不出来。",
+        "redFlag": 5
+      },
+      {
+        "from": "scammer",
+        "text": "不继续转账，本金全部作废，还会被起诉违约。",
+        "tactic": "恐吓止损",
+        "psychology": ["fear", "sunkCost"],
+        "deconstruct": "骗子用'本金作废''起诉违约'恐吓你继续。实际上本金早已被吞，继续转账只会扩大损失。",
+        "redFlag": 5
+      },
+      {
+        "from": "victim",
+        "text": "那我借钱也要解冻……",
+        "tactic": "受害者深陷",
+        "psychology": ["sunkCost", "fear"],
+        "deconstruct": "受害者被'解冻就返现'的虚假承诺裹挟，开始借贷转账。这是倾家荡产的开端。",
+        "redFlag": 0
+      },
+      {
+        "from": "system",
+        "text": "正确做法：识别'卡单''解冻'话术立即停止，保留证据报警。刷单本身违法，不受法律保护。",
+        "tactic": "正确应对",
+        "psychology": ["trust"],
+        "deconstruct": "刷单兼职100%是诈骗，且刷单本身违法。任何需要垫付的兼职都是骗局，发现立即止损报警。",
+        "redFlag": 0
+      }
+    ],
+    "summary": {
+      "totalRedFlags": 3,
+      "keyCues": ["点赞返佣", "连单任务", "垫付", "操作失误", "卡单", "解冻金", "本金作废"],
+      "victimProfile": "贪婪型+从众型受害者（学生、宝妈、求职者、急需副业收入）",
+      "lesson": "刷单100%是诈骗，垫付即陷阱，'卡单解冻'是连环收割信号"
+    }
+  },
+  {
+    "id": "DC-004",
+    "typeId": "F45",
+    "type": "AI换脸冒充领导",
+    "title": "领导视频急令代转账：AI换脸冒充CEO的完整剧本",
+    "difficulty": 3,
+    "scenario": "公司财务接到'CEO'微信，AI换脸视频通话后紧急要求代转客户款项",
+    "duration": 12,
+    "tags": ["AI换脸", "冒充领导", "代转账", "视频通话"],
+    "updateDate": "2026-07",
+    "severity": 5,
+    "script": [
+      {
+        "from": "system",
+        "text": "微信收到'王总'添加好友请求，头像与公司CEO本人一致，昵称显示'王XX-XX集团'。",
+        "tactic": "假冒身份",
+        "psychology": ["trust", "authority"],
+        "deconstruct": "骗子盗用领导头像、昵称建假账号。收到'领导''客户'好友请求，必须通过原渠道核实身份。",
+        "redFlag": 2
+      },
+      {
+        "from": "scammer",
+        "text": "小李，我在开重要会议不方便接电话，加你微信交代个事。",
+        "tactic": "紧急情境+规避核实",
+        "psychology": ["urgency", "authority"],
+        "deconstruct": "'开会不便接电话'是规避语音核实的标准话术。真领导如有急事会自己打电话，不会让你无法回拨。",
+        "redFlag": 3
+      },
+      {
+        "from": "victim",
+        "text": "王总好，有什么事？",
+        "tactic": "受害者上钩",
+        "psychology": ["authority", "trust"],
+        "deconstruct": "受害者基于对领导的信任放下戒备。涉及转账必须多重核实，不能因对方是'领导'就放松警惕。",
+        "redFlag": 0
+      },
+      {
+        "from": "scammer",
+        "text": "现在有个紧急客户款项5万要走你账户代转，会议结束我给你报销。",
+        "tactic": "紧急转账",
+        "psychology": ["urgency", "authority"],
+        "deconstruct": "'紧急''代转''会议结束报销'是冒充领导三件套。任何领导通过新微信要求代转账都高度可疑。",
+        "redFlag": 4
+      },
+      {
+        "from": "scammer",
+        "text": "我视频通话跟你说一下，避免误会。",
+        "tactic": "AI视频伪装",
+        "psychology": ["trust", "authority"],
+        "deconstruct": "骗子主动视频以打消疑虑，因为2026年AI实时换脸已可伪造视频通话。视频不再是身份证明。",
+        "redFlag": 3
+      },
+      {
+        "from": "system",
+        "text": "视频接通，画面是'王总'本人，但眨眼频率偏低，转头时耳朵轮廓略有变形，画面偶尔细微卡顿。",
+        "tactic": "AI换脸破绽",
+        "psychology": ["trust"],
+        "deconstruct": "AI换脸常见破绽：眨眼频率低、口型与声音略有偏差、转头时轮廓变形、画面卡顿。发现这些=AI换脸。",
+        "redFlag": 4
+      },
+      {
+        "from": "victim",
+        "text": "视频里确实是王总，那我转账。",
+        "tactic": "受害者误信",
+        "psychology": ["trust", "authority"],
+        "deconstruct": "受害者被视频欺骗。AI换脸已能伪造实时视频，视频不是身份证明，涉及转账必须二次核实。",
+        "redFlag": 0
+      },
+      {
+        "from": "scammer",
+        "text": "客户等着收款，你赶紧转，会议结束我给你报销。",
+        "tactic": "紧迫催促",
+        "psychology": ["urgency", "authority"],
+        "deconstruct": "骗子用紧迫感阻止你思考和核实。真领导会理解核实流程，催促转账=诈骗。",
+        "redFlag": 5
+      },
+      {
+        "from": "scammer",
+        "text": "这事别跟别人提，会议机密，财务那边也别走流程了。",
+        "tactic": "保密要求+规避流程",
+        "psychology": ["fear", "conformity", "authority"],
+        "deconstruct": "保密要求是切断你向同事核实的渠道。任何要求绕过公司财务流程的'领导指令'都是诈骗。",
+        "redFlag": 5
+      },
+      {
+        "from": "scammer",
+        "text": "你按这个账号5万转过去，截图发我，会议结束我签字报销。",
+        "tactic": "规避核实",
+        "psychology": ["urgency", "authority"],
+        "deconstruct": "骗子指定陌生账户+截图交付，规避银行转账的实名核实。任何'代转到陌生账户'都高度可疑。",
+        "redFlag": 5
+      },
+      {
+        "from": "victim",
+        "text": "好的王总，我现在就转。",
+        "tactic": "受害者深陷",
+        "psychology": ["authority", "trust"],
+        "deconstruct": "受害者被紧迫感+权威+视频伪装多重裹挟，准备转账。这是最后止损窗口。",
+        "redFlag": 0
+      },
+      {
+        "from": "system",
+        "text": "正确做法：挂断视频，用通讯录中领导原号码电话核实，或当面找领导确认。",
+        "tactic": "正确应对",
+        "psychology": ["trust"],
+        "deconstruct": "AI换脸可伪造视频，但无法接管领导原有号码。涉及转账必须挂断后用通讯录原号码电话核实。",
+        "redFlag": 0
+      }
+    ],
+    "summary": {
+      "totalRedFlags": 3,
+      "keyCues": ["假冒微信", "开会不便接电话", "代转账", "AI换脸视频", "眨眼频率低", "保密要求", "陌生账户"],
+      "victimProfile": "权威服从型受害者（财务、行政、新员工、对领导指令高度服从）",
+      "lesson": "AI换脸可伪造视频通话，任何领导转账要求必须挂断后用原号码电话核实"
+    }
+  },
+  {
+    "id": "DC-005",
+    "typeId": "F88",
+    "type": "虚假投资平台-USDT代挖",
+    "title": "USDT代挖月化20%：从群友晒单到提现缴税的完整剧本",
+    "difficulty": 3,
+    "scenario": "币圈新手在群内看到USDT代挖晒单，被诱导入金试水到大额投入的完整套路",
+    "duration": 12,
+    "tags": ["USDT", "代挖", "虚拟币", "虚假平台", "高收益"],
+    "updateDate": "2026-07",
+    "severity": 5,
+    "script": [
+      {
+        "from": "system",
+        "text": "在币圈交流群看到群友频繁晒'USDT代挖日入过万'收益截图，多人响应'真的赚到'。",
+        "tactic": "群友晒单+托儿造势",
+        "psychology": ["greed", "conformity"],
+        "deconstruct": "群里晒单的'群友'多是骗子群演。任何高收益晒单+多人附和的群都是诈骗温床。",
+        "redFlag": 2
+      },
+      {
+        "from": "scammer",
+        "text": "我做USDT代挖一年了，平台稳赚不赔，月化20%，比炒币稳多了。",
+        "tactic": "利益诱惑",
+        "psychology": ["greed", "trust"],
+        "deconstruct": "虚拟币无'稳赚不赔'。月化20%意味着年化800%，远超任何合法投资。任何'稳赚不赔'都是诈骗。",
+        "redFlag": 3
+      },
+      {
+        "from": "scammer",
+        "text": "我发你我的收益截图，上周赚了3万，平台提现秒到账。",
+        "tactic": "证明可信",
+        "psychology": ["trust", "greed"],
+        "deconstruct": "收益截图可PS，提现记录可伪造。骗子还会用真实小额提现钓大鱼。截图不是证据。",
+        "redFlag": 3
+      },
+      {
+        "from": "victim",
+        "text": "怎么参与？需要什么条件？",
+        "tactic": "受害者上钩",
+        "psychology": ["greed"],
+        "deconstruct": "受害者主动询问参与方式，进入收割阶段。",
+        "redFlag": 0
+      },
+      {
+        "from": "scammer",
+        "text": "先入金1000U试水，24小时返1200U，平台自动结算，无需操作。",
+        "tactic": "小额试水",
+        "psychology": ["greed", "trust"],
+        "deconstruct": "1000U是诱饵。骗子会让你真实提现200U，建立信任后诱导大额入金。试水金额越小，陷阱越大。",
+        "redFlag": 3
+      },
+      {
+        "from": "system",
+        "text": "24小时后，账户显示盈利200U，申请提现秒到账。",
+        "tactic": "制造甜头",
+        "psychology": ["trust", "sunkCost"],
+        "deconstruct": "真实返现是骗局最强诱饵。这200U是钓大鱼的饵料，平台余额是数字游戏，大额入金后无法提现。",
+        "redFlag": 2
+      },
+      {
+        "from": "victim",
+        "text": "还真赚钱，那我加大投入。",
+        "tactic": "受害者深陷",
+        "psychology": ["greed", "sunkCost"],
+        "deconstruct": "受害者被甜头+沉没成本双重裹挟，准备大额投入。这是骗局转折点。",
+        "redFlag": 0
+      },
+      {
+        "from": "scammer",
+        "text": "现在有VIP通道，入金5万U月化30%，名额有限，下周截止。",
+        "tactic": "大额收割+稀缺性",
+        "psychology": ["greed", "scarcity"],
+        "deconstruct": "'VIP通道''名额有限''即将截止'是标准催单话术。任何限时高收益通道=诈骗。",
+        "redFlag": 5
+      },
+      {
+        "from": "victim",
+        "text": "好，我转入5万U。",
+        "tactic": "受害者深陷",
+        "psychology": ["sunkCost", "greed"],
+        "deconstruct": "受害者投入大额资金。账户余额会显示暴利，但无法提现。",
+        "redFlag": 0
+      },
+      {
+        "from": "scammer",
+        "text": "提现需缴10%个人所得税和1万U反洗钱认证金，缴清后一次性到账。",
+        "tactic": "连环收割",
+        "psychology": ["sunkCost", "fear"],
+        "deconstruct": "提现要交钱=100%诈骗。正规平台税费自动扣除，无需额外缴纳。虚拟币平台要求缴税=诈骗。",
+        "redFlag": 5
+      },
+      {
+        "from": "scammer",
+        "text": "不缴税资金将被冻结，涉嫌洗钱将上报司法机关追究责任。",
+        "tactic": "恐吓止损",
+        "psychology": ["fear", "sunkCost"],
+        "deconstruct": "骗子用'冻结资金''上报司法'恐吓你继续缴款。实际上资金早已被吞，继续缴款只会扩大损失。",
+        "redFlag": 5
+      },
+      {
+        "from": "system",
+        "text": "正确做法：识别'稳赚不赔''提现缴税'立即止损，保留证据向公安机关和12321举报。",
+        "tactic": "正确应对",
+        "psychology": ["trust"],
+        "deconstruct": "虚拟币投资骗局特征：私下引流+稳赚不赔+提现缴税。发现任一信号立即止损，不要被沉没成本裹挟。",
+        "redFlag": 0
+      }
+    ],
+    "summary": {
+      "totalRedFlags": 3,
+      "keyCues": ["USDT代挖", "稳赚不赔", "月化20%", "VIP通道", "名额有限", "提现缴税", "反洗钱认证金"],
+      "victimProfile": "贪婪型+从众型受害者（币圈新手、追求高收益、易被晒单影响）",
+      "lesson": "虚拟币无稳赚不赔，私下引流+提现缴税=虚假投资平台诈骗"
+    }
+  },
+  {
+    "id": "DC-006",
+    "typeId": "F110",
+    "type": "AI客服冒充退款",
+    "title": "订单甲醛超标理赔：AI仿声客服+共享屏幕盗刷的完整剧本",
+    "difficulty": 4,
+    "scenario": "宝妈接到精准报出订单的'电商平台客服'电话，被AI仿声客服诱导共享屏幕盗刷账户",
+    "duration": 12,
+    "tags": ["AI仿声", "冒充客服", "共享屏幕", "甲醛理赔", "盗刷"],
+    "updateDate": "2026-07",
+    "severity": 5,
+    "script": [
+      {
+        "from": "system",
+        "text": "接到自称某电商平台客服电话，对方准确报出你购买的婴儿奶粉品牌、订单号、收货地址。",
+        "tactic": "订单泄露+精准信息",
+        "psychology": ["trust", "fear"],
+        "deconstruct": "骗子通过黑产获取你的真实订单信息制造可信度。但正规客服不会主动电话联系订单问题，订单异常平台会App内通知。",
+        "redFlag": 2
+      },
+      {
+        "from": "scammer",
+        "text": "您购买的婴儿奶粉检测出甲醛超标，我们启动专项理赔，3倍退款到您账户。",
+        "tactic": "商品问题+理赔诱惑",
+        "psychology": ["trust", "fear", "greed"],
+        "deconstruct": "甲醛超标+3倍理赔是经典话术。正规商品问题退款原路返回，不会要求你操作转账或共享屏幕。",
+        "redFlag": 3
+      },
+      {
+        "from": "scammer",
+        "text": "我发您订单截图和检测报告，您看看确认下。",
+        "tactic": "假冒身份+视觉证明",
+        "psychology": ["trust"],
+        "deconstruct": "骗子用PS的检测报告增加可信度。正规平台商品检测报告不会通过私人渠道发送。",
+        "redFlag": 2
+      },
+      {
+        "from": "victim",
+        "text": "怎么理赔？需要我做什么？",
+        "tactic": "受害者上钩",
+        "psychology": ["curiosity", "greed"],
+        "deconstruct": "受害者被'理赔'吸引，主动配合。这是骗局转折点。",
+        "redFlag": 0
+      },
+      {
+        "from": "scammer",
+        "text": "我们AI智能客服给您处理，请下载'理赔助手'APP，全程自动化办理。",
+        "tactic": "AI仿声+假APP",
+        "psychology": ["trust", "authority"],
+        "deconstruct": "正规平台不会要求下载第三方APP处理退款。任何'理赔助手''认证APP'都是骗子开发的恶意软件。",
+        "redFlag": 4
+      },
+      {
+        "from": "system",
+        "text": "AI语音客服声音与平台官方客服一致，语调自然，难以分辨真假。",
+        "tactic": "AI仿声伪装",
+        "psychology": ["trust"],
+        "deconstruct": "2026年AI仿声已能完美模仿官方客服声音。声音不再是身份证明，必须通过官方App内客服核实。",
+        "redFlag": 4
+      },
+      {
+        "from": "scammer",
+        "text": "为保障理赔资金安全，请打开屏幕共享，我指导您操作理赔流程。",
+        "tactic": "共享屏幕",
+        "psychology": ["authority", "trust"],
+        "deconstruct": "屏幕共享=骗子能看到你手机所有信息，包括密码、验证码、银行卡号。任何客服要求屏幕共享=诈骗。",
+        "redFlag": 5
+      },
+      {
+        "from": "victim",
+        "text": "我打开屏幕共享了，下一步怎么做？",
+        "tactic": "受害者配合",
+        "psychology": ["trust", "authority"],
+        "deconstruct": "屏幕共享一旦开启，骗子已掌握你手机全部信息。立即关闭屏幕共享是止损关键。",
+        "redFlag": 0
+      },
+      {
+        "from": "scammer",
+        "text": "请把刚收到的验证码读给我，我帮您绑定理赔账户，加快到账。",
+        "tactic": "盗取验证码",
+        "psychology": ["authority", "urgency"],
+        "deconstruct": "验证码是资金最后一道防线，任何索要验证码的'客服'都是骗子。验证码绝不告诉任何人。",
+        "redFlag": 5
+      },
+      {
+        "from": "scammer",
+        "text": "理赔款已到账，您查收一下，后续问题我们再联系。",
+        "tactic": "制造假象+拖延",
+        "psychology": ["trust"],
+        "deconstruct": "骗子用'已到账'让你放松警惕，为你发现被盗刷争取时间。实际上账户正在被洗劫。",
+        "redFlag": 5
+      },
+      {
+        "from": "system",
+        "text": "短信提示：您的账户被转账5万元，余额已清零。",
+        "tactic": "盗刷完成",
+        "psychology": ["fear"],
+        "deconstruct": "屏幕共享+验证码泄露=账户被洗劫。任何客服要求屏幕共享+验证码=盗刷诈骗。",
+        "redFlag": 5
+      },
+      {
+        "from": "system",
+        "text": "正确做法：挂断电话，打开官方App内客服核实，关闭屏幕共享，冻结账户，报警。",
+        "tactic": "正确应对",
+        "psychology": ["trust"],
+        "deconstruct": "任何自称客服的电话都要通过官方App内客服核实。屏幕共享+验证码=盗刷，发现立即冻结账户报警。",
+        "redFlag": 0
+      }
+    ],
+    "summary": {
+      "totalRedFlags": 4,
+      "keyCues": ["订单泄露", "甲醛超标", "3倍理赔", "AI客服", "理赔助手APP", "屏幕共享", "验证码"],
+      "victimProfile": "信任型+恐惧型受害者（宝妈、消费者、对商品安全敏感、缺乏数字安全意识）",
+      "lesson": "客服退款原路返回，屏幕共享+验证码=盗刷，任何客服索要验证码都是诈骗"
+    }
+  },
+  {
+    "id": "DC-007",
+    "typeId": "F78",
+    "type": "AI拟声绑架诈骗",
+    "title": "儿子急要培训费：AI拟声伪造亲人声音的完整剧本",
+    "difficulty": 4,
+    "scenario": "父亲半夜接到'儿子'陌生号码电话，AI拟声伪造声音紧急索要培训费",
+    "duration": 11,
+    "tags": ["AI拟声", "冒充亲人", "紧急培训费", "保密要求"],
+    "updateDate": "2026-07",
+    "severity": 5,
+    "script": [
+      {
+        "from": "system",
+        "text": "半夜接到陌生号码电话，传来'儿子'急切的声音。",
+        "tactic": "陌生来电+异常时间",
+        "psychology": ["fear", "urgency"],
+        "deconstruct": "陌生号码+异常时间+亲人声音=AI拟声诈骗典型特征。亲人用陌生号码来电务必核实。",
+        "redFlag": 2
+      },
+      {
+        "from": "scammer",
+        "text": "（AI拟声）爸，我手机摔坏了借同学电话，学校组织紧急培训要交2万，名额有限今晚必须交。",
+        "tactic": "AI拟声+紧急费用",
+        "psychology": ["urgency", "intimacy"],
+        "deconstruct": "AI拟声已能用3秒语音样本完美模仿亲人声音。'手机摔坏借同学电话'是规避回拨核实的标准话术。",
+        "redFlag": 3
+      },
+      {
+        "from": "scammer",
+        "text": "（AI拟声）名额有限，今晚必须交，不然就被淘汰，错过这次就没机会了。",
+        "tactic": "紧迫催促+稀缺性",
+        "psychology": ["urgency", "scarcity"],
+        "deconstruct": "'今晚必须交''名额有限'是制造紧迫感。任何要求立即转账的'紧急费用'都要核实。",
+        "redFlag": 4
+      },
+      {
+        "from": "victim",
+        "text": "这么急？我跟你妈商量下。",
+        "tactic": "受害者求证",
+        "psychology": ["trust"],
+        "deconstruct": "受害者提出与家人商量，骗子会立即用保密话术阻断。这是骗子的薄弱环节。",
+        "redFlag": 0
+      },
+      {
+        "from": "scammer",
+        "text": "（AI拟声）千万别告诉妈，她肯定不同意，求你了爸，我真的很想参加这次培训。",
+        "tactic": "保密要求+情感操控",
+        "psychology": ["intimacy", "fear"],
+        "deconstruct": "保密要求是切断你向家人核实的渠道。任何'别告诉家人'的紧急费用=诈骗。真培训不会禁止告知家人。",
+        "redFlag": 5
+      },
+      {
+        "from": "scammer",
+        "text": "（AI拟声）老师催我了，半小时内必须到账，不然名额就给别的同学了。",
+        "tactic": "紧迫催促",
+        "psychology": ["urgency", "fear"],
+        "deconstruct": "骗子用紧迫感阻止你思考和核实。任何'半小时内必须转账'的紧急费用都要核实。",
+        "redFlag": 5
+      },
+      {
+        "from": "victim",
+        "text": "好，我转账，账号发我。",
+        "tactic": "受害者配合",
+        "psychology": ["urgency", "intimacy"],
+        "deconstruct": "受害者被紧迫感+亲情双重裹挟，准备转账。这是最后止损窗口。",
+        "redFlag": 0
+      },
+      {
+        "from": "system",
+        "text": "父亲转账前犹豫，想起社区反诈宣传'亲人急要钱，先回拨原号码核实'。",
+        "tactic": "反诈意识觉醒",
+        "psychology": ["fear"],
+        "deconstruct": "反诈宣传的关键防线：亲人急要钱，挂断电话用通讯录原号码回拨核实。AI拟声无法接管亲人原号码。",
+        "redFlag": 0
+      },
+      {
+        "from": "system",
+        "text": "父亲挂断电话，用通讯录中儿子原号码回拨。",
+        "tactic": "正确核实",
+        "psychology": ["fear"],
+        "deconstruct": "用通讯录原号码回拨是识破AI拟声诈骗的关键。AI拟声只能伪造声音，无法接管亲人原号码。",
+        "redFlag": 0
+      },
+      {
+        "from": "victim",
+        "text": "儿子接电话：'爸？我在宿舍睡觉呢，手机没坏，没报什么培训。'",
+        "tactic": "识破骗局",
+        "psychology": ["trust"],
+        "deconstruct": "原号码回拨立即识破骗局。亲人急要钱，先回拨原号码核实，这是反诈铁律。",
+        "redFlag": 0
+      },
+      {
+        "from": "system",
+        "text": "立即报警，警方确认是AI拟声诈骗，与多起同类案件并案侦查。",
+        "tactic": "报警识破",
+        "psychology": ["trust"],
+        "deconstruct": "AI拟声诈骗2026年高发，3秒语音样本即可伪造。亲人急要钱，挂断用原号码回拨核实，发现可疑立即报警。",
+        "redFlag": 0
+      }
+    ],
+    "summary": {
+      "totalRedFlags": 2,
+      "keyCues": ["陌生号码", "手机摔坏借同学电话", "AI拟声", "紧急培训费", "半小时必须到账", "别告诉妈"],
+      "victimProfile": "情感型+焦虑型受害者（父母、对子女关心紧张、夜间判断力下降）",
+      "lesson": "AI拟声可伪造亲人声音，亲人急要钱必须挂断后用通讯录原号码回拨核实"
+    }
+  },
+  {
+    "id": "DC-008",
+    "typeId": "F116",
+    "type": "AI实时换脸视频通话",
+    "title": "老板视频急令转账：AI换脸冒充CEO的完整剧本",
+    "difficulty": 4,
+    "scenario": "财务人员收到\"老板\"视频会议紧急转账要求，AI换脸+拟声以假乱真",
+    "duration": 8,
+    "tags": ["AI换脸", "冒充领导", "紧急转账", "视频会议"],
+    "updateDate": "2026-10",
+    "severity": 5,
+    "script": [
+      {
+        "from": "scammer",
+        "text": "小王，开下视频会议，有个客户合同要立即付款10万，2分钟内必须到账，超时丢单你负责。",
+        "tactic": "紧急催促+权威压迫",
+        "psychology": ["urgency", "authority", "fear"],
+        "deconstruct": "骗子开场即三件套：①视频会议（展示换脸画面）②紧急时间（2分钟）③责任威胁（你负责）。任何'立即+超时负责'的话术都是诈骗信号。",
+        "redFlag": 3
+      },
+      {
+        "from": "victim",
+        "text": "好的老板，我马上开。但走流程需要您邮件审批和财务总监会签。",
+        "tactic": "受害者按流程",
+        "psychology": ["trust"],
+        "deconstruct": "财务人员本能按流程走，正确做法。骗子会立即施压绕过流程。",
+        "redFlag": 0
+      },
+      {
+        "from": "scammer",
+        "text": "别走流程了！客户急着签约，我口头批准就行，财务总监那里我打过招呼了。你直接转账，账号我私发你微信。",
+        "tactic": "绕过流程+身份背书",
+        "psychology": ["authority", "urgency"],
+        "deconstruct": "致命红旗：①绕过财务流程 ②口头批准替代书面 ③声称已打招呼（无法核实）④私人渠道发账号。任何'绕过流程+口头批准'都100%是诈骗。",
+        "redFlag": 5
+      },
+      {
+        "from": "victim",
+        "text": "老板，画面确实是你。但是这个金额走流程是公司规定，您能发个邮件确认下吗？",
+        "tactic": "受害者二次确认",
+        "psychology": ["trust"],
+        "deconstruct": "受害者因视频面容真实而犹豫，但仍坚持流程。这是正确的防御姿态。",
+        "redFlag": 0
+      },
+      {
+        "from": "scammer",
+        "text": "你是不信任我吗？我是老板！再拖延就开除你！立即转账，不要再问！",
+        "tactic": "情绪施压+威胁",
+        "psychology": ["fear", "authority"],
+        "deconstruct": "骗子开始情绪施压：①质问信任（道德绑架）②威胁开除③命令式语气。真领导会理解流程，假领导必绕过流程。情绪越激烈，越是诈骗。",
+        "redFlag": 5
+      },
+      {
+        "from": "victim",
+        "text": "老板，对不住，公司规定我不能违反。要不您用公司座机打我电话，我立即办。",
+        "tactic": "受害者要求独立核实",
+        "psychology": ["trust"],
+        "deconstruct": "受害者要求对方用公司座机回拨——这是识破换脸诈骗的关键招数。换脸可以伪造视频，但无法接管公司座机。",
+        "redFlag": 0
+      },
+      {
+        "from": "scammer",
+        "text": "我在外面开会，哪有座机！你赶紧转账，不然回去开除你！",
+        "tactic": "拒绝独立核实",
+        "psychology": ["urgency", "fear"],
+        "deconstruct": "骗子拒绝用公司座机回拨——这是100%诈骗的致命信号。真领导可以理解核实需求，假领导必拒绝可核实渠道。",
+        "redFlag": 5
+      },
+      {
+        "from": "system",
+        "text": "受害者挂断视频，用公司通讯录原号码联系到真老板，确认无此转账事项。立即报警。",
+        "tactic": "识破+报警",
+        "psychology": ["trust"],
+        "deconstruct": "AI换脸诈骗2026年高发，但无法接管独立通讯渠道。视频面容再真实，也必须用通讯录原号码回拨核实。任何拒绝独立核实的'领导'都是骗子。",
+        "redFlag": 0
+      }
+    ],
+    "summary": {
+      "totalRedFlags": 4,
+      "keyCues": ["2分钟紧急", "绕过流程", "口头批准", "私人发账号", "威胁开除", "拒绝公司座机回拨"],
+      "victimProfile": "顺从型+恐惧型受害者（下属、对领导权威敏感、紧急情况下判断力下降）",
+      "lesson": "AI换脸可伪造领导视频，但无法接管独立通讯渠道。紧急转账必须用通讯录原号码回拨核实"
+    }
+  },
+  {
+    "id": "DC-009",
+    "typeId": "F117",
+    "type": "数字人民币钱包权限委托诈骗",
+    "title": "数字钱包风控升级：权限委托远程控制钱包的完整剧本",
+    "difficulty": 3,
+    "scenario": "用户接到'数字人民币客服'电话，被诱导开通权限委托导致钱包被远程控制",
+    "duration": 9,
+    "tags": ["数字人民币", "权限委托", "远程控制", "风控恐吓"],
+    "updateDate": "2026-09",
+    "severity": 5,
+    "script": [
+      {
+        "from": "scammer",
+        "text": "您好，这里是数字人民币官方客服。检测到您的钱包存在异常登录，需立即升级风控，否则钱包将被冻结。",
+        "tactic": "权威冒充+风控恐吓",
+        "psychology": ["authority", "fear", "urgency"],
+        "deconstruct": "骗子冒充数字人民币客服，用'异常登录+冻结'制造紧迫感。任何主动来电称'钱包风控升级'的都是诈骗，数字人民币官方不会主动电话索要操作。",
+        "redFlag": 3
+      },
+      {
+        "from": "victim",
+        "text": "啊？那怎么办？我的钱还在钱包里呢。",
+        "tactic": "受害者慌乱",
+        "psychology": ["fear"],
+        "deconstruct": "受害者情绪被'冻结'二字触发，慌乱中容易服从。骗子此时抛出'解决方案'。",
+        "redFlag": 0
+      },
+      {
+        "from": "scammer",
+        "text": "您别担心，我们帮您升级。请下载'DCEP-Safe'APP，注册后开通'权限委托'功能，让我们代为操作您的钱包进行风控升级，需要验证200元测试金。",
+        "tactic": "诱导下载+权限委托+测试金",
+        "psychology": ["authority", "trust", "greed"],
+        "deconstruct": "致命红旗：①下载指定APP（非官方）②'权限委托'（数字人民币无此功能）③代为操作（绝不会发生）④测试金（骗取200元）。数字人民币官方域名是 cbdc.cn，无'权限委托'功能。",
+        "redFlag": 5
+      },
+      {
+        "from": "victim",
+        "text": "权限委托是什么？代为操作安全吗？",
+        "tactic": "受害者质疑",
+        "psychology": ["trust"],
+        "deconstruct": "受害者开始质疑，但骗子早有标准话术应对。任何'代为操作钱包'都100%是诈骗。",
+        "redFlag": 0
+      },
+      {
+        "from": "scammer",
+        "text": "权限委托是央行新规，让授权客服临时操作您的钱包进行风控配置，升级后自动解除。测试金会在升级完成后原路退回。这是标准流程，您放心。",
+        "tactic": "权威背书+标准流程话术",
+        "psychology": ["authority", "trust"],
+        "deconstruct": "骗子编造'央行新规+标准流程'话术，让受害者放松警惕。'央行新规'是常见话术，任何新规都会通过央行官方渠道公告，不会电话索要操作。'测试金原路退回'是诱饵。",
+        "redFlag": 5
+      },
+      {
+        "from": "victim",
+        "text": "哦，那好吧。我下载APP，按你说的开通权限委托，转200元测试金。",
+        "tactic": "受害者上钩",
+        "psychology": ["trust", "fear"],
+        "deconstruct": "受害者开通权限委托后，骗子立即获得钱包远程控制权，可随时转走所有资金。200元测试金只是开始。",
+        "redFlag": 0
+      },
+      {
+        "from": "scammer",
+        "text": "升级完成。系统检测到您钱包余额5000元，需转至'安全账户'托管24小时验证，否则风控升级失败钱包将被永久冻结。",
+        "tactic": "连环收割+安全账户",
+        "psychology": ["fear", "sunkCost"],
+        "deconstruct": "致命红旗：①'安全账户托管'（不存在）②'永久冻结'恐吓③24小时验证。任何'转至安全账户'都100%是诈骗，央行无'安全账户'概念。已开通权限委托后，骗子甚至可绕过受害者直接转款。",
+        "redFlag": 5
+      },
+      {
+        "from": "system",
+        "text": "受害者意识到被骗，立即到银行网点核实。银行工作人员确认数字人民币无'权限委托'功能，协助冻结钱包并报警。",
+        "tactic": "识破+银行核实",
+        "psychology": ["trust"],
+        "deconstruct": "数字人民币钱包问题只能到银行网点或官方APP处理。任何'权限委托''代为操作''测试金'都是诈骗话术。开通远程控制权限=交出钱包控制权。",
+        "redFlag": 0
+      }
+    ],
+    "summary": {
+      "totalRedFlags": 4,
+      "keyCues": ["主动来电", "权限委托", "代为操作", "测试金", "安全账户托管", "永久冻结恐吓"],
+      "victimProfile": "恐惧型+顺从型受害者（对数字人民币不熟悉、对官方权威敏感、紧急情况下易服从）",
+      "lesson": "数字人民币钱包无'权限委托'功能，任何代为操作/测试金/安全账户托管都是诈骗"
+    }
+  },
+  {
+    "id": "DC-010",
+    "typeId": "F118",
+    "type": "加密货币杀猪盘",
+    "title": "USDT量化稳赚：从群友晒单到提现缴税的完整剧本",
+    "difficulty": 3,
+    "scenario": "币圈群友带飞量化投资，自建假交易所显示虚假盈利，提现时连环收费",
+    "duration": 12,
+    "tags": ["加密货币", "USDT", "量化", "杀猪盘", "提现缴税"],
+    "updateDate": "2026-09",
+    "severity": 5,
+    "script": [
+      {
+        "from": "scammer",
+        "text": "哥，最近币圈行情不错，我表哥做量化每月30%收益，带我们几个一起赚。",
+        "tactic": "群友推荐+收益诱惑",
+        "psychology": ["greed", "trust", "conformity"],
+        "deconstruct": "骗子在币圈群伪装成'群友'，用'表哥做量化'话术降低防备。'每月30%收益'是致命诱惑——任何保本高收益都是诈骗。",
+        "redFlag": 3
+      },
+      {
+        "from": "victim",
+        "text": "30%？真的假的？怎么操作？",
+        "tactic": "受害者上钩",
+        "psychology": ["greed"],
+        "deconstruct": "受害者被收益数字吸引。币圈无保本收益，30%月化是诈骗核心话术。",
+        "redFlag": 0
+      },
+      {
+        "from": "scammer",
+        "text": "下载QuantX这个APP注册就行，先入1000U试水，稳赚不赔。我发你下载链接。",
+        "tactic": "诱导下载+稳赚不赔",
+        "psychology": ["greed", "trust"],
+        "deconstruct": "致命红旗：①自建APP（非币安/欧易等主流交易所）②'稳赚不赔'（任何投资都不保本）③私人发下载链接。主流交易所只通过官方应用商店下载。",
+        "redFlag": 5
+      },
+      {
+        "from": "victim",
+        "text": "好，我转1000U过去试试。",
+        "tactic": "受害者入金",
+        "psychology": ["greed"],
+        "deconstruct": "受害者小额试水——这是杀猪盘'养猪'阶段。骗子会让受害者尝到甜头以加大投入。",
+        "redFlag": 0
+      },
+      {
+        "from": "scammer",
+        "text": "恭喜哥！7天后账户显示盈利300U，总余额1300U。建议加大投入滚雪球，月化30%不是梦！",
+        "tactic": "虚假盈利+滚雪球",
+        "psychology": ["greed", "sunkCost"],
+        "deconstruct": "骗子在自建APP显示虚假盈利数字（实际从未真正交易）。'滚雪球'话术诱导加大投入。账户余额只是数字，提现前都是骗局。",
+        "redFlag": 4
+      },
+      {
+        "from": "victim",
+        "text": "那我把5000U都转过去。能提现吗？",
+        "tactic": "受害者加码",
+        "psychology": ["greed", "sunkCost"],
+        "deconstruct": "受害者尝到甜头后加码——杀猪盘'杀猪'阶段开始。任何'提现'都会触发连环收费。",
+        "redFlag": 0
+      },
+      {
+        "from": "scammer",
+        "text": "提现需要缴20%通道税（1300U）和5000U反洗钱认证金，缴清后可提现全部6500U。",
+        "tactic": "连环收费+提现缴税",
+        "psychology": ["sunkCost", "greed"],
+        "deconstruct": "致命红旗：①'通道税'（加密货币提现无需缴税）②'反洗钱认证金'（不存在）③连环收费（前面缴了后面还有）。任何'提现缴税'都100%是诈骗。",
+        "redFlag": 5
+      },
+      {
+        "from": "victim",
+        "text": "还要缴这么多？那我不提了，先把本金撤回。",
+        "tactic": "受害者犹豫",
+        "psychology": ["sunkCost"],
+        "deconstruct": "受害者想撤本金，但骗子已控制自建APP，'撤回本金'同样会触发连环收费。",
+        "redFlag": 0
+      },
+      {
+        "from": "scammer",
+        "text": "哥，本金也需缴税才能提。你已经投入5000U，不缴税一分钱都拿不回。再缴一次就能提全部了，相信我！",
+        "tactic": "沉没成本+最后一步",
+        "psychology": ["sunkCost", "trust"],
+        "deconstruct": "骗子利用沉没成本心理：'已投入5000U，不缴税一分钱拿不回'。'再缴一次就能提'是连环套，越缴越多，永远提不出。任何'再缴一次'都是诈骗。",
+        "redFlag": 5
+      },
+      {
+        "from": "system",
+        "text": "受害者意识到被骗，卸载QuantX APP，到国家反诈中心APP举报。但5000U已无法追回（加密货币匿名转账）。",
+        "tactic": "识破+举报",
+        "psychology": ["trust"],
+        "deconstruct": "加密货币杀猪盘资金难以追回（链上匿名）。预防胜于维权：①只认主流交易所 ②任何'提现缴税'都是诈骗 ③'稳赚不赔'是核心话术。",
+        "redFlag": 0
+      }
+    ],
+    "summary": {
+      "totalRedFlags": 4,
+      "keyCues": ["群友推荐", "表哥做量化", "每月30%收益", "QuantX自建APP", "稳赚不赔", "提现缴税", "反洗钱认证金", "再缴一次"],
+      "victimProfile": "贪婪型+从众型受害者（币圈新手、对高收益敏感、群友推荐降低防备）",
+      "lesson": "加密货币提现无需缴税，任何'通道税/反洗钱认证金/再缴一次'都是连环诈骗"
+    }
+  },
+  {
+    "id": "DC-011",
+    "typeId": "F122",
+    "type": "共享屏幕清退会员诈骗",
+    "title": "VIP会员误开通：ToDesk远程协助清退会员费的完整剧本",
+    "difficulty": 3,
+    "scenario": "用户被'腾讯视频客服'告知误开通会员，被诱导下载ToDesk远程协助+读验证码导致资金被转走",
+    "duration": 10,
+    "tags": ["共享屏幕", "远程协助", "清退会员", "ToDesk", "验证码"],
+    "updateDate": "2026-10",
+    "severity": 5,
+    "script": [
+      {
+        "from": "scammer",
+        "text": "您好，这里是腾讯视频VIP客服。系统检测到您被误开通会员自动续费，每月扣25元，现帮您清退避免扣费。",
+        "tactic": "权威冒充+扣费恐吓",
+        "psychology": ["authority", "fear"],
+        "deconstruct": "骗子冒充视频平台客服，用'误开通+自动续费'制造损失感。任何主动来电称'误开通会员需清退'的都是诈骗，会员管理在APP内自助完成。",
+        "redFlag": 3
+      },
+      {
+        "from": "victim",
+        "text": "啊？我没开通啊。那怎么清退？",
+        "tactic": "受害者配合",
+        "psychology": ["fear"],
+        "deconstruct": "受害者急于避免扣费，配合骗子操作。骗子此时抛出'远程协助'话术。",
+        "redFlag": 0
+      },
+      {
+        "from": "scammer",
+        "text": "请下载ToDesk远程协助软件，由我们客服远程帮您关闭。期间需要您读出手机收到的验证码以核实身份。",
+        "tactic": "远程协助+读验证码",
+        "psychology": ["authority", "trust"],
+        "deconstruct": "致命红旗：①下载远程协助软件（ToDesk/向日葵）②远程操作（交出手机控制权）③读验证码（核心诈骗动作）。任何'会员清退需远程协助'都100%是诈骗，会员管理在APP内自助完成。",
+        "redFlag": 5
+      },
+      {
+        "from": "victim",
+        "text": "远程协助？读验证码？这安全吗？",
+        "tactic": "受害者质疑",
+        "psychology": ["trust"],
+        "deconstruct": "受害者本能质疑，但骗子有标准话术应对。",
+        "redFlag": 0
+      },
+      {
+        "from": "scammer",
+        "text": "您放心，这是央行规定的标准清退流程，验证码只用于身份核实，不会用于其他用途。我们是腾讯官方客服，工号8023，您可以核实。",
+        "tactic": "权威背书+工号话术",
+        "psychology": ["authority", "trust"],
+        "deconstruct": "骗子编造'央行规定+工号'增加可信度。工号可以随便报，无法核实。'验证码只用于身份核实'是谎言——验证码一旦读出，骗子即可在远程屏幕上看到并用于转账。",
+        "redFlag": 5
+      },
+      {
+        "from": "victim",
+        "text": "好吧，我下载ToDesk，开启远程协助。验证码是808823。",
+        "tactic": "受害者上钩",
+        "psychology": ["trust", "fear"],
+        "deconstruct": "致命错误！开启远程协助+读出验证码=骗子获得手机完整控制权+转账授权。骗子立即在远程屏幕操作银行APP转账。",
+        "redFlag": 0
+      },
+      {
+        "from": "scammer",
+        "text": "好的，核实完成。系统检测到您银行卡余额3万，需转入'安全账户'验资才能完成清退，24小时后原路退回。",
+        "tactic": "安全账户+连环收割",
+        "psychology": ["sunkCost", "fear"],
+        "deconstruct": "致命红旗：①'安全账户验资'（央行无此概念）②'24小时退回'（不会退）③已获远程控制权可绕过受害者操作。任何'安全账户'都100%是诈骗。",
+        "redFlag": 5
+      },
+      {
+        "from": "system",
+        "text": "受害者发现银行卡被转走3万，立即报警。警方确认是共享屏幕诈骗，资金已被分流转走难以追回。",
+        "tactic": "识破+报警",
+        "psychology": ["trust"],
+        "deconstruct": "共享屏幕+读验证码=资金被转走的标配。会员管理在APP内自助完成，任何'远程协助清退会员'都是诈骗。验证码绝不读给任何人。",
+        "redFlag": 0
+      }
+    ],
+    "summary": {
+      "totalRedFlags": 4,
+      "keyCues": ["主动来电", "误开通会员", "下载ToDesk", "远程协助", "读验证码", "工号8023", "安全账户验资"],
+      "victimProfile": "恐惧型+顺从型受害者（对扣费敏感、对官方客服信任、不熟悉远程协助风险）",
+      "lesson": "会员管理在APP内自助完成，任何'远程协助+读验证码'清退会员都是诈骗，验证码绝不读给任何人"
+    }
+  },
+  {
+    "id": "DC-012",
+    "typeId": "F123",
+    "type": "直播间虚假竞拍诈骗",
+    "title": "清代官窑0元起拍：直播间虚假竞拍连环收费的完整剧本",
+    "difficulty": 3,
+    "scenario": "直播间0元起拍古董诱导低价中标，再以鉴定费/保证金连环收费",
+    "duration": 9,
+    "tags": ["直播竞拍", "古董", "0元起拍", "连环收费", "鉴定费"],
+    "updateDate": "2026-09",
+    "severity": 4,
+    "script": [
+      {
+        "from": "scammer",
+        "text": "家人们看！清代官窑瓷器，市场价50万，今天直播间0元起拍，加价50即可，机会难得！",
+        "tactic": "0元起拍+市场价对比",
+        "psychology": ["greed", "scarcity"],
+        "deconstruct": "骗子用'市场价50万+0元起拍'制造巨大价格差诱惑。任何'0元起拍+市场价对比'都是直播间诈骗标配，正规拍卖有起拍价和保证金制度。",
+        "redFlag": 3
+      },
+      {
+        "from": "victim",
+        "text": "我出价200！",
+        "tactic": "受害者上钩",
+        "psychology": ["greed"],
+        "deconstruct": "受害者低价出价，骗子立即'判定中标'。这是连环收费的开始。",
+        "redFlag": 0
+      },
+      {
+        "from": "scammer",
+        "text": "恭喜200中标！请加付3000元鉴定费和5000元保证金才能发货，收货后保证金原路退回。",
+        "tactic": "连环收费+保证金话术",
+        "psychology": ["sunkCost", "greed"],
+        "deconstruct": "致命红旗：①中标后追加费用（正规拍卖费用提前公示）②'鉴定费'（拍卖行不收鉴定费）③'保证金原路退回'（诱饵）。任何'拍卖后追加费用'都100%是诈骗。",
+        "redFlag": 5
+      },
+      {
+        "from": "victim",
+        "text": "还要缴8000？那我不拍了，退我200。",
+        "tactic": "受害者犹豫",
+        "psychology": ["sunkCost"],
+        "deconstruct": "受害者想退出，但骗子利用沉没成本话术继续收割。",
+        "redFlag": 0
+      },
+      {
+        "from": "scammer",
+        "text": "家人们注意！中标不付款违约将列入黑名单影响征信，200元定金不退。再缴8000就能拿50万的货，超值！",
+        "tactic": "征信恐吓+沉没成本",
+        "psychology": ["fear", "sunkCost", "greed"],
+        "deconstruct": "致命红旗：①'影响征信'（直播间拍卖无征信接入）②'定金不退'（压力话术）③'50万的货'（虚假估值）。任何'影响征信'恐吓都100%是诈骗，直播间拍卖无征信权限。",
+        "redFlag": 5
+      },
+      {
+        "from": "victim",
+        "text": "好吧，那我缴8000等收货。",
+        "tactic": "受害者加码",
+        "psychology": ["sunkCost", "fear"],
+        "deconstruct": "受害者缴清8000元，等待收货。但骗子还会继续追加费用。",
+        "redFlag": 0
+      },
+      {
+        "from": "scammer",
+        "text": "亲，文物出境需缴5000元通关费和2000元保险费，缴清后立即发货。这是最后一步！",
+        "tactic": "通关费+最后一步",
+        "psychology": ["sunkCost", "greed"],
+        "deconstruct": "致命红旗：①'通关费'（文物出境正规流程不走直播间）②'保险费'（骗子自定）③'最后一步'（永远有下一步）。任何'最后一步'都是诈骗话术，缴清后还有'最后一步'。",
+        "redFlag": 5
+      },
+      {
+        "from": "system",
+        "text": "受害者意识到被骗，退出直播间报警。但8000元已通过扫码转账难以追回。",
+        "tactic": "识破+报警",
+        "psychology": ["trust"],
+        "deconstruct": "直播间虚假竞拍诈骗2026年高发：①0元起拍诱惑 ②中标后连环收费 ③征信恐吓 ④'最后一步'永远有下一步。正规拍卖行有公开费用公示，不会私下追加。",
+        "redFlag": 0
+      }
+    ],
+    "summary": {
+      "totalRedFlags": 4,
+      "keyCues": ["0元起拍", "市场价50万对比", "中标后鉴定费", "保证金原路退回", "影响征信恐吓", "通关费", "最后一步"],
+      "victimProfile": "贪婪型+从众型受害者（直播间氛围影响、对古董估值不熟悉、沉没成本心理）",
+      "lesson": "正规拍卖行费用提前公示，任何'中标后追加鉴定费/保证金/通关费'都是连环诈骗"
+    }
+  }
+]
+

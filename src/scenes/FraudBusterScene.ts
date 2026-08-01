@@ -6,95 +6,28 @@ import { GameShellScene } from "./GameShellScene";
 import { Theme, withAlpha } from "@/ui/Theme";
 import { drawToast, hitTest, type Rect } from "@/ui/widgets";
 import { FraudBusterEngine, itemEmoji, itemLabel } from "@/games/fraudBuster/engine";
-import { MAN_TIERS } from "@/games/fraudBuster/data";
+import { MAN_TIERS, QUESTION_BANK } from "@/games/fraudBuster/data";
 import { roundRect } from "@/engine/Renderer";
 import { playSfx } from "@/engine/Audio";
 import { vibrateShort, setOrientation } from "@/platform/web";
 import { ResultOverlay } from "./ResultOverlay";
 import { HubScene } from "./HubScene";
+import { FBCodexScene } from "./FBCodexScene";
+import { FBHotlineScene } from "./FBHotlineScene";
 import type { GameEvent, GameResultPayload } from "@/types";
-import type { FBHud, FBItemType, FBStats, FBSpecialEvent, FBBossSkill, FBQuestionKind, FBDifficulty, FBPsychology, FBVictimProfile, FBKnowledgeGraph, FBCaseArchive } from "@/games/fraudBuster/types";
-import { FBRANKS, FBACHIEVEMENTS } from "@/games/fraudBuster/storage";
-import { KNOWLEDGE_GRAPH_COLORS } from "@/games/fraudBuster/dataV2";
-
-const LETTERS = ["A", "B", "C", "D"];
-const JUDGE_LETTERS = ["✓", "✗"];
-
-// 画布尺寸（与引擎一致）
-const CANVAS_W = 800;
-const CANVAS_H = 480;
-// 卡片区域（与 engine.ts 一致，用于 drawCaseArchive 定位）
-const CARD_X = 20;
-const CARD_Y = 80;
-const CARD_W = 360;
-const CARD_H = 380;
-// 右半区选项面板
-const OPT_X = 410;
-const OPT_W = 370;
-
-// 道具按钮（画布顶部右半区，6 个按钮 - 紧凑布局）
-const ITEM_TYPES: FBItemType[] = ["freeze", "fifty", "skip", "double", "hint", "undo"];
-const ITEM_BTN_W = 58;
-const ITEM_BTN_H = 36;
-const ITEM_BTN_GAP = 4;
-const ITEM_BTN_Y = 12;
-const ITEM_BTN_X = OPT_X + (OPT_W - (ITEM_BTN_W * 6 + ITEM_BTN_GAP * 5)) / 2;
-
-// 难度选择按钮（ready 状态，画布坐标）
-const DIFF_BTN_W = 180;
-const DIFF_BTN_H = 80;
-const DIFF_BTN_GAP = 24;
-const DIFFICULTY_DEFS: { id: FBDifficulty; label: string; desc: string; color: string }[] = [
-  { id: "easy", label: "简单", desc: "倒计时 ×1.3", color: "#1AD670" },
-  { id: "normal", label: "普通", desc: "倒计时 ×1.0", color: "#00E5FF" },
-  { id: "hard", label: "困难", desc: "倒计时 ×0.75", color: "#E5353B" },
-];
-
-// 大招按钮（画布右下角）
-const ULT_BTN_W = 130;
-const ULT_BTN_H = 48;
-const ULT_BTN_X = CANVAS_W - ULT_BTN_W - 12;
-const ULT_BTN_Y = CANVAS_H - ULT_BTN_H - 12;
-
-// 特殊事件中文名映射
-const SPECIAL_EVENT_NAMES: Record<FBSpecialEvent, string> = {
-  double: "双重诈骗",
-  timeCompress: "时间压缩",
-  shuffle: "选项乱序",
-  mixedTrueFalse: "真假混杂",
-  rapidFire: "急速连答",
-  itemLock: "道具禁用",
-};
-const SPECIAL_EVENT_ICONS: Record<FBSpecialEvent, string> = {
-  double: "⚡",
-  timeCompress: "⏱",
-  shuffle: "🔀",
-  mixedTrueFalse: "🎭",
-  rapidFire: "🔥",
-  itemLock: "🔒",
-};
-// Boss 技能中文名映射
-const BOSS_SKILL_NAMES: Record<FBBossSkill, string> = {
-  shuffleOptions: "选项打乱",
-  hideTimer: "隐藏倒计时",
-  summonMinion: "召唤小怪",
-  lockItem: "封印道具",
-  timeSteal: "偷取时间",
-  answerBlur: "选项模糊",
-};
-// 心理操控手法中文名映射（与 engine.psychologyLabel 一致）
-const PSYCHOLOGY_LABELS: Record<FBPsychology, string> = {
-  urgency: "紧迫施压",
-  authority: "权威恐吓",
-  greed: "贪婪诱惑",
-  fear: "恐惧施压",
-  trust: "信任建立",
-  intimacy: "情感亲密",
-  curiosity: "好奇心",
-  conformity: "从众压力",
-  scarcity: "稀缺暗示",
-  sunkCost: "沉没成本",
-};
+import type { FBHud, FBItemType, FBStats, FBSpecialEvent, FBBossSkill, FBQuestionKind, FBDifficulty, FBPsychology, FBVictimProfile, FBKnowledgeGraph, FBCaseArchive, FBGameMode, FBWrongRecord, FBHudAIDialogState, FBHudDeconstructState, FBHudVSState, FBHudDetectiveState, FBDetectiveCase, FBDetectiveEvidence, FBDetectiveQuestion } from "@/games/fraudBuster/types";
+import { FBRANKS, FBACHIEVEMENTS, loadFBSave } from "@/games/fraudBuster/storage";
+import { KNOWLEDGE_GRAPH_COLORS, FB_MODE_LABELS, FB_MODE_ICONS, FB_MODE_DESCRIPTIONS, FB_MODE_HINTS, STORY_STAGES, VICTIM_PROFILES } from "@/games/fraudBuster/dataV2";
+import type { FBReportData } from "@/utils/battleReport";
+import {
+  LETTERS, JUDGE_LETTERS, CANVAS_W, CANVAS_H, CARD_X, CARD_Y, CARD_W, CARD_H,
+  OPT_X, OPT_W, ITEM_TYPES, ITEM_BTN_W, ITEM_BTN_H, ITEM_BTN_GAP, ITEM_BTN_Y, ITEM_BTN_X,
+  DIFF_BTN_W, DIFF_BTN_H, DIFF_BTN_GAP, DIFFICULTY_DEFS,
+  MODE_BTN_W, MODE_BTN_H, MODE_BTN_GAP_X, MODE_BTN_GAP_Y, MODE_ORDER, MODE_COLORS,
+  EDU_BTN_W, EDU_BTN_H, EDU_BTN_GAP, EDU_BTN_Y, EDU_ENTRIES,
+  ULT_BTN_W, ULT_BTN_H, ULT_BTN_X, ULT_BTN_Y,
+  SPECIAL_EVENT_NAMES, SPECIAL_EVENT_ICONS, BOSS_SKILL_NAMES, PSYCHOLOGY_LABELS,
+} from "./fbSceneConstants";
 
 export class FraudBusterScene extends GameShellScene {
   private engine: FraudBusterEngine | null = null;
@@ -110,6 +43,10 @@ export class FraudBusterScene extends GameShellScene {
   private t = 0;
   /** 上一次 HUD 的连击数，用于判定本次答题对错并触发 fx */
   private prevCombo = 0;
+  /** 上一次 HUD 的猛男段位等级，用于检测段位升级触发仪式 */
+  private prevManLevel = 0;
+  /** v3 Phase 3.4：段位升级仪式状态（null=未激活，>0=剩余展示时长秒） */
+  private rankCeremony: { level: number; name: string; color: string; until: number; startT: number } | null = null;
   /** 得分跳动：显示值追逐真实值，营造滚动爽感 */
   private displayScore = 0;
   /** 得分脉冲：得分增加时 >0，衰减到 0，驱动数字放大发光 */
@@ -128,18 +65,41 @@ export class FraudBusterScene extends GameShellScene {
   /** 正在滑动的卡位（0=左卡/主卡，1=右卡，null=未确定） */
   private swipeCardIdx: number | null = null;
   // ===== 新增状态 =====
-  /** 游戏状态：ready=难度选择界面, playing=游戏进行中 */
-  private gameState: "ready" | "playing" = "ready";
+  /** 游戏状态：modeSelect=模式选择层(入口), ready=难度选择界面, playing=游戏进行中 */
+  private gameState: "modeSelect" | "ready" | "playing" = "modeSelect";
   /** 难度按钮按下态 */
   private pressedDifficulty: FBDifficulty | null = null;
+  /** v3 模式选择按钮按下态 */
+  private pressedMode: FBGameMode | null = null;
+  /** v3 Phase 4 教育入口按钮按下态 */
+  private pressedEdu: "codex" | "hotline" | null = null;
+  /** v3 返回按钮按下态（modeSelect / ready 通用） */
+  private pressedBack = false;
+  /** v3 当前选中的模式（用于 endless → ready 流转时记忆） */
+  private selectedMode: FBGameMode = "endless";
+  /** v3 内存中的错题记录（用于 review 模式入口判断） */
+  private lastWrongRecords: FBWrongRecord[] = [];
+  /** v3 上次游玩的剧情关卡索引（用于 retry 重启同一关） */
+  private lastStoryStageIdx = 0;
   /** 大招按钮按下态 */
   private pressedUltimate = false;
   /** 提交按钮按下态（fill/link/sort 题型） */
   private pressedSubmitBtn = false;
+  /** v5 升级：新模式按钮按下态（ai0/vs0/dcNext/dcSkip 等） */
+  private pressedV5Btn: string | null = null;
   /** 连线题：当前选中的左列项索引（null=未选） */
   private linkSelLeftIdx: number | null = null;
   /** 排序题：当前选中的项索引（null=未选） */
   private sortSelIdx: number | null = null;
+  // ===== v6 侦探模式：推理答题中间态 =====
+  /** 侦探多选题：已选选项索引列表 */
+  private detectiveMultiSel: number[] = [];
+  /** 侦探排序题：已选顺序索引列表 */
+  private detectiveSortSeq: number[] = [];
+  /** 侦探连线题：已配对 [左,右] 列表 */
+  private detectiveLinkPairs: Array<[number, number]> = [];
+  /** 侦探连线题：当前选中的左列索引（null=未选） */
+  private detectiveLinkSelLeft: number | null = null;
 
   getGameTitle(): string { return "是男人就反诈"; }
   getGameSubtitle(): string { return "FRAUD BUSTER"; }
@@ -165,6 +125,7 @@ export class FraudBusterScene extends GameShellScene {
     if (e.type === "hud") {
       const newHud = e.payload as unknown as FBHud;
       this.maybeTriggerComboFx(newHud);
+      this.maybeTriggerRankUpCeremony(newHud);
       this.hud = newHud;
     } else if (e.type === "toast") {
       this.toast = { text: e.text, tone: e.tone, until: this.t + 2.5 };
@@ -248,6 +209,46 @@ export class FraudBusterScene extends GameShellScene {
     return "#1AD670";
   }
 
+  /**
+   * v3 Phase 3.4：检测段位升级并触发仪式
+   * - 比较 hud.manLevel 与 prevManLevel，递增即触发
+   * - 仪式持续 2.5s：全屏金光 + 大字 + 粒子爆发 + 强震屏 + 闪屏
+   * - 同时触发 fx 系列特效（与 maybeTriggerComboFx 互补）
+   */
+  private maybeTriggerRankUpCeremony(hud: FBHud): void {
+    const curLevel = hud.manLevel;
+    if (curLevel > this.prevManLevel && this.prevManLevel >= 0) {
+      // 段位升级！
+      this.rankCeremony = {
+        level: curLevel,
+        name: hud.manName,
+        color: hud.manColor,
+        until: this.t + 2.5,
+        startT: this.t,
+      };
+      // 强烈 fx：金光闪屏 + 强震屏 + 双层粒子爆发
+      this.fx.flash("#FFD666", 0.45, 0.6);
+      this.fx.shake(0.8);
+      const { cx, cy } = this.cardCenterScreen();
+      // 第一层：金色粒子爆发
+      this.fx.burst(cx, cy, "#FFD666", 36, 320);
+      this.fx.ring(cx, cy, "#FFD666", 140, 0.7);
+      // 第二层：段位色粒子爆发
+      this.fx.burst(cx, cy, hud.manColor, 24, 280);
+      this.fx.ring(cx, cy, hud.manColor, 100, 0.6);
+      // 飘字：段位名
+      this.fx.popText(cx, cy - 80, `▲ ${hud.manName}`, {
+        color: "#FFD666",
+        size: 28,
+        duration: 1.5,
+        vy: -30,
+      });
+      playSfx("good");
+      vibrateShort();
+    }
+    this.prevManLevel = curLevel;
+  }
+
   private onResult(result: GameResultPayload): void {
     // 胜负闪光（与引擎 postFX 互补，叠加更明显反馈）
     if (result.win) {
@@ -258,9 +259,14 @@ export class FraudBusterScene extends GameShellScene {
     }
     // 提取反诈专属详细统计（由 engine 通过 stats 字段传入）
     const stats = result.stats as FBStats | undefined;
-    // v2：捕获错题记录，用于复盘入口（A5）
+    // v2/v3：捕获错题记录到内存（用于复盘入口 + 模式选择层 review 入口判断）
     const wrongRecords = stats?.wrongRecords ?? [];
+    if (wrongRecords.length > 0) {
+      this.lastWrongRecords = wrongRecords;
+    }
     const hasWrongRecords = wrongRecords.length > 0;
+    // v3：构建是男人就反诈专属战报数据（模式 / 完美一局 / 受害者档案 / 案例档案 / 知识掌握度）
+    const fbReportData = this.buildFBReportData(stats);
     this.resultOverlay = new ResultOverlay(this.director, result, {
       onRetry: () => this.retry(),
       onBack: () => this.director.replace(new HubScene(this.director), undefined, "slide"),
@@ -270,7 +276,51 @@ export class FraudBusterScene extends GameShellScene {
       // v2：错题复盘入口（A5，仅有错题时显示）
       onReview: hasWrongRecords ? () => this.startReviewMode(wrongRecords) : undefined,
       reviewLabel: hasWrongRecords ? `📝 错题复盘 · ${wrongRecords.length} 题补漏挑战` : undefined,
+      // v3：反诈战报分享卡专属数据
+      fbReportData,
     });
+  }
+
+  /**
+   * v3：构建是男人就反诈专属战报分享数据
+   * 从 engine 注入的 FBStats 中提取模式、完美一局、受害者档案、案例档案、知识掌握度等
+   * 用于战报卡 PNG 导出与分享文案
+   */
+  private buildFBReportData(stats: FBStats | undefined): FBReportData | undefined {
+    if (!stats) return undefined;
+    const mode = stats.gameMode ?? "endless";
+    const modeLabel = FB_MODE_LABELS[mode] ?? "无尽模式";
+    const modeIcon = FB_MODE_ICONS[mode] ?? "🌊";
+    const perfectRun = !!stats.perfectRun;
+    // 知识掌握度：优先用知识图谱的整体掌握度，否则按知识点统计计算
+    let knowledgeMastery = 0;
+    if (stats.knowledgeGraph?.overallMastery !== undefined) {
+      knowledgeMastery = stats.knowledgeGraph.overallMastery;
+    } else if (stats.knowledgeStats && stats.knowledgeStats.length > 0) {
+      const tot = stats.knowledgeStats.reduce((s, k) => s + k.total, 0);
+      const cor = stats.knowledgeStats.reduce((s, k) => s + k.correct, 0);
+      knowledgeMastery = tot > 0 ? cor / tot : 0;
+    }
+    return {
+      mode,
+      modeLabel,
+      modeIcon,
+      perfectRun,
+      victimProfile: stats.victimProfile,
+      caseArchives: stats.caseArchives,
+      knowledgeMastery,
+      modeStats: {
+        storyStagesCleared: stats.storyStagesCleared,
+        storyStageIdx: stats.storyStageIdx,
+        speedrunDuration: stats.speedrunDuration,
+        speedrunCorrect: stats.speedrunCorrect,
+        speedrunTotal: stats.speedrunTotal,
+        hardcoreCorrect: stats.hardcoreCorrect,
+        dailyKey: stats.dailyKey,
+        dailyCorrect: stats.dailyCorrect,
+        reviewNightmareCleared: stats.reviewNightmareCleared,
+      },
+    };
   }
 
   /**
@@ -1071,7 +1121,6 @@ export class FraudBusterScene extends GameShellScene {
     this.scorePulse = 0;
     this.swipeTouchId = null;
     this.swipeCardIdx = null;
-    this.gameState = "ready";
     this.pressedDifficulty = null;
     this.pressedUltimate = false;
     this.pressedSubmitBtn = false;
@@ -1079,6 +1128,31 @@ export class FraudBusterScene extends GameShellScene {
     this.sortSelIdx = null;
     this.fx.clear();
     this.spawnEngine();
+    // v3：根据上次模式智能重启（retry = 再来一局同模式）
+    const mode = this.selectedMode;
+    if (mode === "endless") {
+      // endless 仍需选难度
+      this.gameState = "ready";
+    } else if (mode === "story") {
+      // 剧情模式：重启同一关
+      this.engine?.startMode("story", { storyStageIdx: this.lastStoryStageIdx });
+      this.gameState = "playing";
+    } else if (mode === "review") {
+      // 错题噩梦：复用内存错题（不足则引擎自动补足）
+      if (this.lastWrongRecords.length > 0) {
+        const reviewQs = this.wrongRecordsToQuestions(this.lastWrongRecords);
+        this.engine?.startMode("review", { reviewQuestions: reviewQs });
+        this.gameState = "playing";
+      } else {
+        this.gameState = "modeSelect";
+      }
+    } else {
+      // speedrun / hardcore / daily：直接重启
+      this.engine?.startMode(mode);
+      this.gameState = "playing";
+    }
+    playSfx("click");
+    vibrateShort();
   }
 
   protected updateGame(dt: number): void {
@@ -1207,6 +1281,40 @@ export class FraudBusterScene extends GameShellScene {
     const startX = (CANVAS_W - totalW) / 2;
     const idx = DIFFICULTY_DEFS.findIndex((d) => d.id === id);
     return { x: startX + idx * (DIFF_BTN_W + DIFF_BTN_GAP), y: (CANVAS_H - DIFF_BTN_H) / 2, w: DIFF_BTN_W, h: DIFF_BTN_H };
+  }
+
+  /** v3 模式选择按钮矩形（画布坐标，3 列 × 2 行网格） */
+  private getModeRect(mode: FBGameMode): Rect {
+    const totalW = MODE_BTN_W * 3 + MODE_BTN_GAP_X * 2;
+    const startX = (CANVAS_W - totalW) / 2;
+    const startY = 130; // 标题之下，固定起点为教育入口行让出底部空间
+    const idx = MODE_ORDER.indexOf(mode);
+    const col = idx % 3;
+    const row = Math.floor(idx / 3);
+    return {
+      x: startX + col * (MODE_BTN_W + MODE_BTN_GAP_X),
+      y: startY + row * (MODE_BTN_H + MODE_BTN_GAP_Y),
+      w: MODE_BTN_W,
+      h: MODE_BTN_H,
+    };
+  }
+
+  /** v3 Phase 4：教育入口按钮矩形（底部 2 列） */
+  private getEduBtnRect(id: "codex" | "hotline"): Rect {
+    const totalW = EDU_BTN_W * 2 + EDU_BTN_GAP;
+    const startX = (CANVAS_W - totalW) / 2;
+    const idx = EDU_ENTRIES.findIndex((e) => e.id === id);
+    return {
+      x: startX + idx * (EDU_BTN_W + EDU_BTN_GAP),
+      y: EDU_BTN_Y,
+      w: EDU_BTN_W,
+      h: EDU_BTN_H,
+    };
+  }
+
+  /** v3 返回按钮矩形（modeSelect 左上角 / ready 状态左上角，画布坐标） */
+  private getBackBtnRect(): Rect {
+    return { x: 16, y: 16, w: 80, h: 32 };
   }
 
   /** 计算 blitContain 变换（屏幕坐标 → 画布坐标的逆变换参数） */
@@ -1351,6 +1459,31 @@ export class FraudBusterScene extends GameShellScene {
       this.director.blitContain(this.engineCanvas, ctx, screenW, screenH);
     }
 
+    // v3 Phase 3.4：Boss 战背景（动态首脑剪影 + 主题色光晕）
+    if (this.gameState === "playing" && this.hud?.bossActive) {
+      this.drawBossBackground(ctx, screenW, screenH, this.hud);
+    }
+
+    // ===== modeSelect 状态：模式选择层（v3 入口） =====
+    if (this.gameState === "modeSelect") {
+      const tr = this.getBlitTransform(screenW, screenH);
+      ctx.save();
+      ctx.translate(tr.offsetX, tr.offsetY);
+      ctx.scale(tr.scale, tr.scale);
+      this.drawModeSelect(ctx);
+      ctx.restore();
+      // Toast（屏幕坐标）
+      if (this.toast) {
+        const tw = screenW - 32;
+        drawToast(ctx, 16, 116, tw, 56, this.toast.text, this.toast.tone, "反诈提示");
+      }
+      // 结算
+      if (this.resultOverlay) {
+        this.resultOverlay.render(ctx, screenW, screenH);
+      }
+      return;
+    }
+
     // ===== ready 状态：难度选择界面 =====
     if (this.gameState === "ready") {
       const tr = this.getBlitTransform(screenW, screenH);
@@ -1358,6 +1491,33 @@ export class FraudBusterScene extends GameShellScene {
       ctx.translate(tr.offsetX, tr.offsetY);
       ctx.scale(tr.scale, tr.scale);
       this.drawDifficultySelect(ctx);
+      ctx.restore();
+      // Toast（屏幕坐标）
+      if (this.toast) {
+        const tw = screenW - 32;
+        drawToast(ctx, 16, 116, tw, 56, this.toast.text, this.toast.tone, "反诈提示");
+      }
+      // 结算
+      if (this.resultOverlay) {
+        this.resultOverlay.render(ctx, screenW, screenH);
+      }
+      return;
+    }
+
+    // ===== v5/v6 升级：新模式专用渲染（不使用常规卡片/选项流） =====
+    if (this.gameState === "playing" && this.hud && (this.hud.aiDialog || this.hud.deconstruct || this.hud.versus || this.hud.detective)) {
+      const tr = this.getBlitTransform(screenW, screenH);
+      ctx.save();
+      ctx.translate(tr.offsetX, tr.offsetY);
+      ctx.scale(tr.scale, tr.scale);
+      if (this.hud.aiDialog) this.drawAIBattle(ctx, this.hud.aiDialog);
+      else if (this.hud.deconstruct) this.drawDeconstruct(ctx, this.hud.deconstruct);
+      else if (this.hud.versus) this.drawVersus(ctx, this.hud.versus);
+      else if (this.hud.detective) this.drawDetective(ctx, this.hud.detective);
+      // v5 视觉升级：在画布坐标系内渲染引擎粒子（识破/攻击/拆解揭示等触发）
+      this.engine?.renderV5Particles(ctx);
+      // v5 霓虹边光：基于当前模式色的动态边框
+      this.drawV5NeonEdge(ctx);
       ctx.restore();
       // Toast（屏幕坐标）
       if (this.toast) {
@@ -1399,6 +1559,13 @@ export class FraudBusterScene extends GameShellScene {
     // 心跳边缘红脉（压迫感）：HUD 层叠加，与引擎心跳同步
     if (this.hud && this.hud.heartbeat > 0.3) {
       this.drawHeartbeatEdge(ctx, screenW, screenH, this.hud.heartbeat);
+    }
+
+    // v3 Phase 3.4：段位升级仪式（全屏覆盖层，最上层之一）
+    if (this.rankCeremony && this.t < this.rankCeremony.until) {
+      this.drawRankCeremony(ctx, screenW, screenH);
+    } else if (this.rankCeremony && this.t >= this.rankCeremony.until) {
+      this.rankCeremony = null;
     }
 
     // 选项按钮 + 倒计时（画布坐标，应用 blitContain 变换，与卡片同坐标系）
@@ -1476,6 +1643,2198 @@ export class FraudBusterScene extends GameShellScene {
     }
   }
 
+  /** v3 模式选择界面（modeSelect 状态，画布坐标） */
+  private drawModeSelect(ctx: CanvasRenderingContext2D): void {
+    // 半透明遮罩
+    ctx.save();
+    ctx.fillStyle = "rgba(7,14,31,0.92)";
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    // 顶部光晕
+    const glow = ctx.createRadialGradient(CANVAS_W / 2, 80, 0, CANVAS_W / 2, 80, 300);
+    glow.addColorStop(0, withAlpha(this.getAccent(), 0.18));
+    glow.addColorStop(1, "transparent");
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    ctx.restore();
+
+    // 标题
+    ctx.save();
+    ctx.font = `900 30px ${Theme.fonts.display}`;
+    ctx.fillStyle = this.getAccent();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.shadowColor = withAlpha(this.getAccent(), 0.5);
+    ctx.shadowBlur = 16;
+    ctx.fillText("选择模式", CANVAS_W / 2, 70);
+    ctx.shadowBlur = 0;
+    ctx.font = `400 12px ${Theme.fonts.mono}`;
+    ctx.fillStyle = Theme.colors.ink.muted;
+    ctx.fillText("SELECT GAME MODE · 10 种玩法", CANVAS_W / 2, 100);
+    ctx.restore();
+
+    // 返回按钮（左上角）
+    this.drawBackButton(ctx, this.getBackBtnRect());
+
+    // 读取存档用于展示进度
+    const save = loadFBSave();
+    const todayKey = this.getTodayDailyKey();
+
+    // 6 个模式卡片
+    for (const mode of MODE_ORDER) {
+      const r = this.getModeRect(mode);
+      const color = MODE_COLORS[mode];
+      const pressed = this.pressedMode === mode;
+      const icon = FB_MODE_ICONS[mode];
+      const label = FB_MODE_LABELS[mode];
+      const desc = FB_MODE_DESCRIPTIONS[mode];
+      const hint = FB_MODE_HINTS[mode];
+      const locked = mode === "review" && this.lastWrongRecords.length === 0;
+
+      ctx.save();
+      if (pressed) ctx.translate(0, 2);
+      // 背景
+      roundRect(ctx, r.x, r.y, r.w, r.h, 12);
+      const g = ctx.createLinearGradient(r.x, r.y, r.x, r.y + r.h);
+      if (locked) {
+        g.addColorStop(0, "rgba(60,70,90,0.3)");
+        g.addColorStop(1, "rgba(10,15,25,0.6)");
+      } else {
+        g.addColorStop(0, withAlpha(color, 0.22));
+        g.addColorStop(1, "rgba(10,25,41,0.8)");
+      }
+      ctx.fillStyle = g;
+      ctx.fill();
+      // 边框（脉动发光，锁定态灰暗）
+      const pulse = locked ? 0 : 0.6 + Math.sin(this.t * 3 + MODE_ORDER.indexOf(mode) * 1.2) * 0.4;
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = locked ? "rgba(122,143,176,0.4)" : color;
+      ctx.shadowColor = locked ? "transparent" : color;
+      ctx.shadowBlur = locked ? 0 : 6 + pulse * 8;
+      roundRect(ctx, r.x, r.y, r.w, r.h, 12);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      // 左侧色条
+      ctx.fillStyle = locked ? "rgba(122,143,176,0.4)" : color;
+      ctx.fillRect(r.x, r.y, 4, r.h);
+
+      // 图标（左上）
+      ctx.font = `24px ${Theme.fonts.display}`;
+      ctx.fillStyle = locked ? "rgba(122,143,176,0.6)" : color;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText(icon, r.x + 12, r.y + 8);
+
+      // 模式名（右上）
+      ctx.font = `900 16px ${Theme.fonts.display}`;
+      ctx.fillStyle = locked ? "rgba(122,143,176,0.7)" : color;
+      ctx.textAlign = "right";
+      ctx.textBaseline = "top";
+      ctx.fillText(label, r.x + r.w - 12, r.y + 10);
+
+      // 描述（中部，单行截断）
+      ctx.font = `500 10px ${Theme.fonts.body}`;
+      ctx.fillStyle = locked ? "rgba(122,143,176,0.5)" : withAlpha(Theme.colors.ink.DEFAULT, 0.85);
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      const descLines = this.wrapTextCanvas(ctx, desc, r.w - 24, 1);
+      descLines.forEach((line, i) => ctx.fillText(line, r.x + 12, r.y + 32 + i * 12));
+
+      // 进度/提示行（底部）
+      const progY = r.y + r.h - 16;
+      ctx.font = `600 10px ${Theme.fonts.mono}`;
+      ctx.fillStyle = locked ? "rgba(229,53,59,0.8)" : withAlpha(color, 0.9);
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      let progText = "";
+      if (locked) {
+        progText = "🔒 需先有错题";
+      } else if (hint) {
+        progText = hint;
+      }
+      if (progText) {
+        ctx.fillText(progText, r.x + 12, progY);
+      }
+      // 模式专属进度（右侧）
+      ctx.textAlign = "right";
+      ctx.fillStyle = withAlpha(Theme.colors.ink.muted, 0.85);
+      let progRight = "";
+      if (!locked) {
+        switch (mode) {
+          case "story": {
+            const cleared = save.storyClearedStages.length;
+            const total = STORY_STAGES.length;
+            progRight = `${cleared}/${total} 关`;
+            break;
+          }
+          case "speedrun":
+            progRight = save.speedrunBestCorrect > 0
+              ? `最佳 ${save.speedrunBestCorrect}/${30}`
+              : "未挑战";
+            break;
+          case "hardcore":
+            progRight = save.hardcoreBestStreak > 0
+              ? `连对 ${save.hardcoreBestStreak}`
+              : "未挑战";
+            break;
+          case "daily":
+            progRight = save.dailyHistory[todayKey] !== undefined
+              ? `今日 ${save.dailyHistory[todayKey]}/10`
+              : "今日未做";
+            break;
+          case "review":
+            progRight = `已清 ${save.reviewNightmareTotalCleared}`;
+            break;
+          case "aiBattle":
+            progRight = save.aiBattleClearedIds.length > 0
+              ? `识破 ${save.aiBattleClearedIds.length}`
+              : "未挑战";
+            break;
+          case "deconstruct":
+            progRight = save.deconstructClearedIds.length > 0
+              ? `拆解 ${save.deconstructClearedIds.length}`
+              : "未挑战";
+            break;
+          case "detective":
+            progRight = save.detectiveSolvedCount > 0
+              ? `破案 ${save.detectiveSolvedCount}`
+              : "未挑战";
+            break;
+          case "endless":
+          default:
+            progRight = `完美 ${save.perfectRunCount} 次`;
+            break;
+        }
+      }
+      if (progRight) {
+        ctx.fillText(progRight, r.x + r.w - 12, progY);
+      }
+      ctx.restore();
+    }
+
+    // v3 Phase 4：教育入口行（底部 2 个大按钮）
+    this.drawEduRow(ctx);
+
+    // 底部提示
+    ctx.save();
+    ctx.font = `500 11px ${Theme.fonts.mono}`;
+    ctx.fillStyle = Theme.colors.ink.dim;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("选择模式开始挑战 · 错题噩梦需先在其他模式答错题目", CANVAS_W / 2, CANVAS_H - 16);
+    ctx.restore();
+  }
+
+  /** v3 Phase 4：渲染教育入口行（图鉴 + 96110 通话器） */
+  private drawEduRow(ctx: CanvasRenderingContext2D): void {
+    // 分隔线（与模式卡视觉区隔）
+    ctx.save();
+    ctx.strokeStyle = withAlpha(Theme.colors.bg.line, 0.6);
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(60, EDU_BTN_Y - 10);
+    ctx.lineTo(CANVAS_W - 60, EDU_BTN_Y - 10);
+    ctx.stroke();
+    // 左侧标签
+    ctx.font = `700 10px ${Theme.fonts.mono}`;
+    ctx.fillStyle = withAlpha(Theme.colors.ink.muted, 0.9);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("// 教育中心 · LEARNING HUB", CANVAS_W / 2, EDU_BTN_Y - 18);
+    ctx.restore();
+
+    for (const entry of EDU_ENTRIES) {
+      const r = this.getEduBtnRect(entry.id);
+      const pressed = this.pressedEdu === entry.id;
+
+      ctx.save();
+      if (pressed) ctx.translate(0, 2);
+      // 背景
+      roundRect(ctx, r.x, r.y, r.w, r.h, 10);
+      const g = ctx.createLinearGradient(r.x, r.y, r.x, r.y + r.h);
+      g.addColorStop(0, withAlpha(entry.color, 0.2));
+      g.addColorStop(1, "rgba(10,25,41,0.85)");
+      ctx.fillStyle = g;
+      ctx.fill();
+      // 边框（脉动）
+      const pulse = 0.6 + Math.sin(this.t * 2.5 + entry.id.length) * 0.4;
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = entry.color;
+      ctx.shadowColor = entry.color;
+      ctx.shadowBlur = 4 + pulse * 4;
+      roundRect(ctx, r.x, r.y, r.w, r.h, 10);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      // 左侧色条
+      ctx.fillStyle = entry.color;
+      ctx.fillRect(r.x, r.y, 3, r.h);
+
+      // 图标（左侧大字）
+      ctx.font = `24px ${Theme.fonts.display}`;
+      ctx.fillStyle = "#FFFFFF";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(entry.icon, r.x + 14, r.y + r.h / 2);
+
+      // 标题（左上）
+      ctx.font = `900 16px ${Theme.fonts.display}`;
+      ctx.fillStyle = entry.color;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText(entry.label, r.x + 48, r.y + 10);
+
+      // 描述（左下，小字）
+      ctx.font = `500 10px ${Theme.fonts.body}`;
+      ctx.fillStyle = withAlpha(Theme.colors.ink.DEFAULT, 0.8);
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText(entry.desc, r.x + 48, r.y + 32);
+
+      // 右侧箭头
+      ctx.font = `700 18px ${Theme.fonts.mono}`;
+      ctx.fillStyle = entry.color;
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+      ctx.fillText("›", r.x + r.w - 14, r.y + r.h / 2);
+
+      ctx.restore();
+    }
+  }
+
+  /** 画布文本换行（返回最多 maxLines 行） */
+  private wrapTextCanvas(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, maxLines: number): string[] {
+    const lines: string[] = [];
+    let line = "";
+    for (const ch of text) {
+      const test = line + ch;
+      if (ctx.measureText(test).width > maxWidth && line) {
+        lines.push(line);
+        line = ch;
+        if (lines.length >= maxLines - 1) break;
+      } else {
+        line = test;
+      }
+    }
+    if (line && lines.length < maxLines) lines.push(line);
+    // 截断超长末行
+    if (lines.length > 0) {
+      let last = lines[lines.length - 1];
+      while (last.length > 0 && ctx.measureText(last + "…").width > maxWidth) {
+        last = last.slice(0, -1);
+      }
+      if (lines[lines.length - 1] !== last) lines[lines.length - 1] = last + "…";
+    }
+    return lines;
+  }
+
+  /** v3 返回按钮绘制 */
+  private drawBackButton(ctx: CanvasRenderingContext2D, r: Rect): void {
+    ctx.save();
+    roundRect(ctx, r.x, r.y, r.w, r.h, 8);
+    ctx.fillStyle = "rgba(20,35,55,0.8)";
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = withAlpha(Theme.colors.ink.muted, 0.6);
+    ctx.stroke();
+    ctx.font = `600 13px ${Theme.fonts.mono}`;
+    ctx.fillStyle = Theme.colors.ink.muted;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("← 返回", r.x + r.w / 2, r.y + r.h / 2);
+    ctx.restore();
+  }
+
+  /** 获取今日日期 key（YYYY-MM-DD） */
+  private getTodayDailyKey(): string {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+
+  // ===== v5 升级：三种新模式渲染与输入 =====
+
+  /** AI 对战：聊天式多轮对话识破 */
+  private drawAIBattle(ctx: CanvasRenderingContext2D, s: FBHudAIDialogState): void {
+    // 深色背景 + 红色光晕（骗子压迫感）
+    ctx.fillStyle = "#0A0F1E";
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    const glow = ctx.createRadialGradient(CANVAS_W / 2, 240, 0, CANVAS_W / 2, 240, 360);
+    glow.addColorStop(0, "rgba(229,53,59,0.12)");
+    glow.addColorStop(1, "transparent");
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+    // 顶部信息栏
+    ctx.save();
+    ctx.fillStyle = "rgba(229,53,59,0.12)";
+    ctx.fillRect(0, 0, CANVAS_W, 52);
+    ctx.font = `900 16px ${Theme.fonts.display}`;
+    ctx.fillStyle = "#FF5A60";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText("🤖 AI 对战 · 多轮识破", 16, 26);
+    // 识破进度
+    ctx.textAlign = "right";
+    ctx.font = `700 13px ${Theme.fonts.mono}`;
+    ctx.fillStyle = "#FFD666";
+    ctx.fillText(`识破 ${s.bustScore}/${s.passThreshold}`, CANVAS_W - 16, 18);
+    ctx.fillStyle = withAlpha(Theme.colors.ink.muted, 0.9);
+    ctx.font = `500 11px ${Theme.fonts.mono}`;
+    ctx.fillText(`轮次 ${s.turnCount}/${s.maxTurns}`, CANVAS_W - 16, 38);
+    ctx.restore();
+
+    // 剧本标题
+    ctx.save();
+    ctx.font = `600 12px ${Theme.fonts.body}`;
+    ctx.fillStyle = withAlpha(Theme.colors.ink.DEFAULT, 0.7);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(s.scenarioTitle, CANVAS_W / 2, 64);
+    ctx.restore();
+
+    // 对话区：显示最近 4 轮（scammer 左 / player 右）
+    const recent = s.turns.slice(-8);
+    let chatY = 86;
+    const chatBottom = 320;
+    for (const turn of recent) {
+      if (chatY >= chatBottom) break;
+      const isScammer = turn.from === "scammer";
+      const bubbleW = Math.min(380, Math.max(180, turn.text.length * 9 + 28));
+      const bubbleH = this.measureBubbleHeight(ctx, turn.text, bubbleW - 24);
+      const bx = isScammer ? 16 : CANVAS_W - 16 - bubbleW;
+      // 气泡
+      ctx.save();
+      roundRect(ctx, bx, chatY, bubbleW, bubbleH, 10);
+      ctx.fillStyle = isScammer ? "rgba(229,53,59,0.18)" : "rgba(26,214,112,0.18)";
+      ctx.fill();
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = isScammer ? "rgba(229,53,59,0.6)" : "rgba(26,214,112,0.6)";
+      ctx.stroke();
+      // 文本
+      ctx.fillStyle = isScammer ? "#FFB0B8" : "#9FE3C0";
+      ctx.font = `500 12px ${Theme.fonts.body}`;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      const lines = this.wrapTextCanvas(ctx, turn.text, bubbleW - 24, 4);
+      lines.forEach((line, i) => ctx.fillText(line, bx + 12, chatY + 10 + i * 15));
+      ctx.restore();
+      chatY += bubbleH + 8;
+    }
+
+    // 当前骗子台词（高亮 + 红旗等级 + 话术标签）
+    if (!s.ended) {
+      const curY = 330;
+      ctx.save();
+      // 红旗等级条
+      if (s.currentRedFlag > 0) {
+        const rfColor = s.currentRedFlag >= 4 ? "#E5353B" : s.currentRedFlag >= 2 ? "#FFB020" : "#FFD666";
+        ctx.fillStyle = rfColor;
+        ctx.font = `700 10px ${Theme.fonts.mono}`;
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+        ctx.fillText(`🔴 红旗 ${s.currentRedFlag}/5`, 16, curY);
+        if (s.currentTactic) {
+          ctx.fillStyle = withAlpha(Theme.colors.ink.muted, 0.9);
+          ctx.fillText(`话术：${s.currentTactic}`, 100, curY);
+        }
+      }
+      // 当前骗子气泡
+      const curBubbleH = 46;
+      // v5 视觉升级：红旗等级越高，气泡红光脉动越强（压迫感）
+      const rfPulse = s.currentRedFlag >= 4
+        ? 0.7 + ((Math.sin(this.t * 6) + 1) / 2) * 0.3  // 高红旗：快速脉动
+        : s.currentRedFlag >= 2
+          ? 0.5 + ((Math.sin(this.t * 4) + 1) / 2) * 0.2 // 中红旗：中速脉动
+          : 0.4;                                          // 低红旗：稳定
+      roundRect(ctx, 16, curY + 12, CANVAS_W - 32, curBubbleH, 10);
+      ctx.fillStyle = `rgba(229,53,59,${0.18 + rfPulse * 0.12})`;
+      ctx.fill();
+      ctx.lineWidth = 2 + (s.currentRedFlag >= 4 ? 1 : 0);
+      ctx.strokeStyle = "#E5353B";
+      ctx.shadowColor = "#E5353B";
+      ctx.shadowBlur = 8 + rfPulse * 8;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "#FFE0E4";
+      ctx.font = `600 13px ${Theme.fonts.body}`;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      const scammerLines = this.wrapTextCanvas(ctx, s.currentScammerLine, CANVAS_W - 64, 2);
+      scammerLines.forEach((line, i) => ctx.fillText(line, 28, curY + 12 + curBubbleH / 2 - (scammerLines.length - 1) * 8 + i * 16));
+      ctx.restore();
+    } else {
+      // 结局展示
+      ctx.save();
+      const endColor = s.ending === "busted" ? "#1AD670" : "#E5353B";
+      ctx.font = `900 22px ${Theme.fonts.display}`;
+      ctx.fillStyle = endColor;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.shadowColor = endColor;
+      ctx.shadowBlur = 16;
+      ctx.fillText(s.ending === "busted" ? "🎉 识破骗局！" : "⚠ 未能识破", CANVAS_W / 2, 340);
+      ctx.shadowBlur = 0;
+      ctx.font = `500 12px ${Theme.fonts.body}`;
+      ctx.fillStyle = withAlpha(Theme.colors.ink.DEFAULT, 0.85);
+      const endLines = this.wrapTextCanvas(ctx, s.endingDesc ?? "", CANVAS_W - 64, 3);
+      endLines.forEach((line, i) => ctx.fillText(line, CANVAS_W / 2, 376 + i * 16));
+      ctx.restore();
+    }
+
+    // 选项按钮
+    if (!s.ended) {
+      const choices = s.currentChoices;
+      const rects = this.getAIBattleChoiceRects(choices.length);
+      for (let i = 0; i < choices.length && i < rects.length; i++) {
+        this.drawAIBattleChoice(ctx, rects[i], choices[i].text, i);
+      }
+    }
+  }
+
+  /** 骗局拆解：剧本逐句拆解 */
+  private drawDeconstruct(ctx: CanvasRenderingContext2D, s: FBHudDeconstructState): void {
+    ctx.fillStyle = "#0E0A1E";
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    const glow = ctx.createRadialGradient(CANVAS_W / 2, 240, 0, CANVAS_W / 2, 240, 360);
+    glow.addColorStop(0, "rgba(124,77,255,0.14)");
+    glow.addColorStop(1, "transparent");
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+    // 顶部信息栏
+    ctx.save();
+    ctx.fillStyle = "rgba(124,77,255,0.14)";
+    ctx.fillRect(0, 0, CANVAS_W, 52);
+    ctx.font = `900 16px ${Theme.fonts.display}`;
+    ctx.fillStyle = "#B388FF";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText("🔍 骗局拆解 · 反向学习", 16, 26);
+    ctx.textAlign = "right";
+    ctx.font = `700 13px ${Theme.fonts.mono}`;
+    ctx.fillStyle = "#FFD666";
+    ctx.fillText(`红旗 ${s.totalRedFlags}`, CANVAS_W - 16, 18);
+    ctx.fillStyle = withAlpha(Theme.colors.ink.muted, 0.9);
+    ctx.font = `500 11px ${Theme.fonts.mono}`;
+    ctx.fillText(`进度 ${s.currentLineIdx + 1}/${s.totalLines}`, CANVAS_W - 16, 38);
+    ctx.restore();
+
+    // 剧本对白区（滚动展示已揭示行）
+    const lines = s.revealedLines;
+    let y = 64;
+    const bottom = s.summaryShown ? 300 : 380;
+    for (let i = 0; i < lines.length; i++) {
+      if (y >= bottom) break;
+      const line = lines[i];
+      const isScammer = line.from === "scammer";
+      const isSystem = line.from === "system";
+      const bubbleW = isSystem ? CANVAS_W - 64 : Math.min(420, Math.max(200, line.text.length * 9 + 28));
+      const bx = isSystem ? 32 : isScammer ? 16 : CANVAS_W - 16 - bubbleW;
+      const bubbleH = this.measureBubbleHeight(ctx, line.text, bubbleW - 24);
+      // 气泡
+      ctx.save();
+      roundRect(ctx, bx, y, bubbleW, bubbleH, 10);
+      if (isSystem) {
+        ctx.fillStyle = "rgba(122,143,176,0.14)";
+      } else if (isScammer) {
+        ctx.fillStyle = "rgba(229,53,59,0.16)";
+      } else {
+        ctx.fillStyle = "rgba(26,134,214,0.16)";
+      }
+      ctx.fill();
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = isSystem ? "rgba(122,143,176,0.4)" : isScammer ? "rgba(229,53,59,0.5)" : "rgba(26,134,214,0.5)";
+      ctx.stroke();
+      // 发言方标签
+      ctx.font = `700 9px ${Theme.fonts.mono}`;
+      ctx.fillStyle = isScammer ? "#FF8A8F" : isSystem ? Theme.colors.ink.muted : "#7AB8E5";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      const speaker = isScammer ? "骗子" : isSystem ? "系统" : "受害者";
+      ctx.fillText(speaker, bx + 10, y + 5);
+      // 文本
+      ctx.fillStyle = isScammer ? "#FFD0D4" : isSystem ? withAlpha(Theme.colors.ink.muted, 0.9) : "#C8E0F5";
+      ctx.font = `500 12px ${Theme.fonts.body}`;
+      const textLines = this.wrapTextCanvas(ctx, line.text, bubbleW - 24, 4);
+      textLines.forEach((tl, j) => ctx.fillText(tl, bx + 10, y + 18 + j * 15));
+      ctx.restore();
+      y += bubbleH + 6;
+      // 拆解说明（仅当前行且已揭示）
+      if (i === s.currentLineIdx && s.deconstructRevealed && line.deconstruct) {
+        ctx.save();
+        const dW = CANVAS_W - 32;
+        const dH = this.measureBubbleHeight(ctx, line.deconstruct, dW - 24) + 8;
+        // v5 视觉升级：拆解揭示金光脉动（呼吸效果）
+        const dcPulse = 0.6 + ((Math.sin(this.t * 3.5) + 1) / 2) * 0.4;
+        roundRect(ctx, 16, y, dW, dH, 8);
+        ctx.fillStyle = `rgba(255,214,102,${0.12 + dcPulse * 0.08})`;
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "#FFD666";
+        ctx.shadowColor = "#FFD666";
+        ctx.shadowBlur = 6 + dcPulse * 6;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = "#FFE9A8";
+        ctx.font = `600 11px ${Theme.fonts.body}`;
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
+        ctx.fillText("💡 拆解", 26, y + 6);
+        const dLines = this.wrapTextCanvas(ctx, line.deconstruct, dW - 48, 4);
+        dLines.forEach((dl, j) => ctx.fillText(dl, 70, y + 6 + j * 15));
+        ctx.restore();
+        y += dH + 6;
+      }
+    }
+
+    // 总结
+    if (s.summaryShown && s.summary) {
+      ctx.save();
+      const sy = 308;
+      roundRect(ctx, 16, sy, CANVAS_W - 32, 96, 10);
+      const g = ctx.createLinearGradient(0, sy, 0, sy + 96);
+      g.addColorStop(0, "rgba(26,214,112,0.18)");
+      g.addColorStop(1, "rgba(10,25,41,0.8)");
+      ctx.fillStyle = g;
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#1AD670";
+      ctx.stroke();
+      ctx.font = `900 14px ${Theme.fonts.display}`;
+      ctx.fillStyle = "#1AD670";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText("✅ 拆解总结", 28, sy + 10);
+      ctx.font = `500 11px ${Theme.fonts.body}`;
+      ctx.fillStyle = withAlpha(Theme.colors.ink.DEFAULT, 0.9);
+      ctx.fillText(`致命红旗 ${s.summary.totalRedFlags} 个 · 核心教训：${s.summary.lesson}`, 28, sy + 32);
+      const cueLines = this.wrapTextCanvas(ctx, "关键识别词：" + s.summary.keyCues.join("、"), CANVAS_W - 64, 2);
+      cueLines.forEach((cl, j) => ctx.fillText(cl, 28, sy + 52 + j * 15));
+      ctx.fillStyle = withAlpha(Theme.colors.ink.muted, 0.85);
+      ctx.fillText(`易受害人群：${s.summary.victimProfile}`, 28, sy + 82);
+      ctx.restore();
+    }
+
+    // 底部按钮
+    if (!s.summaryShown) {
+      const nextR = this.getDeconstructBtnRect("next");
+      const skipR = this.getDeconstructBtnRect("skip");
+      this.drawV5ActionButton(ctx, nextR, s.deconstructRevealed ? "▶ 下一句" : "💡 显示拆解", "#7C4DFF", this.pressedV5Btn === "dcNext");
+      this.drawV5ActionButton(ctx, skipR, "⏭ 跳过结尾", withAlpha(Theme.colors.ink.muted, 0.9), this.pressedV5Btn === "dcSkip", true);
+    } else {
+      const doneR = this.getDeconstructBtnRect("next");
+      this.drawV5ActionButton(ctx, doneR, "✓ 完成学习", "#1AD670", this.pressedV5Btn === "dcNext");
+    }
+  }
+
+  /** 双人对战：同设备双人轮流答题 */
+  private drawVersus(ctx: CanvasRenderingContext2D, s: FBHudVSState): void {
+    ctx.fillStyle = "#0E1208";
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    const glow = ctx.createRadialGradient(CANVAS_W / 2, 240, 0, CANVAS_W / 2, 240, 360);
+    glow.addColorStop(0, "rgba(255,176,32,0.12)");
+    glow.addColorStop(1, "transparent");
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+    // 双人血量条
+    this.drawVSPlayerBar(ctx, s.p1, 16, 12, true);
+    this.drawVSPlayerBar(ctx, s.p2, CANVAS_W - 16 - 360, 12, false);
+    // VS 标志
+    ctx.save();
+    ctx.font = `900 20px ${Theme.fonts.display}`;
+    ctx.fillStyle = "#FFB020";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.shadowColor = "#FFB020";
+    ctx.shadowBlur = 10;
+    ctx.fillText("VS", CANVAS_W / 2, 36);
+    ctx.shadowBlur = 0;
+    ctx.restore();
+
+    if (s.ended) {
+      // 结局
+      ctx.save();
+      const winColor = s.winner === "P1" ? s.p1.color : s.winner === "P2" ? s.p2.color : "#FFB020";
+      const winName = s.winner === "P1" ? s.p1.name : s.winner === "P2" ? s.p2.name : "平局";
+      ctx.font = `900 28px ${Theme.fonts.display}`;
+      ctx.fillStyle = winColor;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.shadowColor = winColor;
+      ctx.shadowBlur = 18;
+      ctx.fillText(s.winner === "draw" ? "🤝 平局！" : `🏆 ${winName} 获胜！`, CANVAS_W / 2, 240);
+      ctx.shadowBlur = 0;
+      ctx.font = `600 14px ${Theme.fonts.body}`;
+      ctx.fillStyle = withAlpha(Theme.colors.ink.DEFAULT, 0.85);
+      ctx.fillText(`${s.p1.name} 答对 ${s.p1.correct} · ${s.p2.name} 答对 ${s.p2.correct}`, CANVAS_W / 2, 282);
+      ctx.restore();
+      return;
+    }
+
+    // 当前回合提示
+    const curP = s.currentTurn === "P1" ? s.p1 : s.p2;
+    ctx.save();
+    ctx.font = `700 13px ${Theme.fonts.body}`;
+    ctx.fillStyle = curP.color;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(`◀ ${curP.name} 的回合 ▶ 答对攻击对方，答错自伤`, CANVAS_W / 2, 78);
+    ctx.restore();
+
+    // 题目
+    const q = s.currentQuestion;
+    if (q) {
+      ctx.save();
+      // 题目卡片
+      roundRect(ctx, 16, 96, CANVAS_W - 32, 120, 10);
+      ctx.fillStyle = "rgba(10,25,41,0.7)";
+      ctx.fill();
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = withAlpha(curP.color, 0.5);
+      ctx.stroke();
+      ctx.font = `700 13px ${Theme.fonts.display}`;
+      ctx.fillStyle = curP.color;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText(q.title, 28, 106);
+      ctx.font = `500 12px ${Theme.fonts.body}`;
+      ctx.fillStyle = withAlpha(Theme.colors.ink.DEFAULT, 0.9);
+      const bodyLines = this.wrapTextCanvas(ctx, q.body, CANVAS_W - 64, 4);
+      bodyLines.forEach((bl, i) => ctx.fillText(bl, 28, 128 + i * 16));
+      ctx.restore();
+
+      // 选项按钮（2×2 网格）
+      const rects = this.getVersusOptionRects(q.options.length);
+      for (let i = 0; i < q.options.length && i < rects.length; i++) {
+        this.drawVersusOption(ctx, rects[i], q.options[i], i, curP.color);
+      }
+    }
+
+    // 上一回合反馈
+    if (s.lastResult) {
+      ctx.save();
+      const lr = s.lastResult;
+      const fbColor = lr.correct ? "#1AD670" : "#E5353B";
+      ctx.font = `700 12px ${Theme.fonts.mono}`;
+      ctx.fillStyle = fbColor;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      const targetName = lr.target === "P1" ? s.p1.name : s.p2.name;
+      ctx.fillText(lr.correct ? `${targetName} -${lr.damage} HP` : `${targetName} -${lr.damage} HP（自伤）`, CANVAS_W / 2, 460);
+      ctx.restore();
+    }
+  }
+
+  /** 测量气泡高度（用于动态布局） */
+  private measureBubbleHeight(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): number {
+    const lines = this.wrapTextCanvas(ctx, text, maxWidth, 4);
+    return 16 + lines.length * 15;
+  }
+
+  /** AI 对战选项按钮矩形 */
+  private getAIBattleChoiceRects(count: number): Rect[] {
+    const rects: Rect[] = [];
+    const w = CANVAS_W - 32;
+    const h = 44;
+    const gap = 8;
+    const startY = 400;
+    for (let i = 0; i < count; i++) {
+      rects.push({ x: 16, y: startY + i * (h + gap), w, h });
+    }
+    return rects;
+  }
+
+  /** 绘制 AI 对战选项按钮 */
+  private drawAIBattleChoice(ctx: CanvasRenderingContext2D, r: Rect, text: string, idx: number): void {
+    const pressed = this.pressedV5Btn === `ai${idx}`;
+    ctx.save();
+    if (pressed) ctx.translate(0, 2);
+    roundRect(ctx, r.x, r.y, r.w, r.h, 8);
+    const g = ctx.createLinearGradient(r.x, r.y, r.x, r.y + r.h);
+    g.addColorStop(0, "rgba(26,214,112,0.16)");
+    g.addColorStop(1, "rgba(10,25,41,0.8)");
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = pressed ? "#1AD670" : "rgba(26,214,112,0.5)";
+    if (pressed) {
+      ctx.shadowColor = "#1AD670";
+      ctx.shadowBlur = 8;
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "#9FE3C0";
+    ctx.font = `600 13px ${Theme.fonts.body}`;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    const lines = this.wrapTextCanvas(ctx, text, r.w - 36, 2);
+    lines.forEach((line, i) => ctx.fillText(line, r.x + 14, r.y + r.h / 2 - (lines.length - 1) * 8 + i * 16));
+    ctx.restore();
+  }
+
+  /** 骗局拆解按钮矩形 */
+  private getDeconstructBtnRect(id: "next" | "skip"): Rect {
+    if (id === "next") return { x: 16, y: 404, w: 360, h: 52 };
+    return { x: 392, y: 404, w: CANVAS_W - 392 - 16, h: 52 };
+  }
+
+  /** 双人对战选项矩形（2×2 网格） */
+  private getVersusOptionRects(count: number): Rect[] {
+    const rects: Rect[] = [];
+    const cols = count <= 2 ? 1 : 2;
+    const rows = Math.ceil(count / cols);
+    const gap = 10;
+    const totalW = CANVAS_W - 32;
+    const w = cols === 1 ? totalW : (totalW - gap) / 2;
+    const h = rows === 1 ? 56 : 52;
+    const startY = 226;
+    for (let i = 0; i < count; i++) {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      rects.push({
+        x: 16 + col * (w + gap),
+        y: startY + row * (h + gap),
+        w,
+        h,
+      });
+    }
+    return rects;
+  }
+
+  /** 绘制双人对战选项 */
+  private drawVersusOption(ctx: CanvasRenderingContext2D, r: Rect, text: string, idx: number, color: string): void {
+    const pressed = this.pressedV5Btn === `vs${idx}`;
+    ctx.save();
+    if (pressed) ctx.translate(0, 2);
+    roundRect(ctx, r.x, r.y, r.w, r.h, 8);
+    const g = ctx.createLinearGradient(r.x, r.y, r.x, r.y + r.h);
+    g.addColorStop(0, withAlpha(color, 0.14));
+    g.addColorStop(1, "rgba(10,25,41,0.8)");
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = pressed ? color : withAlpha(color, 0.5);
+    if (pressed) {
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 8;
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    // 选项字母
+    ctx.fillStyle = color;
+    ctx.font = `900 16px ${Theme.fonts.display}`;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText(LETTERS[idx] ?? String(idx + 1), r.x + 12, r.y + r.h / 2);
+    // 选项文本
+    ctx.fillStyle = withAlpha(Theme.colors.ink.DEFAULT, 0.92);
+    ctx.font = `500 12px ${Theme.fonts.body}`;
+    const lines = this.wrapTextCanvas(ctx, text, r.w - 48, 2);
+    lines.forEach((line, i) => ctx.fillText(line, r.x + 36, r.y + r.h / 2 - (lines.length - 1) * 8 + i * 16));
+    ctx.restore();
+  }
+
+  // ===== v6 反诈侦探模式渲染 =====
+
+  /** 侦探模式主渲染入口 */
+  private drawDetective(ctx: CanvasRenderingContext2D, s: FBHudDetectiveState): void {
+    // 背景
+    ctx.fillStyle = "#08111E";
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    const glow = ctx.createRadialGradient(CANVAS_W / 2, 240, 0, CANVAS_W / 2, 240, 360);
+    glow.addColorStop(0, "rgba(0,229,255,0.10)");
+    glow.addColorStop(1, "transparent");
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+    switch (s.stage) {
+      case "briefing": this.drawDetectiveBriefing(ctx, s); break;
+      case "evidence": this.drawDetectiveEvidence(ctx, s); break;
+      case "reasoning": this.drawDetectiveReasoning(ctx, s); break;
+      case "summary":
+      case "archived": this.drawDetectiveSummary(ctx, s); break;
+    }
+  }
+
+  /** 侦探顶部信息栏 */
+  private drawDetectiveTopBar(ctx: CanvasRenderingContext2D, leftLabel: string, rightText: string, rightColor: string): void {
+    ctx.save();
+    ctx.fillStyle = "rgba(0,229,255,0.10)";
+    ctx.fillRect(0, 0, CANVAS_W, 44);
+    ctx.font = `900 14px ${Theme.fonts.display}`;
+    ctx.fillStyle = "#00E5FF";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText(leftLabel, 16, 22);
+    ctx.textAlign = "right";
+    ctx.font = `700 12px ${Theme.fonts.mono}`;
+    ctx.fillStyle = rightColor;
+    ctx.fillText(rightText, CANVAS_W - 16, 22);
+    ctx.restore();
+  }
+
+  /** 简报阶段 */
+  private drawDetectiveBriefing(ctx: CanvasRenderingContext2D, s: FBHudDetectiveState): void {
+    const runner = this.engine?.getDetectiveRunner();
+    if (!runner) return;
+    const c = runner.getCase();
+    this.drawDetectiveTopBar(ctx, "🔍 反诈侦探 · 案件简报", `${c.id} · 难度${"★".repeat(c.difficulty)}`, "#FFD666");
+
+    // 案件标题
+    ctx.save();
+    ctx.font = `900 18px ${Theme.fonts.display}`;
+    ctx.fillStyle = "#00E5FF";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.shadowColor = "#00E5FF";
+    ctx.shadowBlur = 8;
+    const titleLines = this.wrapTextCanvas(ctx, c.title, CANVAS_W - 64, 2);
+    titleLines.forEach((line, i) => ctx.fillText(line, CANVAS_W / 2, 54 + i * 22));
+    ctx.shadowBlur = 0;
+    ctx.restore();
+
+    // 简报卡片
+    ctx.save();
+    const bx = 16, by = 104, bw = CANVAS_W - 32, bh = 200;
+    roundRect(ctx, bx, by, bw, bh, 10);
+    ctx.fillStyle = "rgba(10,25,41,0.7)";
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = withAlpha("#00E5FF", 0.4);
+    ctx.stroke();
+    ctx.font = `700 11px ${Theme.fonts.mono}`;
+    ctx.fillStyle = withAlpha(Theme.colors.ink.muted, 0.9);
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillText("📋 接警简报", bx + 12, by + 10);
+    ctx.font = `500 12px ${Theme.fonts.body}`;
+    ctx.fillStyle = withAlpha(Theme.colors.ink.DEFAULT, 0.92);
+    const briefLines = this.wrapTextCanvas(ctx, c.briefing, bw - 24, 9);
+    briefLines.forEach((line, i) => ctx.fillText(line, bx + 12, by + 32 + i * 16));
+    ctx.restore();
+
+    // 受害者画像标签
+    const vp = VICTIM_PROFILES.find((p) => p.typeId === c.victimProfileId);
+    if (vp) {
+      ctx.save();
+      const vy = 314, vw = CANVAS_W - 32, vh = 56;
+      roundRect(ctx, 16, vy, vw, vh, 8);
+      ctx.fillStyle = withAlpha(vp.color, 0.10);
+      ctx.fill();
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = withAlpha(vp.color, 0.5);
+      ctx.stroke();
+      ctx.font = `20px ${Theme.fonts.display}`;
+      ctx.fillStyle = vp.color;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText("🎯", 28, vy + 28);
+      ctx.font = `800 13px ${Theme.fonts.display}`;
+      ctx.fillStyle = vp.color;
+      ctx.fillText(vp.name, 56, vy + 18);
+      ctx.font = `500 10px ${Theme.fonts.body}`;
+      ctx.fillStyle = withAlpha(Theme.colors.ink.muted, 0.9);
+      const vpLines = this.wrapTextCanvas(ctx, vp.desc, vw - 80, 2);
+      vpLines.forEach((line, i) => ctx.fillText(line, 56, vy + 36 + i * 12));
+      ctx.restore();
+    }
+
+    // 开始调查按钮
+    const btnR = this.getDetectiveBtnRect("primary");
+    this.drawV5ActionButton(ctx, btnR, "🔍 开始调查 →", "#00E5FF", this.pressedV5Btn === "dtPrimary");
+  }
+
+  /** 证据浏览阶段 */
+  private drawDetectiveEvidence(ctx: CanvasRenderingContext2D, s: FBHudDetectiveState): void {
+    const runner = this.engine?.getDetectiveRunner();
+    if (!runner) return;
+    const c = runner.getCase();
+    const timerPct = Math.max(0, s.evidenceRemainSec / s.evidenceTotalSec);
+    const timerColor = timerPct > 0.5 ? "#00E5FF" : timerPct > 0.25 ? "#FFD666" : "#E5353B";
+    this.drawDetectiveTopBar(ctx, "🔍 证据收集 · 点击查看详情", `⏱ ${Math.ceil(s.evidenceRemainSec)}s · ${s.viewedEvidenceIds.length}/${c.evidences.length}`, timerColor);
+
+    // 倒计时条
+    ctx.save();
+    ctx.fillStyle = "rgba(10,25,41,0.6)";
+    ctx.fillRect(0, 44, CANVAS_W, 4);
+    ctx.fillStyle = timerColor;
+    ctx.fillRect(0, 44, CANVAS_W * timerPct, 4);
+    if (timerPct < 0.25) {
+      ctx.shadowColor = timerColor;
+      ctx.shadowBlur = 6 + Math.sin(this.t * 8) * 4;
+      ctx.fillRect(0, 44, CANVAS_W * timerPct, 4);
+    }
+    ctx.restore();
+
+    // 证据列表（左侧）
+    const listX = 16, listY = 56, listW = 230;
+    const evCount = c.evidences.length;
+    const evH = Math.min(70, (368 - (evCount - 1) * 6) / evCount);
+    for (let i = 0; i < evCount; i++) {
+      const ev = c.evidences[i];
+      const r = { x: listX, y: listY + i * (evH + 6), w: listW, h: evH };
+      const viewed = s.viewedEvidenceIds.includes(ev.id);
+      const selected = s.selectedEvidenceId === ev.id;
+      const tagColor = ev.tag === "key" ? "#FFD666" : ev.tag === "misleading" ? "#FF7A1A" : "#7AB8E5";
+
+      ctx.save();
+      if (this.pressedV5Btn === `dtEv${i}`) ctx.translate(0, 2);
+      roundRect(ctx, r.x, r.y, r.w, r.h, 8);
+      const g = ctx.createLinearGradient(r.x, r.y, r.x, r.y + r.h);
+      g.addColorStop(0, selected ? withAlpha("#00E5FF", 0.22) : "rgba(10,25,41,0.7)");
+      g.addColorStop(1, "rgba(10,18,30,0.85)");
+      ctx.fillStyle = g;
+      ctx.fill();
+      ctx.lineWidth = selected ? 2 : 1;
+      ctx.strokeStyle = selected ? "#00E5FF" : withAlpha(tagColor, 0.4);
+      if (selected) { ctx.shadowColor = "#00E5FF"; ctx.shadowBlur = 8; }
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      // 类型图标
+      const evIcon: Record<string, string> = { chat: "💬", transfer: "💳", call: "📞", link: "🔗", screenshot: "📷", audio: "🎙" };
+      ctx.font = `18px ${Theme.fonts.display}`;
+      ctx.fillStyle = tagColor;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText(evIcon[ev.kind] ?? "📄", r.x + 10, r.y + 8);
+      // 标题
+      ctx.font = `700 11px ${Theme.fonts.body}`;
+      ctx.fillStyle = selected ? "#00E5FF" : withAlpha(Theme.colors.ink.DEFAULT, 0.9);
+      const tl = this.wrapTextCanvas(ctx, ev.title, r.w - 50, 2);
+      tl.forEach((line, j) => ctx.fillText(line, r.x + 34, r.y + 8 + j * 14));
+      // 标签
+      ctx.font = `600 9px ${Theme.fonts.mono}`;
+      ctx.fillStyle = tagColor;
+      ctx.textAlign = "right";
+      const tagLabel = ev.tag === "key" ? "关键" : ev.tag === "misleading" ? "误导" : "常规";
+      ctx.fillText(tagLabel, r.x + r.w - 10, r.y + 8);
+      // 已查看标记
+      if (viewed) {
+        ctx.font = `600 9px ${Theme.fonts.mono}`;
+        ctx.fillStyle = "#1AD670";
+        ctx.textAlign = "right";
+        ctx.fillText("✓ 已查看", r.x + r.w - 10, r.y + r.h - 14);
+      }
+      ctx.restore();
+    }
+
+    // 证据详情（右侧）
+    const dx = 256, dy = 56, dw = CANVAS_W - 256 - 16, dh = 340;
+    ctx.save();
+    roundRect(ctx, dx, dy, dw, dh, 10);
+    ctx.fillStyle = "rgba(6,14,26,0.85)";
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = withAlpha("#00E5FF", 0.3);
+    ctx.stroke();
+    const selectedEv = runner.getSelectedEvidence();
+    if (selectedEv) {
+      this.drawDetectiveEvidenceDetail(ctx, selectedEv, dx, dy, dw, dh);
+    } else {
+      ctx.font = `500 12px ${Theme.fonts.body}`;
+      ctx.fillStyle = withAlpha(Theme.colors.ink.muted, 0.7);
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      const hintLines = [
+        "👈 点击左侧证据查看详情",
+        "",
+        "🔑 关键证据（金）揭露诈骗核心话术",
+        "⚠ 误导证据（橙）需谨慎判断",
+        "📋 常规证据（蓝）提供背景信息",
+      ];
+      hintLines.forEach((line, i) => ctx.fillText(line, dx + dw / 2, dy + dh / 2 - 48 + i * 22));
+    }
+    ctx.restore();
+
+    // 进入推理按钮
+    const btnR = this.getDetectiveBtnRect("primary");
+    const allViewed = s.viewedEvidenceIds.length >= c.evidences.length;
+    this.drawV5ActionButton(ctx, btnR, allViewed ? "🧠 进入推理 →" : "🧠 跳过证据，直接推理 →", "#00E5FF", this.pressedV5Btn === "dtPrimary");
+  }
+
+  /** 证据详情内容渲染（按 kind 分支） */
+  private drawDetectiveEvidenceDetail(ctx: CanvasRenderingContext2D, ev: FBDetectiveEvidence, x: number, y: number, w: number, h: number): void {
+    // 标题
+    ctx.save();
+    ctx.font = `800 13px ${Theme.fonts.display}`;
+    ctx.fillStyle = "#00E5FF";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    const tl = this.wrapTextCanvas(ctx, ev.title, w - 24, 2);
+    tl.forEach((line, i) => ctx.fillText(line, x + 12, y + 10 + i * 16));
+    // 标签条
+    const tagColor = ev.tag === "key" ? "#FFD666" : ev.tag === "misleading" ? "#FF7A1A" : "#7AB8E5";
+    ctx.font = `700 9px ${Theme.fonts.mono}`;
+    ctx.fillStyle = tagColor;
+    ctx.textAlign = "right";
+    const tagLabel = ev.tag === "key" ? "🔑 关键证据" : ev.tag === "misleading" ? "⚠ 误导证据" : "📋 常规证据";
+    ctx.fillText(tagLabel, x + w - 12, y + 12);
+    ctx.restore();
+
+    // 内容区
+    const cy = y + 42, ch = h - 42 - (ev.revealedCues && ev.revealedCues.length ? 28 : 0);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x + 8, cy, w - 16, ch);
+    ctx.clip();
+
+    const p = ev.payload;
+    if (p.kind === "chat") {
+      // 聊天气泡
+      let by = cy + 6;
+      for (const msg of p.messages) {
+        const isMe = msg.from === "me";
+        const isSys = msg.from === "system";
+        const bw = isSys ? w - 40 : Math.min(280, Math.max(160, msg.text.length * 8 + 24));
+        const bx = isSys ? x + 20 : isMe ? x + w - 16 - bw : x + 16;
+        const bh = this.measureBubbleHeight(ctx, msg.text, bw - 20) + 4;
+        if (by + bh > cy + ch) break;
+        ctx.save();
+        roundRect(ctx, bx, by, bw, bh, 8);
+        ctx.fillStyle = isSys ? "rgba(122,143,176,0.14)" : isMe ? "rgba(0,229,255,0.14)" : "rgba(229,53,59,0.16)";
+        ctx.fill();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = isSys ? "rgba(122,143,176,0.3)" : isMe ? "rgba(0,229,255,0.4)" : "rgba(229,53,59,0.4)";
+        ctx.stroke();
+        ctx.font = `600 8px ${Theme.fonts.mono}`;
+        ctx.fillStyle = isSys ? Theme.colors.ink.muted : isMe ? "#7AD8E5" : "#FF8A8F";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
+        ctx.fillText(isSys ? "系统" : isMe ? "受害者" : "骗子", bx + 8, by + 3);
+        if (msg.time) {
+          ctx.textAlign = "right";
+          ctx.fillText(msg.time, bx + bw - 8, by + 3);
+        }
+        ctx.font = `500 10px ${Theme.fonts.body}`;
+        ctx.fillStyle = isSys ? withAlpha(Theme.colors.ink.muted, 0.9) : isMe ? "#C8EAF5" : "#FFD0D4";
+        const ml = this.wrapTextCanvas(ctx, msg.text, bw - 20, 4);
+        ml.forEach((line, j) => ctx.fillText(line, bx + 8, by + 16 + j * 13));
+        ctx.restore();
+        by += bh + 4;
+      }
+    } else if (p.kind === "transfer") {
+      // 转账流水
+      let ry = cy + 6;
+      ctx.font = `600 10px ${Theme.fonts.mono}`;
+      for (const f of p.flows) {
+        if (ry + 40 > cy + ch) break;
+        ctx.save();
+        roundRect(ctx, x + 12, ry, w - 24, 36, 6);
+        ctx.fillStyle = "rgba(229,53,59,0.10)";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(229,53,59,0.3)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.fillStyle = "#FF8A8F";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
+        ctx.fillText(`${f.time}`, x + 18, ry + 4);
+        ctx.fillStyle = withAlpha(Theme.colors.ink.DEFAULT, 0.9);
+        ctx.font = `500 10px ${Theme.fonts.body}`;
+        const fl = this.wrapTextCanvas(ctx, `${f.from} → ${f.to}`, w - 80, 1);
+        ctx.fillText(fl[0] ?? "", x + 60, ry + 4);
+        ctx.font = `700 12px ${Theme.fonts.mono}`;
+        ctx.fillStyle = "#E5353B";
+        ctx.textAlign = "right";
+        ctx.fillText(f.amount, x + w - 18, ry + 4);
+        if (f.note) {
+          ctx.font = `400 9px ${Theme.fonts.mono}`;
+          ctx.fillStyle = withAlpha(Theme.colors.ink.muted, 0.8);
+          ctx.textAlign = "right";
+          ctx.fillText(f.note, x + w - 18, ry + 22);
+        }
+        ctx.restore();
+        ry += 42;
+      }
+    } else if (p.kind === "call") {
+      // 通话录音
+      ctx.font = `600 10px ${Theme.fonts.mono}`;
+      ctx.fillStyle = withAlpha(Theme.colors.ink.muted, 0.9);
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText(`📞 来电号码：${p.callerNumber}`, x + 12, cy + 8);
+      ctx.fillText(`⏱ 时长：${Math.floor(p.duration / 60)}'${String(p.duration % 60).padStart(2, "0")}"`, x + 12, cy + 24);
+      if (p.isSyntheticVoice) {
+        ctx.fillStyle = "#FF7A1A";
+        ctx.fillText("⚠ AI 合成语音", x + 12, cy + 40);
+      }
+      // 转录文本
+      ctx.font = `500 10px ${Theme.fonts.body}`;
+      ctx.fillStyle = withAlpha(Theme.colors.ink.DEFAULT, 0.88);
+      const tl2 = this.wrapTextCanvas(ctx, `"${p.transcript}"`, w - 24, 12);
+      tl2.forEach((line, i) => ctx.fillText(line, x + 12, cy + 60 + i * 14));
+    } else if (p.kind === "link") {
+      // 链接分析
+      ctx.font = `700 10px ${Theme.fonts.mono}`;
+      ctx.fillStyle = p.isPhishing ? "#E5353B" : "#1AD670";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText(p.isPhishing ? "⚠ 钓鱼链接" : "✓ 正常链接", x + 12, cy + 8);
+      ctx.font = `600 10px ${Theme.fonts.mono}`;
+      ctx.fillStyle = "#FF8A8F";
+      ctx.fillText(`URL: ${p.url}`, x + 12, cy + 26);
+      ctx.font = `500 10px ${Theme.fonts.body}`;
+      ctx.fillStyle = withAlpha(Theme.colors.ink.DEFAULT, 0.88);
+      const sl = this.wrapTextCanvas(ctx, `截图：${p.screenshotDesc}`, w - 24, 3);
+      sl.forEach((line, i) => ctx.fillText(line, x + 12, cy + 44 + i * 14));
+      const dl = this.wrapTextCanvas(ctx, `域名分析：${p.domainAnalysis}`, w - 24, 5);
+      dl.forEach((line, i) => ctx.fillText(line, x + 12, cy + 44 + sl.length * 14 + i * 14));
+    } else if (p.kind === "screenshot") {
+      ctx.font = `700 10px ${Theme.fonts.mono}`;
+      ctx.fillStyle = p.tampered ? "#FF7A1A" : "#1AD670";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText(p.tampered ? "⚠ 疑似篡改截图" : "✓ 截图", x + 12, cy + 8);
+      ctx.font = `500 10px ${Theme.fonts.body}`;
+      ctx.fillStyle = withAlpha(Theme.colors.ink.DEFAULT, 0.88);
+      const dl = this.wrapTextCanvas(ctx, p.desc, w - 24, 2);
+      dl.forEach((line, i) => ctx.fillText(line, x + 12, cy + 26 + i * 14));
+      let dy2 = cy + 26 + dl.length * 14;
+      for (const d of p.details) {
+        if (dy2 + 14 > cy + ch) break;
+        ctx.font = `500 10px ${Theme.fonts.body}`;
+        ctx.fillStyle = withAlpha(Theme.colors.ink.muted, 0.9);
+        const dl2 = this.wrapTextCanvas(ctx, `• ${d}`, w - 24, 1);
+        ctx.fillText(dl2[0] ?? "", x + 12, dy2);
+        dy2 += 16;
+      }
+    } else if (p.kind === "audio") {
+      ctx.font = `700 10px ${Theme.fonts.mono}`;
+      ctx.fillStyle = "#00E5FF";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText(`🎙 ${p.clip.label}`, x + 12, cy + 8);
+      ctx.font = `600 10px ${Theme.fonts.mono}`;
+      ctx.fillStyle = withAlpha(Theme.colors.ink.muted, 0.9);
+      ctx.fillText(`时长 ${p.clip.duration}s · ${p.clip.isSynthetic ? "AI 合成" : "真人"}`, x + 12, cy + 24);
+      if (p.clip.synthTech) {
+        ctx.fillStyle = "#FF7A1A";
+        ctx.fillText(`技术：${p.clip.synthTech}`, x + 12, cy + 40);
+      }
+      ctx.font = `500 10px ${Theme.fonts.body}`;
+      ctx.fillStyle = withAlpha(Theme.colors.ink.DEFAULT, 0.88);
+      const tl3 = this.wrapTextCanvas(ctx, `"${p.clip.transcript}"`, w - 24, 10);
+      tl3.forEach((line, i) => ctx.fillText(line, x + 12, cy + 60 + i * 14));
+    }
+    ctx.restore();
+
+    // 揭露要点
+    if (ev.revealedCues && ev.revealedCues.length) {
+      ctx.save();
+      const cueY = y + h - 24;
+      ctx.fillStyle = "rgba(255,214,102,0.08)";
+      ctx.fillRect(x + 8, cueY, w - 16, 20);
+      ctx.font = `600 9px ${Theme.fonts.mono}`;
+      ctx.fillStyle = "#FFD666";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      const cueText = "💡 揭露：" + ev.revealedCues.join("、");
+      const cl = this.wrapTextCanvas(ctx, cueText, w - 24, 1);
+      ctx.fillText(cl[0] ?? "", x + 12, cueY + 10);
+      ctx.restore();
+    }
+  }
+
+  /** 推理问答阶段 */
+  private drawDetectiveReasoning(ctx: CanvasRenderingContext2D, s: FBHudDetectiveState): void {
+    const runner = this.engine?.getDetectiveRunner();
+    if (!runner) return;
+    const q = runner.getCurrentQuestion();
+    if (!q) return;
+    const lastResult = runner.getLastAnswerResult();
+    const answered = lastResult !== null;
+    const stageNames: Record<string, string> = { identify: "识别", locate: "定位", reconstruct: "还原", prevent: "防范" };
+    this.drawDetectiveTopBar(ctx, `🔍 推理问答 · ${stageNames[q.stage] ?? q.stage}阶段`, `题 ${s.currentQuestionIdx + 1}/${s.totalQuestions} · 得分 ${s.reasoningScore}`, "#00E5FF");
+
+    // 问题卡片
+    ctx.save();
+    const qx = 16, qy = 52, qw = CANVAS_W - 32, qh = 68;
+    roundRect(ctx, qx, qy, qw, qh, 10);
+    ctx.fillStyle = "rgba(10,25,41,0.7)";
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = withAlpha("#00E5FF", 0.4);
+    ctx.stroke();
+    ctx.font = `700 11px ${Theme.fonts.mono}`;
+    ctx.fillStyle = "#00E5FF";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    const qTypeLabel: Record<string, string> = { single: "单选", multi: "多选", sort: "排序", link: "连线" };
+    ctx.fillText(`[${qTypeLabel[q.kind] ?? q.kind}]`, qx + 12, qy + 8);
+    ctx.font = `600 12px ${Theme.fonts.body}`;
+    ctx.fillStyle = withAlpha(Theme.colors.ink.DEFAULT, 0.95);
+    const ql = this.wrapTextCanvas(ctx, q.question, qw - 24, 3);
+    ql.forEach((line, i) => ctx.fillText(line, qx + 12, qy + 26 + i * 15));
+    ctx.restore();
+
+    // 选项区
+    const optY = 130;
+    const optH = CANVAS_H - 130 - 76;
+    if (!answered) {
+      this.drawDetectiveOptions(ctx, q, qx, optY, qw, optH);
+    } else {
+      this.drawDetectiveFeedback(ctx, q, lastResult, qx, optY, qw, optH);
+    }
+
+    // 底部按钮
+    const btnR = this.getDetectiveBtnRect("primary");
+    if (answered) {
+      const isLast = s.currentQuestionIdx >= s.totalQuestions - 1;
+      this.drawV5ActionButton(ctx, btnR, isLast ? "📋 查看复盘 →" : "▶ 下一题 →", "#00E5FF", this.pressedV5Btn === "dtPrimary");
+    } else {
+      // 多选/排序/连线需要提交按钮
+      if (q.kind === "multi" || q.kind === "sort" || q.kind === "link") {
+        let canSubmit = false;
+        if (q.kind === "multi") canSubmit = this.detectiveMultiSel.length > 0;
+        else if (q.kind === "sort") canSubmit = this.detectiveSortSeq.length === q.options.length;
+        else canSubmit = this.detectiveLinkPairs.length === (q.linkLeft?.length ?? 0);
+        this.drawV5ActionButton(ctx, btnR, canSubmit ? "✓ 提交答案" : "请选择...", canSubmit ? "#00E5FF" : "rgba(122,143,176,0.6)", this.pressedV5Btn === "dtPrimary", !canSubmit);
+      } else {
+        this.drawV5ActionButton(ctx, btnR, "点击选项作答", "rgba(122,143,176,0.6)", false, true);
+      }
+    }
+  }
+
+  /** 绘制推理选项（未答题态） */
+  private drawDetectiveOptions(ctx: CanvasRenderingContext2D, q: FBDetectiveQuestion, x: number, y: number, w: number, h: number): void {
+    if (q.kind === "single") {
+      // 单选：垂直列表
+      const rects = this.getDetectiveOptionRects(q.options.length, y);
+      for (let i = 0; i < q.options.length; i++) {
+        this.drawDetectiveOptionBtn(ctx, rects[i], q.options[i], i, "single", this.pressedV5Btn === `dtOpt${i}`);
+      }
+    } else if (q.kind === "multi") {
+      const rects = this.getDetectiveOptionRects(q.options.length, y);
+      for (let i = 0; i < q.options.length; i++) {
+        const sel = this.detectiveMultiSel.includes(i);
+        this.drawDetectiveOptionBtn(ctx, rects[i], q.options[i], i, "multi", this.pressedV5Btn === `dtOpt${i}`, sel);
+      }
+    } else if (q.kind === "sort") {
+      const rects = this.getDetectiveOptionRects(q.options.length, y);
+      for (let i = 0; i < q.options.length; i++) {
+        const orderIdx = this.detectiveSortSeq.indexOf(i);
+        this.drawDetectiveOptionBtn(ctx, rects[i], q.options[i], i, "sort", this.pressedV5Btn === `dtOpt${i}`, false, orderIdx);
+      }
+    } else if (q.kind === "link") {
+      // 连线题：左右两列
+      const leftCount = q.linkLeft?.length ?? 0;
+      const rightCount = q.linkRight?.length ?? 0;
+      const colW = (w - 24) / 2;
+      const leftX = x + 8, rightX = x + 8 + colW + 8;
+      const itemH = Math.min(48, (h - 16) / Math.max(leftCount, rightCount) - 6);
+      for (let i = 0; i < leftCount; i++) {
+        const r = { x: leftX, y: y + i * (itemH + 6), w: colW, h: itemH };
+        const paired = this.detectiveLinkPairs.find(([l]) => l === i);
+        const isSel = this.detectiveLinkSelLeft === i;
+        this.drawDetectiveLinkBtn(ctx, r, q.linkLeft![i], i, "left", this.pressedV5Btn === `dtLinkL${i}`, isSel, paired !== undefined);
+      }
+      for (let i = 0; i < rightCount; i++) {
+        const r = { x: rightX, y: y + i * (itemH + 6), w: colW, h: itemH };
+        const paired = this.detectiveLinkPairs.find(([, rr]) => rr === i);
+        this.drawDetectiveLinkBtn(ctx, r, q.linkRight![i], i, "right", this.pressedV5Btn === `dtLinkR${i}`, false, paired !== undefined);
+      }
+      // 连线
+      ctx.save();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#00E5FF";
+      ctx.shadowColor = "#00E5FF";
+      ctx.shadowBlur = 4;
+      for (const [l, r] of this.detectiveLinkPairs) {
+        const ly = y + l * (itemH + 6) + itemH / 2;
+        const ry = y + r * (itemH + 6) + itemH / 2;
+        ctx.beginPath();
+        ctx.moveTo(leftX + colW, ly);
+        ctx.lineTo(rightX, ry);
+        ctx.stroke();
+      }
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    }
+  }
+
+  /** 选项按钮（single/multi/sort） */
+  private drawDetectiveOptionBtn(ctx: CanvasRenderingContext2D, r: Rect, text: string, idx: number, kind: "single" | "multi" | "sort", pressed: boolean, selected = false, orderIdx = -1): void {
+    ctx.save();
+    if (pressed) ctx.translate(0, 2);
+    roundRect(ctx, r.x, r.y, r.w, r.h, 8);
+    const g = ctx.createLinearGradient(r.x, r.y, r.x, r.y + r.h);
+    g.addColorStop(0, selected ? withAlpha("#00E5FF", 0.18) : "rgba(10,25,41,0.7)");
+    g.addColorStop(1, "rgba(10,18,30,0.85)");
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.lineWidth = selected ? 2 : 1.5;
+    ctx.strokeStyle = selected ? "#00E5FF" : withAlpha("#00E5FF", 0.4);
+    if (selected) { ctx.shadowColor = "#00E5FF"; ctx.shadowBlur = 8; }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    // 左侧标记
+    if (kind === "multi") {
+      ctx.font = `700 14px ${Theme.fonts.mono}`;
+      ctx.fillStyle = selected ? "#00E5FF" : withAlpha(Theme.colors.ink.muted, 0.6);
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(selected ? "☑" : "☐", r.x + 16, r.y + r.h / 2);
+    } else if (kind === "sort") {
+      ctx.font = `800 14px ${Theme.fonts.display}`;
+      ctx.fillStyle = orderIdx >= 0 ? "#FFD666" : withAlpha(Theme.colors.ink.muted, 0.5);
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(orderIdx >= 0 ? String(orderIdx + 1) : "·", r.x + 16, r.y + r.h / 2);
+    } else {
+      ctx.font = `900 14px ${Theme.fonts.display}`;
+      ctx.fillStyle = "#00E5FF";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(LETTERS[idx] ?? String(idx + 1), r.x + 16, r.y + r.h / 2);
+    }
+    // 文本
+    ctx.font = `500 11px ${Theme.fonts.body}`;
+    ctx.fillStyle = withAlpha(Theme.colors.ink.DEFAULT, 0.92);
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    const lines = this.wrapTextCanvas(ctx, text, r.w - 40, 2);
+    lines.forEach((line, i) => ctx.fillText(line, r.x + 32, r.y + r.h / 2 - (lines.length - 1) * 8 + i * 15));
+    ctx.restore();
+  }
+
+  /** 连线题选项按钮 */
+  private drawDetectiveLinkBtn(ctx: CanvasRenderingContext2D, r: Rect, text: string, idx: number, side: "left" | "right", pressed: boolean, selected: boolean, paired: boolean): void {
+    ctx.save();
+    if (pressed) ctx.translate(0, 2);
+    roundRect(ctx, r.x, r.y, r.w, r.h, 8);
+    const g = ctx.createLinearGradient(r.x, r.y, r.x, r.y + r.h);
+    g.addColorStop(0, selected ? withAlpha("#00E5FF", 0.22) : paired ? withAlpha("#1AD670", 0.14) : "rgba(10,25,41,0.7)");
+    g.addColorStop(1, "rgba(10,18,30,0.85)");
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.lineWidth = selected ? 2 : 1.5;
+    ctx.strokeStyle = selected ? "#00E5FF" : paired ? "#1AD670" : withAlpha("#00E5FF", 0.3);
+    if (selected) { ctx.shadowColor = "#00E5FF"; ctx.shadowBlur = 8; }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.font = `500 10px ${Theme.fonts.body}`;
+    ctx.fillStyle = paired ? "#9FE3C0" : withAlpha(Theme.colors.ink.DEFAULT, 0.9);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    const lines = this.wrapTextCanvas(ctx, text, r.w - 16, 2);
+    lines.forEach((line, i) => ctx.fillText(line, r.x + r.w / 2, r.y + r.h / 2 - (lines.length - 1) * 7 + i * 14));
+    ctx.restore();
+  }
+
+  /** 答题反馈（已答题态） */
+  private drawDetectiveFeedback(ctx: CanvasRenderingContext2D, q: FBDetectiveQuestion, result: { correct: boolean; explain: string; breakingPointFound: boolean }, x: number, y: number, w: number, h: number): void {
+    // 结果标题
+    ctx.save();
+    ctx.font = `900 18px ${Theme.fonts.display}`;
+    ctx.fillStyle = result.correct ? "#1AD670" : "#E5353B";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.shadowColor = result.correct ? "#1AD670" : "#E5353B";
+    ctx.shadowBlur = 10;
+    ctx.fillText(result.correct ? "✅ 回答正确！" : "❌ 回答错误", CANVAS_W / 2, y);
+    ctx.shadowBlur = 0;
+    if (result.breakingPointFound && result.correct) {
+      ctx.font = `800 13px ${Theme.fonts.display}`;
+      ctx.fillStyle = "#FFD666";
+      ctx.fillText("🎯 破局点已定位！", CANVAS_W / 2, y + 26);
+    }
+    ctx.restore();
+
+    // 正确答案
+    ctx.save();
+    const ay = y + 50;
+    roundRect(ctx, x, ay, w, 56, 8);
+    ctx.fillStyle = "rgba(10,25,41,0.6)";
+    ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = withAlpha(Theme.colors.ink.muted, 0.3);
+    ctx.stroke();
+    ctx.font = `700 10px ${Theme.fonts.mono}`;
+    ctx.fillStyle = withAlpha(Theme.colors.ink.muted, 0.9);
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    let answerText = "";
+    if (q.kind === "single") answerText = q.options[q.answer ?? 0] ?? "";
+    else if (q.kind === "multi") answerText = (q.answers ?? []).map((i) => q.options[i]).join("、");
+    else if (q.kind === "sort") answerText = (q.sortCorrect ?? []).map((i, n) => `${n + 1}.${q.options[i]}`).join(" → ");
+    else if (q.kind === "link") answerText = (q.linkPairing ?? []).map((r, l) => `${q.linkLeft?.[l]}↔${q.linkRight?.[r]}`).join("  ");
+    const al = this.wrapTextCanvas(ctx, `正确答案：${answerText}`, w - 24, 2);
+    al.forEach((line, i) => ctx.fillText(line, x + 12, ay + 8 + i * 14));
+    ctx.restore();
+
+    // 解析
+    ctx.save();
+    const ey = ay + 64;
+    roundRect(ctx, x, ey, w, h - 114, 8);
+    ctx.fillStyle = result.correct ? "rgba(26,214,112,0.08)" : "rgba(229,53,59,0.08)";
+    ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = result.correct ? withAlpha("#1AD670", 0.3) : withAlpha("#E5353B", 0.3);
+    ctx.stroke();
+    ctx.font = `700 10px ${Theme.fonts.mono}`;
+    ctx.fillStyle = result.correct ? "#1AD670" : "#FF8A8F";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillText("💡 解析", x + 12, ey + 8);
+    ctx.font = `500 11px ${Theme.fonts.body}`;
+    ctx.fillStyle = withAlpha(Theme.colors.ink.DEFAULT, 0.92);
+    const el = this.wrapTextCanvas(ctx, q.explain, w - 24, 8);
+    el.forEach((line, i) => ctx.fillText(line, x + 12, ey + 26 + i * 15));
+    ctx.restore();
+  }
+
+  /** 复盘阶段 */
+  private drawDetectiveSummary(ctx: CanvasRenderingContext2D, s: FBHudDetectiveState): void {
+    const runner = this.engine?.getDetectiveRunner();
+    if (!runner) return;
+    const c = runner.getCase();
+    const solved = s.caseSolved;
+    this.drawDetectiveTopBar(ctx, "🔍 案件复盘 · 真相还原", `推理得分 ${s.reasoningScore} · ${solved ? "✅ 破案" : "❌ 未破案"}`, solved ? "#1AD670" : "#E5353B");
+
+    // 结果横幅
+    ctx.save();
+    ctx.font = `900 20px ${Theme.fonts.display}`;
+    ctx.fillStyle = solved ? "#1AD670" : "#E5353B";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.shadowColor = solved ? "#1AD670" : "#E5353B";
+    ctx.shadowBlur = 12;
+    ctx.fillText(solved ? "🏆 破案成功！" : "📋 继续努力", CANVAS_W / 2, 52);
+    ctx.shadowBlur = 0;
+    if (s.endingDesc) {
+      ctx.font = `500 10px ${Theme.fonts.body}`;
+      ctx.fillStyle = withAlpha(Theme.colors.ink.muted, 0.9);
+      ctx.fillText(s.endingDesc, CANVAS_W / 2, 80);
+    }
+    ctx.restore();
+
+    // 时间线卡片
+    ctx.save();
+    const tx = 16, ty = 102, tw = CANVAS_W - 32, th = 200;
+    roundRect(ctx, tx, ty, tw, th, 10);
+    ctx.fillStyle = "rgba(10,25,41,0.7)";
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = withAlpha("#00E5FF", 0.3);
+    ctx.stroke();
+    ctx.font = `800 12px ${Theme.fonts.display}`;
+    ctx.fillStyle = "#00E5FF";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillText("📅 诈骗剧本时间线", tx + 12, ty + 10);
+    ctx.font = `500 10px ${Theme.fonts.body}`;
+    ctx.fillStyle = withAlpha(Theme.colors.ink.DEFAULT, 0.9);
+    const tl = c.caseSummary.timeline;
+    const maxLines = Math.floor((th - 30) / 14);
+    tl.slice(0, maxLines).forEach((line, i) => {
+      const wl = this.wrapTextCanvas(ctx, line, tw - 28, 1);
+      ctx.fillText(wl[0] ?? "", tx + 12, ty + 30 + i * 14);
+    });
+    ctx.restore();
+
+    // 心理弱点 + 教训
+    ctx.save();
+    const py = 310, pw = CANVAS_W - 32, ph = 64;
+    roundRect(ctx, 16, py, pw, ph, 8);
+    ctx.fillStyle = "rgba(255,214,102,0.08)";
+    ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = withAlpha("#FFD666", 0.3);
+    ctx.stroke();
+    ctx.font = `700 10px ${Theme.fonts.mono}`;
+    ctx.fillStyle = "#FFD666";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    const psychLabels = c.caseSummary.psychology.map((p) => PSYCHOLOGY_LABELS[p] ?? p).join("、");
+    ctx.fillText(`🎯 心理弱点：${psychLabels}`, 28, py + 8);
+    ctx.font = `500 10px ${Theme.fonts.body}`;
+    ctx.fillStyle = withAlpha(Theme.colors.ink.DEFAULT, 0.92);
+    const ll = this.wrapTextCanvas(ctx, `💡 核心教训：${c.caseSummary.lesson}`, pw - 24, 2);
+    ll.forEach((line, i) => ctx.fillText(line, 28, py + 26 + i * 14));
+    ctx.restore();
+
+    // 归档按钮
+    const btnR = this.getDetectiveBtnRect("primary");
+    this.drawV5ActionButton(ctx, btnR, s.stage === "archived" ? "✓ 已归档" : "📁 归档结案 →", s.stage === "archived" ? "rgba(122,143,176,0.6)" : "#1AD670", this.pressedV5Btn === "dtPrimary", s.stage === "archived");
+  }
+
+  /** 侦探按钮矩形 */
+  private getDetectiveBtnRect(id: "primary"): Rect {
+    if (id === "primary") return { x: 16, y: CANVAS_H - 64, w: CANVAS_W - 32, h: 52 };
+    return { x: 0, y: 0, w: 0, h: 0 };
+  }
+
+  /** 侦探推理选项矩形（垂直列表） */
+  private getDetectiveOptionRects(count: number, startY: number): Rect[] {
+    const rects: Rect[] = [];
+    const gap = 8;
+    const w = CANVAS_W - 32;
+    const h = Math.min(50, (CANVAS_H - 76 - startY - (count - 1) * gap) / count);
+    for (let i = 0; i < count; i++) {
+      rects.push({ x: 16, y: startY + i * (h + gap), w, h });
+    }
+    return rects;
+  }
+
+  /** 侦探推理选项触摸检测 */
+  private getDetectiveOptionAt(lx: number, ly: number, count: number, startY: number): number {
+    const rects = this.getDetectiveOptionRects(count, startY);
+    for (let i = 0; i < rects.length; i++) {
+      if (hitTest(lx, ly, rects[i])) return i;
+    }
+    return -1;
+  }
+
+  /** 侦探模式触摸处理 */
+  private handleDetectiveTouch(type: "start" | "move" | "end", lx: number, ly: number, s: FBHudDetectiveState): boolean {
+    const runner = this.engine?.getDetectiveRunner();
+    if (!runner) return false;
+
+    if (s.stage === "briefing") {
+      const btnR = this.getDetectiveBtnRect("primary");
+      if (type === "start" && hitTest(lx, ly, btnR)) { this.pressedV5Btn = "dtPrimary"; return true; }
+      if (type === "end" && this.pressedV5Btn === "dtPrimary") {
+        this.pressedV5Btn = null;
+        if (hitTest(lx, ly, btnR)) {
+          this.engine?.enterEvidenceStage();
+          playSfx("click");
+          vibrateShort();
+          return true;
+        }
+      }
+      return false;
+    }
+
+    if (s.stage === "evidence") {
+      const c = runner.getCase();
+      const evCount = c.evidences.length;
+      const evH = Math.min(70, (368 - (evCount - 1) * 6) / evCount);
+      // 证据列表
+      if (type === "start") {
+        for (let i = 0; i < evCount; i++) {
+          const r = { x: 16, y: 56 + i * (evH + 6), w: 230, h: evH };
+          if (hitTest(lx, ly, r)) { this.pressedV5Btn = `dtEv${i}`; return true; }
+        }
+        const btnR = this.getDetectiveBtnRect("primary");
+        if (hitTest(lx, ly, btnR)) { this.pressedV5Btn = "dtPrimary"; return true; }
+      } else if (type === "end") {
+        const pressed = this.pressedV5Btn;
+        this.pressedV5Btn = null;
+        if (pressed && pressed.startsWith("dtEv")) {
+          const idx = Number(pressed.slice(4));
+          if (!Number.isNaN(idx) && idx < evCount) {
+            const r = { x: 16, y: 56 + idx * (evH + 6), w: 230, h: evH };
+            if (hitTest(lx, ly, r)) {
+              this.engine?.selectDetectiveEvidence(c.evidences[idx].id);
+              playSfx("click");
+              vibrateShort();
+              return true;
+            }
+          }
+        }
+        if (pressed === "dtPrimary") {
+          const btnR = this.getDetectiveBtnRect("primary");
+          if (hitTest(lx, ly, btnR)) {
+            this.engine?.enterReasoningStage();
+            playSfx("good");
+            vibrateShort();
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    if (s.stage === "reasoning") {
+      const q = runner.getCurrentQuestion();
+      if (!q) return false;
+      const answered = runner.getLastAnswerResult() !== null;
+      const optStartY = 130;
+
+      if (answered) {
+        // 只响应"下一题"按钮
+        const btnR = this.getDetectiveBtnRect("primary");
+        if (type === "start" && hitTest(lx, ly, btnR)) { this.pressedV5Btn = "dtPrimary"; return true; }
+        if (type === "end" && this.pressedV5Btn === "dtPrimary") {
+          this.pressedV5Btn = null;
+          if (hitTest(lx, ly, btnR)) {
+            // 重置答题中间态
+            this.detectiveMultiSel = [];
+            this.detectiveSortSeq = [];
+            this.detectiveLinkPairs = [];
+            this.detectiveLinkSelLeft = null;
+            this.engine?.nextDetectiveQuestion();
+            playSfx("click");
+            vibrateShort();
+            return true;
+          }
+        }
+        return false;
+      }
+
+      // 未答题：处理选项
+      if (q.kind === "single") {
+        const idx = this.getDetectiveOptionAt(lx, ly, q.options.length, optStartY);
+        if (type === "start" && idx >= 0) { this.pressedV5Btn = `dtOpt${idx}`; return true; }
+        if (type === "end") {
+          const pressed = this.pressedV5Btn;
+          this.pressedV5Btn = null;
+          if (pressed && pressed.startsWith("dtOpt")) {
+            const pi = Number(pressed.slice(5));
+            if (pi === idx && idx >= 0) {
+              this.engine?.answerDetectiveQuestion(idx);
+              playSfx("click");
+              vibrateShort();
+              return true;
+            }
+          }
+        }
+      } else if (q.kind === "multi") {
+        const idx = this.getDetectiveOptionAt(lx, ly, q.options.length, optStartY);
+        if (type === "start" && idx >= 0) { this.pressedV5Btn = `dtOpt${idx}`; return true; }
+        if (type === "end") {
+          const pressed = this.pressedV5Btn;
+          this.pressedV5Btn = null;
+          // 提交按钮
+          const btnR = this.getDetectiveBtnRect("primary");
+          if (pressed === "dtPrimary" && hitTest(lx, ly, btnR)) {
+            if (this.detectiveMultiSel.length > 0) {
+              this.engine?.answerDetectiveQuestion([...this.detectiveMultiSel]);
+              playSfx("click");
+              vibrateShort();
+              return true;
+            }
+          }
+          // 选项切换
+          if (pressed && pressed.startsWith("dtOpt")) {
+            const pi = Number(pressed.slice(5));
+            if (pi === idx && idx >= 0) {
+              const sel = this.detectiveMultiSel.indexOf(idx);
+              if (sel >= 0) this.detectiveMultiSel.splice(sel, 1);
+              else this.detectiveMultiSel.push(idx);
+              playSfx("click");
+              vibrateShort();
+              return true;
+            }
+          }
+        }
+        // 提交按钮
+        if (type === "start") {
+          const btnR = this.getDetectiveBtnRect("primary");
+          if (hitTest(lx, ly, btnR) && this.detectiveMultiSel.length > 0) { this.pressedV5Btn = "dtPrimary"; return true; }
+        }
+      } else if (q.kind === "sort") {
+        const idx = this.getDetectiveOptionAt(lx, ly, q.options.length, optStartY);
+        if (type === "start" && idx >= 0) { this.pressedV5Btn = `dtOpt${idx}`; return true; }
+        if (type === "end") {
+          const pressed = this.pressedV5Btn;
+          this.pressedV5Btn = null;
+          // 提交按钮
+          const btnR = this.getDetectiveBtnRect("primary");
+          if (pressed === "dtPrimary" && hitTest(lx, ly, btnR)) {
+            if (this.detectiveSortSeq.length === q.options.length) {
+              this.engine?.answerDetectiveQuestion([...this.detectiveSortSeq]);
+              playSfx("click");
+              vibrateShort();
+              return true;
+            }
+          }
+          // 选项点击：加入序列（如已存在则移除其后的所有）
+          if (pressed && pressed.startsWith("dtOpt")) {
+            const pi = Number(pressed.slice(5));
+            if (pi === idx && idx >= 0) {
+              const exist = this.detectiveSortSeq.indexOf(idx);
+              if (exist >= 0) {
+                this.detectiveSortSeq = this.detectiveSortSeq.slice(0, exist);
+              } else {
+                this.detectiveSortSeq.push(idx);
+              }
+              playSfx("click");
+              vibrateShort();
+              return true;
+            }
+          }
+        }
+        if (type === "start") {
+          const btnR = this.getDetectiveBtnRect("primary");
+          if (hitTest(lx, ly, btnR) && this.detectiveSortSeq.length === q.options.length) { this.pressedV5Btn = "dtPrimary"; return true; }
+        }
+      } else if (q.kind === "link") {
+        const leftCount = q.linkLeft?.length ?? 0;
+        const rightCount = q.linkRight?.length ?? 0;
+        const w = CANVAS_W - 32;
+        const colW = (w - 24) / 2;
+        const h = CANVAS_H - 130 - 76;
+        const itemH = Math.min(48, (h - 16) / Math.max(leftCount, rightCount) - 6);
+        const leftX = 24, rightX = 24 + colW + 8;
+
+        if (type === "start") {
+          // 左列
+          for (let i = 0; i < leftCount; i++) {
+            const r = { x: leftX, y: 130 + i * (itemH + 6), w: colW, h: itemH };
+            if (hitTest(lx, ly, r)) { this.pressedV5Btn = `dtLinkL${i}`; return true; }
+          }
+          // 右列
+          for (let i = 0; i < rightCount; i++) {
+            const r = { x: rightX, y: 130 + i * (itemH + 6), w: colW, h: itemH };
+            if (hitTest(lx, ly, r)) { this.pressedV5Btn = `dtLinkR${i}`; return true; }
+          }
+          // 提交
+          const btnR = this.getDetectiveBtnRect("primary");
+          if (hitTest(lx, ly, btnR) && this.detectiveLinkPairs.length === leftCount) { this.pressedV5Btn = "dtPrimary"; return true; }
+        } else if (type === "end") {
+          const pressed = this.pressedV5Btn;
+          this.pressedV5Btn = null;
+          // 提交
+          const btnR = this.getDetectiveBtnRect("primary");
+          if (pressed === "dtPrimary" && hitTest(lx, ly, btnR)) {
+            if (this.detectiveLinkPairs.length === leftCount) {
+              this.engine?.answerDetectiveQuestion(this.detectiveLinkPairs.map(([, r]) => r));
+              playSfx("click");
+              vibrateShort();
+              return true;
+            }
+          }
+          // 左列选择
+          if (pressed && pressed.startsWith("dtLinkL")) {
+            const li = Number(pressed.slice(7));
+            if (!Number.isNaN(li) && li < leftCount) {
+              const r = { x: leftX, y: 130 + li * (itemH + 6), w: colW, h: itemH };
+              if (hitTest(lx, ly, r)) {
+                // 移除已有的配对
+                this.detectiveLinkPairs = this.detectiveLinkPairs.filter(([l]) => l !== li);
+                this.detectiveLinkSelLeft = li;
+                playSfx("click");
+                vibrateShort();
+                return true;
+              }
+            }
+          }
+          // 右列配对
+          if (pressed && pressed.startsWith("dtLinkR") && this.detectiveLinkSelLeft !== null) {
+            const ri = Number(pressed.slice(7));
+            if (!Number.isNaN(ri) && ri < rightCount) {
+              const r = { x: rightX, y: 130 + ri * (itemH + 6), w: colW, h: itemH };
+              if (hitTest(lx, ly, r)) {
+                // 移除右列已有配对
+                this.detectiveLinkPairs = this.detectiveLinkPairs.filter(([, rr]) => rr !== ri);
+                this.detectiveLinkPairs.push([this.detectiveLinkSelLeft, ri]);
+                this.detectiveLinkSelLeft = null;
+                playSfx("click");
+                vibrateShort();
+                return true;
+              }
+            }
+          }
+        }
+      }
+      return false;
+    }
+
+    if (s.stage === "summary" || s.stage === "archived") {
+      const btnR = this.getDetectiveBtnRect("primary");
+      if (type === "start" && hitTest(lx, ly, btnR) && s.stage === "summary") { this.pressedV5Btn = "dtPrimary"; return true; }
+      if (type === "end" && this.pressedV5Btn === "dtPrimary") {
+        this.pressedV5Btn = null;
+        if (hitTest(lx, ly, btnR) && s.stage === "summary") {
+          this.engine?.archiveDetectiveCase();
+          playSfx("achievement");
+          vibrateShort();
+          return true;
+        }
+      }
+      return false;
+    }
+
+    return false;
+  }
+
+  /** 绘制双人对战玩家血量条 */
+  private drawVSPlayerBar(ctx: CanvasRenderingContext2D, p: FBHudVSState["p1"], x: number, y: number, leftAlign: boolean): void {
+    const w = 360;
+    const h = 52;
+    ctx.save();
+    roundRect(ctx, x, y, w, h, 8);
+    ctx.fillStyle = "rgba(10,25,41,0.7)";
+    ctx.fill();
+    // v5 视觉升级：当前回合玩家边光脉动（呼吸 + 强化 shadow）
+    const turnPulse = p.isTurn ? (0.6 + ((Math.sin(this.t * 4) + 1) / 2) * 0.4) : 0;
+    ctx.lineWidth = p.isTurn ? 2.5 : 2;
+    ctx.strokeStyle = p.isTurn ? p.color : withAlpha(p.color, 0.3);
+    if (p.isTurn) {
+      ctx.shadowColor = p.color;
+      ctx.shadowBlur = 8 + turnPulse * 8;
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    // v5 视觉升级：当前回合玩家顶部高亮条
+    if (p.isTurn) {
+      ctx.fillStyle = withAlpha(p.color, 0.35 * turnPulse);
+      ctx.fillRect(x + 2, y + 2, w - 4, 3);
+    }
+    // 头像 + 名字
+    ctx.font = `24px ${Theme.fonts.display}`;
+    ctx.fillStyle = p.color;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText(p.icon, x + 10, y + h / 2);
+    ctx.font = `800 14px ${Theme.fonts.display}`;
+    ctx.fillStyle = p.isTurn ? p.color : withAlpha(Theme.colors.ink.DEFAULT, 0.7);
+    ctx.fillText(p.name, x + 40, y + 16);
+    // HP 数字
+    ctx.font = `700 12px ${Theme.fonts.mono}`;
+    ctx.fillStyle = withAlpha(Theme.colors.ink.muted, 0.9);
+    ctx.fillText(`${p.hp}/${p.maxHp}`, x + 40, y + 36);
+    // HP 条
+    const barX = x + 100;
+    const barW = w - 110;
+    const barH = 10;
+    const barY = y + h / 2 - barH / 2;
+    ctx.fillStyle = "rgba(0,0,0,0.4)";
+    roundRect(ctx, barX, barY, barW, barH, 5);
+    ctx.fill();
+    const hpRatio = Math.max(0, p.hp / p.maxHp);
+    if (hpRatio > 0) {
+      // v5 视觉升级：HP 条渐变 + 当前回合发光
+      const hpGrad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
+      hpGrad.addColorStop(0, p.color);
+      hpGrad.addColorStop(1, withAlpha(p.color, 0.7));
+      ctx.fillStyle = hpGrad;
+      if (p.isTurn) {
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 6;
+      }
+      roundRect(ctx, barX, barY, Math.max(2, barW * hpRatio), barH, 5);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+    ctx.restore();
+  }
+
+  /** 通用 v5 操作按钮 */
+  private drawV5ActionButton(ctx: CanvasRenderingContext2D, r: Rect, text: string, color: string, pressed: boolean, muted = false): void {
+    ctx.save();
+    if (pressed) ctx.translate(0, 2);
+    roundRect(ctx, r.x, r.y, r.w, r.h, 10);
+    const g = ctx.createLinearGradient(r.x, r.y, r.x, r.y + r.h);
+    g.addColorStop(0, muted ? "rgba(60,70,90,0.3)" : withAlpha(color, 0.18));
+    g.addColorStop(1, "rgba(10,25,41,0.85)");
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = muted ? "rgba(122,143,176,0.5)" : color;
+    if (!muted && pressed) {
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 10;
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = muted ? withAlpha(Theme.colors.ink.DEFAULT, 0.7) : color;
+    ctx.font = `800 15px ${Theme.fonts.display}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, r.x + r.w / 2, r.y + r.h / 2);
+    ctx.restore();
+  }
+
+  /**
+   * v5 视觉升级：动态霓虹边光
+   * - 基于当前模式色（aiBattle=品红 / versus=橙 / deconstruct=紫）
+   * - 脉动呼吸 + 四角括号强化"赛博终端"感
+   * - HUD 红旗等级 ≥4 时叠加红色脉冲（压迫感）
+   */
+  private drawV5NeonEdge(ctx: CanvasRenderingContext2D): void {
+    const hud = this.hud;
+    if (!hud) return;
+    let color = "#00E5FF";
+    let pulseStrength = 0.35;
+    if (hud.aiDialog) {
+      color = MODE_COLORS.aiBattle;
+      // 红旗等级越高，压迫感越强
+      const rf = hud.aiDialog.currentRedFlag ?? 0;
+      if (rf >= 4) { color = "#E5353B"; pulseStrength = 0.55; }
+      else if (rf >= 2) { pulseStrength = 0.45; }
+    } else if (hud.versus) {
+      color = MODE_COLORS.versus;
+      pulseStrength = 0.45;
+    } else if (hud.deconstruct) {
+      color = MODE_COLORS.deconstruct;
+      // 拆解揭示时短暂金光
+      if (hud.deconstruct.deconstructRevealed) { color = "#FFD666"; pulseStrength = 0.5; }
+    } else if (hud.detective) {
+      color = MODE_COLORS.detective;
+      // 破局点发现时金光，复盘时绿光
+      if (hud.detective.breakingPointFound) { color = "#FFD666"; pulseStrength = 0.5; }
+      if (hud.detective.stage === "summary") { color = "#1AD670"; pulseStrength = 0.45; }
+    }
+    const pulse = (Math.sin(this.t * 3) + 1) / 2; // 0..1
+    const alpha = pulseStrength * (0.55 + pulse * 0.45);
+    ctx.save();
+    // 四角括号 + 边缘渐变光晕
+    ctx.globalCompositeOperation = "lighter";
+    ctx.strokeStyle = withAlpha(color, alpha);
+    ctx.lineWidth = 2;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 8 + pulse * 6;
+    const inset = 4;
+    const len = 28;
+    // 左上
+    ctx.beginPath();
+    ctx.moveTo(inset, inset + len); ctx.lineTo(inset, inset); ctx.lineTo(inset + len, inset);
+    // 右上
+    ctx.moveTo(CANVAS_W - inset - len, inset); ctx.lineTo(CANVAS_W - inset, inset); ctx.lineTo(CANVAS_W - inset, inset + len);
+    // 左下
+    ctx.moveTo(inset, CANVAS_H - inset - len); ctx.lineTo(inset, CANVAS_H - inset); ctx.lineTo(inset + len, CANVAS_H - inset);
+    // 右下
+    ctx.moveTo(CANVAS_W - inset - len, CANVAS_H - inset); ctx.lineTo(CANVAS_W - inset, CANVAS_H - inset); ctx.lineTo(CANVAS_W - inset, CANVAS_H - inset - len);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    // 边缘内发光（顶部 + 底部细条）
+    const barH = 2;
+    const grad = ctx.createLinearGradient(0, 0, 0, barH * 4);
+    grad.addColorStop(0, withAlpha(color, alpha * 0.7));
+    grad.addColorStop(1, "transparent");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, CANVAS_W, barH * 4);
+    const gradB = ctx.createLinearGradient(0, CANVAS_H, 0, CANVAS_H - barH * 4);
+    gradB.addColorStop(0, withAlpha(color, alpha * 0.7));
+    gradB.addColorStop(1, "transparent");
+    ctx.fillStyle = gradB;
+    ctx.fillRect(0, CANVAS_H - barH * 4, CANVAS_W, barH * 4);
+    ctx.restore();
+  }
+
+  /** v5 模式触摸处理总入口 */
+  private handleV5Touch(type: "start" | "move" | "end", x: number, y: number): boolean {
+    const cw = this.engineCanvas?.width ?? CANVAS_W;
+    const ch = this.engineCanvas?.height ?? CANVAS_H;
+    const local = this.director.screenToLocal(x, y, cw, ch);
+    const lx = local.x;
+    const ly = local.y;
+    const hud = this.hud;
+    if (!hud) return false;
+
+    if (hud.aiDialog) {
+      const s = hud.aiDialog;
+      if (s.ended) return false;
+      const rects = this.getAIBattleChoiceRects(s.currentChoices.length);
+      if (type === "start") {
+        for (let i = 0; i < rects.length; i++) {
+          if (hitTest(lx, ly, rects[i])) {
+            this.pressedV5Btn = `ai${i}`;
+            return true;
+          }
+        }
+      } else if (type === "end") {
+        const pressed = this.pressedV5Btn;
+        this.pressedV5Btn = null;
+        if (pressed && pressed.startsWith("ai")) {
+          const idx = Number(pressed.slice(2));
+          if (!Number.isNaN(idx) && idx < rects.length && hitTest(lx, ly, rects[idx])) {
+            this.engine?.chooseAIDialog(idx);
+            playSfx("click");
+            vibrateShort();
+            this.triggerAIBattleFx();
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    if (hud.deconstruct) {
+      const s = hud.deconstruct;
+      const nextR = this.getDeconstructBtnRect("next");
+      const skipR = this.getDeconstructBtnRect("skip");
+      if (type === "start") {
+        if (hitTest(lx, ly, nextR)) { this.pressedV5Btn = "dcNext"; return true; }
+        if (!s.summaryShown && hitTest(lx, ly, skipR)) { this.pressedV5Btn = "dcSkip"; return true; }
+      } else if (type === "end") {
+        const pressed = this.pressedV5Btn;
+        this.pressedV5Btn = null;
+        if (pressed === "dcNext" && hitTest(lx, ly, nextR)) {
+          this.engine?.advanceDeconstruct();
+          playSfx("click");
+          vibrateShort();
+          this.triggerDeconstructFx();
+          return true;
+        }
+        if (pressed === "dcSkip" && hitTest(lx, ly, skipR)) {
+          this.engine?.skipDeconstructToEnd();
+          playSfx("click");
+          vibrateShort();
+          this.triggerDeconstructFx();
+          return true;
+        }
+      }
+      return false;
+    }
+
+    if (hud.versus) {
+      const s = hud.versus;
+      if (s.ended) return false;
+      const q = s.currentQuestion;
+      if (!q) return false;
+      const rects = this.getVersusOptionRects(q.options.length);
+      if (type === "start") {
+        for (let i = 0; i < rects.length; i++) {
+          if (hitTest(lx, ly, rects[i])) {
+            this.pressedV5Btn = `vs${i}`;
+            return true;
+          }
+        }
+      } else if (type === "end") {
+        const pressed = this.pressedV5Btn;
+        this.pressedV5Btn = null;
+        if (pressed && pressed.startsWith("vs")) {
+          const idx = Number(pressed.slice(2));
+          if (!Number.isNaN(idx) && idx < rects.length && hitTest(lx, ly, rects[idx])) {
+            this.engine?.answerVersus(idx);
+            playSfx("click");
+            vibrateShort();
+            this.triggerVersusFx();
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    if (hud.detective) {
+      return this.handleDetectiveTouch(type, lx, ly, hud.detective);
+    }
+
+    return false;
+  }
+
+  /**
+   * v5 视觉升级：AI 对战屏幕级 FX
+   * - 识破红旗：金色粒子爆发 + 冲击环 + "识破 +N" 飘字
+   * - 错误选择：红色粒子 + 强震屏 + "⚠ 被识破" 飘字
+   * - 结局：通关金光/失败红光大爆发
+   */
+  private triggerAIBattleFx(): void {
+    const r = this.engine?.v5Result;
+    if (!r || r.kind !== "aiBattle") return;
+    const { cx, cy } = this.cardCenterScreen();
+    if (r.ended) {
+      // 结局：大爆发
+      if (r.ending === "busted") {
+        this.fx.burst(cx, cy, "#FFD666", 32, 340);
+        this.fx.ring(cx, cy, "#FFD666", 160, 0.7);
+        this.fx.popText(cx, cy - 60, "识破骗局！", { color: "#FFD666", size: 28, duration: 1.4, vy: -40 });
+        this.fx.flash("#FFD666", 0.35, 0.5);
+        this.fx.shake(0.7);
+      } else {
+        this.fx.burst(cx, cy, "#E5353B", 28, 300);
+        this.fx.ring(cx, cy, "#E5353B", 140, 0.6);
+        this.fx.popText(cx, cy - 60, "未能识破", { color: "#E5353B", size: 26, duration: 1.4, vy: -40 });
+        this.fx.flash("#E5353B", 0.4, 0.5);
+        this.fx.shake(0.9);
+      }
+      return;
+    }
+    if (r.bust) {
+      // 识破红旗
+      const gain = r.bustScoreDelta || 1;
+      this.fx.burst(cx, cy, "#FFD666", 18, 260);
+      this.fx.ring(cx, cy, "#FFD666", 110, 0.5);
+      this.fx.popText(cx, cy - 40, `识破 +${gain}`, { color: "#FFD666", size: 22, duration: 0.9, vy: -55 });
+      this.fx.flash("#FFD666", 0.18, 0.25);
+      this.fx.shake(0.3);
+    } else if (r.verdict === "wrong") {
+      // 错误选择
+      this.fx.burst(cx, cy, "#E5353B", 16, 240);
+      this.fx.popText(cx, cy - 30, "⚠ 误判", { color: "#E5353B", size: 20, duration: 0.9, vy: -50 });
+      this.fx.flash("#E5353B", 0.3, 0.3);
+      this.fx.shake(0.6);
+    }
+  }
+
+  /**
+   * v5 视觉升级：骗局拆解屏幕级 FX
+   * - 显示拆解：金色冲击环 + "💡 拆解" 飘字
+   * - 高红旗对白：红色弱闪 + "⚠ 红旗 N" 飘字
+   * - 显示总结：金光大爆发 + "拆解完成" 飘字
+   */
+  private triggerDeconstructFx(): void {
+    const r = this.engine?.v5Result;
+    if (!r || r.kind !== "deconstruct") return;
+    const { cx, cy } = this.cardCenterScreen();
+    if (r.ended) {
+      this.fx.burst(cx, cy, "#1AD670", 24, 280);
+      this.fx.ring(cx, cy, "#1AD670", 140, 0.6);
+      this.fx.popText(cx, cy - 50, "拆解完成", { color: "#1AD670", size: 24, duration: 1.2, vy: -45 });
+      this.fx.flash("#1AD670", 0.3, 0.5);
+      this.fx.shake(0.5);
+      return;
+    }
+    if (r.action === "showDeconstruct") {
+      this.fx.burst(cx, cy, "#FFD666", 14, 200);
+      this.fx.ring(cx, cy, "#FFD666", 100, 0.45);
+      this.fx.popText(cx, cy - 30, "💡 拆解", { color: "#FFD666", size: 18, duration: 0.8, vy: -50 });
+      this.fx.flash("#FFD666", 0.15, 0.25);
+    } else if (r.action === "showSummary") {
+      this.fx.burst(cx, cy, "#1AD670", 22, 280);
+      this.fx.ring(cx, cy, "#1AD670", 130, 0.6);
+      this.fx.popText(cx, cy - 40, "拆解总结", { color: "#1AD670", size: 22, duration: 1.0, vy: -50 });
+      this.fx.flash("#1AD670", 0.28, 0.4);
+      this.fx.shake(0.5);
+    } else if (r.action === "showLine" && r.lineRedFlag >= 4) {
+      // 高红旗对白：警示
+      this.fx.popText(cx, cy - 30, `⚠ 红旗 ${r.lineRedFlag}/5`, { color: "#E5353B", size: 18, duration: 0.9, vy: -45 });
+      this.fx.flash("#E5353B", 0.18, 0.3);
+      this.fx.shake(0.35);
+    }
+  }
+
+  /**
+   * v5 视觉升级：双人对战屏幕级 FX
+   * - 答对攻击：玩家色粒子爆发 + 冲击环 + "-N HP" 飘字指向对手
+   * - 答错自伤：红色粒子 + "自伤 -N" 飘字
+   * - 结局：金光大爆发 + "获胜" 飘字
+   */
+  private triggerVersusFx(): void {
+    const r = this.engine?.v5Result;
+    if (!r || r.kind !== "versus") return;
+    const { cx, cy } = this.cardCenterScreen();
+    const hud = this.hud;
+    if (r.ended) {
+      const winnerName = r.ending === "P1" ? (hud?.versus?.p1.name ?? "P1")
+        : r.ending === "P2" ? (hud?.versus?.p2.name ?? "P2")
+        : "平局";
+      const winColor = r.ending === "P1" ? (hud?.versus?.p1.color ?? "#FFB020")
+        : r.ending === "P2" ? (hud?.versus?.p2.color ?? "#FFB020")
+        : "#FFD666";
+      this.fx.burst(cx, cy, winColor, 32, 340);
+      this.fx.ring(cx, cy, winColor, 160, 0.7);
+      this.fx.popText(cx, cy - 60, `${winnerName} 获胜！`, { color: winColor, size: 28, duration: 1.4, vy: -40 });
+      this.fx.flash(winColor, 0.35, 0.5);
+      this.fx.shake(0.7);
+      return;
+    }
+    if (r.correct) {
+      // 攻击命中对手
+      const targetColor = r.target === "P1" ? (hud?.versus?.p1.color ?? "#FFB020") : (hud?.versus?.p2.color ?? "#FFB020");
+      const targetName = r.target === "P1" ? (hud?.versus?.p1.name ?? "P1") : (hud?.versus?.p2.name ?? "P2");
+      // 受击方位置（左/右半屏）
+      const tx = r.target === "P1" ? cx - 120 : cx + 120;
+      this.fx.burst(tx, cy, targetColor, 18, 260);
+      this.fx.ring(tx, cy, targetColor, 110, 0.5);
+      this.fx.popText(tx, cy - 40, `-${r.damage} HP`, { color: targetColor, size: 22, duration: 0.9, vy: -55 });
+      this.fx.shake(0.4);
+    } else {
+      // 答错自伤
+      const sx = r.target === "P1" ? cx - 120 : cx + 120;
+      this.fx.burst(sx, cy, "#E5353B", 16, 240);
+      this.fx.popText(sx, cy - 30, `自伤 -${r.damage}`, { color: "#E5353B", size: 20, duration: 0.9, vy: -50 });
+      this.fx.flash("#E5353B", 0.25, 0.3);
+      this.fx.shake(0.5);
+    }
+  }
+
   /** 难度选择界面（ready 状态，画布坐标） */
   private drawDifficultySelect(ctx: CanvasRenderingContext2D): void {
     // 半透明遮罩
@@ -1483,6 +3842,9 @@ export class FraudBusterScene extends GameShellScene {
     ctx.fillStyle = "rgba(7,14,31,0.85)";
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
     ctx.restore();
+
+    // 返回按钮（左上角，回到模式选择）
+    this.drawBackButton(ctx, this.getBackBtnRect());
 
     // 标题
     ctx.save();
@@ -1496,7 +3858,7 @@ export class FraudBusterScene extends GameShellScene {
     ctx.shadowBlur = 0;
     ctx.font = `400 12px ${Theme.fonts.mono}`;
     ctx.fillStyle = Theme.colors.ink.muted;
-    ctx.fillText("SELECT DIFFICULTY", CANVAS_W / 2, 152);
+    ctx.fillText(`SELECT DIFFICULTY · ${FB_MODE_ICONS[this.selectedMode]} ${FB_MODE_LABELS[this.selectedMode]}`, CANVAS_W / 2, 152);
     ctx.restore();
 
     // 三个难度按钮
@@ -1994,6 +4356,156 @@ export class FraudBusterScene extends GameShellScene {
     ctx.restore();
   }
 
+  /**
+   * v3 Phase 3.4：Boss 战背景（动态首脑剪影 + 主题色光晕）
+   * 屏幕坐标系绘制，覆盖在 engine canvas 之上但半透明，不遮挡卡片与选项
+   * - 全屏主题色径向光晕（红紫渐变，脉动）
+   * - 右上角 Boss 剪影（几何造型 + 浮动动画 + 红眼）
+   * - 屏幕边缘"邪恶能量"粒子飘动
+   * - 顶部 Boss 名称 + HP 条（若引擎未绘制）
+   */
+  private drawBossBackground(ctx: CanvasRenderingContext2D, screenW: number, screenH: number, hud: FBHud): void {
+    const bossName = hud.bossName ?? "诈骗首脑";
+    const bossHp = hud.bossHp ?? 0;
+    const bossMaxHp = hud.bossMaxHp ?? 1;
+    const hpRatio = Math.max(0, Math.min(1, bossHp / bossMaxHp));
+
+    // 主题色：红紫渐变（危险+阴谋）
+    const colorRed = "#E5353B";
+    const colorPurple = "#B388FF";
+    const colorGold = "#FFD666";
+
+    // ===== 1. 全屏径向光晕（从右上角扩散，脉动） =====
+    const pulse = 0.6 + Math.sin(this.t * 2) * 0.4;
+    ctx.save();
+    const glowCx = screenW * 0.85;
+    const glowCy = screenH * 0.2;
+    const glowR = Math.max(screenW, screenH) * 0.7;
+    const glow = ctx.createRadialGradient(glowCx, glowCy, 0, glowCx, glowCy, glowR);
+    glow.addColorStop(0, withAlpha(colorRed, 0.18 * pulse));
+    glow.addColorStop(0.4, withAlpha(colorPurple, 0.08 * pulse));
+    glow.addColorStop(1, "transparent");
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, screenW, screenH);
+    ctx.restore();
+
+    // ===== 2. Boss 剪影（右上角，几何造型 + 浮动 + 红眼） =====
+    const bobY = Math.sin(this.t * 1.5) * 6;
+    const silhouetteCx = screenW - 100;
+    const silhouetteCy = 130 + bobY;
+    const silhouetteScale = Math.min(screenW, screenH) / 480;
+
+    ctx.save();
+    ctx.globalAlpha = 0.55;
+    // 头部（圆形）
+    const headR = 36 * silhouetteScale;
+    const headGrad = ctx.createRadialGradient(silhouetteCx, silhouetteCy - 10, 0, silhouetteCx, silhouetteCy, headR);
+    headGrad.addColorStop(0, withAlpha(colorPurple, 0.85));
+    headGrad.addColorStop(1, withAlpha(colorRed, 0.6));
+    ctx.fillStyle = headGrad;
+    ctx.beginPath();
+    ctx.arc(silhouetteCx, silhouetteCy, headR, 0, Math.PI * 2);
+    ctx.fill();
+    // 边框光晕
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = withAlpha(colorRed, 0.7 * pulse);
+    ctx.shadowColor = colorRed;
+    ctx.shadowBlur = 16 * pulse;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // 肩膀（梯形）
+    ctx.fillStyle = withAlpha(colorPurple, 0.5);
+    ctx.beginPath();
+    const shoulderY = silhouetteCy + headR * 0.8;
+    const shoulderW = headR * 2.4;
+    ctx.moveTo(silhouetteCx - shoulderW / 2, shoulderY + 30 * silhouetteScale);
+    ctx.lineTo(silhouetteCx - headR * 0.7, shoulderY);
+    ctx.lineTo(silhouetteCx + headR * 0.7, shoulderY);
+    ctx.lineTo(silhouetteCx + shoulderW / 2, shoulderY + 30 * silhouetteScale);
+    ctx.closePath();
+    ctx.fill();
+
+    // 红眼（双眼，闪烁）
+    const eyeBlink = 0.5 + Math.sin(this.t * 6) * 0.5;
+    ctx.fillStyle = withAlpha("#FF0050", eyeBlink);
+    ctx.shadowColor = "#FF0050";
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(silhouetteCx - 10 * silhouetteScale, silhouetteCy - 4, 3, 0, Math.PI * 2);
+    ctx.arc(silhouetteCx + 10 * silhouetteScale, silhouetteCy - 4, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.restore();
+
+    // ===== 3. Boss 名称 + HP 条（顶部中央，覆盖在引擎之上） =====
+    const barW = Math.min(280, screenW * 0.4);
+    const barH = 8;
+    const barX = (screenW - barW) / 2;
+    const barY = 56;
+    ctx.save();
+    // 名称
+    ctx.font = `900 14px ${Theme.fonts.display}`;
+    ctx.fillStyle = colorRed;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.shadowColor = colorRed;
+    ctx.shadowBlur = 10 * pulse;
+    ctx.fillText(`☠ ${bossName}`, screenW / 2, barY - 18);
+    ctx.shadowBlur = 0;
+    // HP 条背景
+    roundRect(ctx, barX, barY, barW, barH, 4);
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
+    ctx.fill();
+    // HP 条填充（HP 越低越红越亮）
+    const hpColor = hpRatio > 0.5 ? colorPurple : hpRatio > 0.25 ? colorGold : colorRed;
+    ctx.fillStyle = hpColor;
+    ctx.shadowColor = hpColor;
+    ctx.shadowBlur = 8;
+    roundRect(ctx, barX, barY, barW * hpRatio, barH, 4);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    // HP 条边框
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = withAlpha(colorRed, 0.6);
+    roundRect(ctx, barX, barY, barW, barH, 4);
+    ctx.stroke();
+    // HP 文字
+    ctx.font = `700 10px ${Theme.fonts.mono}`;
+    ctx.fillStyle = withAlpha(Theme.colors.ink.DEFAULT, 0.9);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(`${bossHp} / ${bossMaxHp}`, screenW / 2, barY + barH / 2 + 1);
+    ctx.restore();
+
+    // ===== 4. 屏幕边缘"邪恶能量"粒子（随机闪烁红紫小点） =====
+    ctx.save();
+    for (let i = 0; i < 8; i++) {
+      const seed = i * 1.7;
+      const px = (Math.sin(this.t * 0.8 + seed) * 0.5 + 0.5) * screenW;
+      const py = (Math.cos(this.t * 0.6 + seed * 2) * 0.5 + 0.5) * screenH;
+      const pAlpha = (Math.sin(this.t * 3 + seed * 5) * 0.5 + 0.5) * 0.6;
+      const pColor = i % 2 === 0 ? colorRed : colorPurple;
+      ctx.fillStyle = withAlpha(pColor, pAlpha);
+      ctx.shadowColor = pColor;
+      ctx.shadowBlur = 4;
+      ctx.beginPath();
+      ctx.arc(px, py, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+    ctx.restore();
+
+    // ===== 5. 屏幕边缘暗角（红色压迫感，叠加在心跳边缘之上） =====
+    ctx.save();
+    const vignette = ctx.createRadialGradient(screenW / 2, screenH / 2, screenH * 0.3, screenW / 2, screenH / 2, screenH * 0.7);
+    vignette.addColorStop(0, "transparent");
+    vignette.addColorStop(1, withAlpha(colorRed, 0.18 * pulse));
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, screenW, screenH);
+    ctx.restore();
+  }
+
   /** 倒计时压迫条：画布右侧竖条 + 卡片区中央数字（画布坐标） */
   private drawCountdownBar(ctx: CanvasRenderingContext2D, hud: FBHud): void {
     if (!hud.hasQuestion || hud.selectedIdx !== null) return;
@@ -2458,6 +4970,123 @@ export class FraudBusterScene extends GameShellScene {
     ctx.restore();
   }
 
+  /**
+   * v3 Phase 3.4：段位升级仪式渲染（全屏覆盖层）
+   * - 全屏金光径向渐变（淡入淡出）
+   * - 中央大字：▲ 段位名（缩放+发光动画）
+   * - 副标题：RANK UP! Lv.N
+   * - 持续彩屑粒子（持续整个仪式时长）
+   * - 屏幕边缘金色光线放射
+   */
+  private drawRankCeremony(ctx: CanvasRenderingContext2D, screenW: number, screenH: number): void {
+    if (!this.rankCeremony) return;
+    const c = this.rankCeremony;
+    const elapsed = this.t - c.startT;
+    const totalDur = c.until - c.startT;
+    const progress = Math.min(1, elapsed / totalDur);
+    // 淡入淡出曲线：0-0.2 淡入，0.2-0.8 持续，0.8-1.0 淡出
+    let alpha: number;
+    if (progress < 0.2) alpha = progress / 0.2;
+    else if (progress > 0.8) alpha = (1 - progress) / 0.2;
+    else alpha = 1;
+    alpha = Math.max(0, Math.min(1, alpha));
+
+    const cx = screenW / 2;
+    const cy = screenH / 2;
+    const goldColor = "#FFD666";
+
+    // ===== 1. 全屏金光径向渐变 =====
+    ctx.save();
+    const glowR = Math.max(screenW, screenH) * 0.8;
+    const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, glowR);
+    glow.addColorStop(0, withAlpha(goldColor, 0.35 * alpha));
+    glow.addColorStop(0.4, withAlpha(c.color, 0.15 * alpha));
+    glow.addColorStop(1, "transparent");
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, screenW, screenH);
+    ctx.restore();
+
+    // ===== 2. 屏幕边缘金色光线放射（8 道） =====
+    ctx.save();
+    ctx.translate(cx, cy);
+    const rayLen = Math.max(screenW, screenH);
+    for (let i = 0; i < 12; i++) {
+      const angle = (i / 12) * Math.PI * 2 + this.t * 0.5;
+      const rayWidth = 30 + Math.sin(this.t * 3 + i) * 10;
+      ctx.save();
+      ctx.rotate(angle);
+      const rayG = ctx.createLinearGradient(0, 0, rayLen, 0);
+      rayG.addColorStop(0, withAlpha(goldColor, 0.25 * alpha));
+      rayG.addColorStop(0.5, withAlpha(goldColor, 0.08 * alpha));
+      rayG.addColorStop(1, "transparent");
+      ctx.fillStyle = rayG;
+      ctx.beginPath();
+      ctx.moveTo(0, -rayWidth / 2);
+      ctx.lineTo(rayLen, -rayWidth / 8);
+      ctx.lineTo(rayLen, rayWidth / 8);
+      ctx.lineTo(0, rayWidth / 2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.restore();
+
+    // ===== 3. 中央大字：▲ 段位名（缩放+发光） =====
+    const scaleAnim = progress < 0.3
+      ? 0.5 + (progress / 0.3) * 0.5 + Math.sin(progress * Math.PI * 3) * 0.05 // 入场弹性
+      : 1.0 + Math.sin((progress - 0.3) * Math.PI * 4) * 0.03; // 持续微脉动
+    ctx.save();
+    ctx.translate(cx, cy - 20);
+    ctx.scale(scaleAnim, scaleAnim);
+    ctx.globalAlpha = alpha;
+    // 描边
+    ctx.font = `900 48px ${Theme.fonts.display}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = "#0A1929";
+    ctx.strokeText(`▲ ${c.name}`, 0, 0);
+    // 填充
+    ctx.fillStyle = goldColor;
+    ctx.shadowColor = goldColor;
+    ctx.shadowBlur = 24;
+    ctx.fillText(`▲ ${c.name}`, 0, 0);
+    ctx.shadowBlur = 0;
+    ctx.restore();
+
+    // ===== 4. 副标题：RANK UP! Lv.N =====
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.font = `700 18px ${Theme.fonts.mono}`;
+    ctx.fillStyle = c.color;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.shadowColor = c.color;
+    ctx.shadowBlur = 12;
+    ctx.fillText(`RANK UP! · Lv.${c.level}`, cx, cy + 30);
+    ctx.shadowBlur = 0;
+    ctx.restore();
+
+    // ===== 5. 持续彩屑粒子（每帧生成几个，飘落） =====
+    if (progress < 0.85) {
+      const colors = ["#FFD666", "#00E5FF", c.color, "#FF7A1A", "#B388FF"];
+      for (let i = 0; i < 3; i++) {
+        const px = cx + (Math.random() - 0.5) * screenW * 0.6;
+        const py = cy + (Math.random() - 0.5) * screenH * 0.4;
+        ctx.save();
+        const pColor = colors[Math.floor(Math.random() * colors.length)];
+        ctx.fillStyle = withAlpha(pColor, 0.8);
+        ctx.shadowColor = pColor;
+        ctx.shadowBlur = 6;
+        const pSize = 2 + Math.random() * 3;
+        ctx.beginPath();
+        ctx.arc(px, py, pSize, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+  }
+
   private renderStats(ctx: CanvasRenderingContext2D, screenW: number): void {
     const hud = this.hud!;
     const y = 24;
@@ -2882,9 +5511,17 @@ export class FraudBusterScene extends GameShellScene {
     if (this.resultOverlay) {
       return this.resultOverlay.handleTouch(type, x, y);
     }
+    // ===== modeSelect 状态：模式选择层 =====
+    if (this.gameState === "modeSelect") {
+      return this.handleModeTouch(type, x, y);
+    }
     // ===== ready 状态：难度选择 =====
     if (this.gameState === "ready") {
       return this.handleDifficultyTouch(type, x, y);
+    }
+    // ===== v5/v6 升级：新模式输入处理 =====
+    if (this.gameState === "playing" && this.hud && (this.hud.aiDialog || this.hud.deconstruct || this.hud.versus || this.hud.detective)) {
+      return this.handleV5Touch(type, x, y);
     }
     const hud = this.hud;
     if (!hud || !hud.hasQuestion) return false;
@@ -3040,6 +5677,11 @@ export class FraudBusterScene extends GameShellScene {
     const ch = this.engineCanvas?.height ?? CANVAS_H;
     const local = this.director.screenToLocal(x, y, cw, ch);
     if (type === "start") {
+      // 返回按钮（回到模式选择）
+      if (hitTest(local.x, local.y, this.getBackBtnRect())) {
+        this.pressedBack = true;
+        return true;
+      }
       for (const def of DIFFICULTY_DEFS) {
         const r = this.getDifficultyRect(def.id);
         if (hitTest(local.x, local.y, r)) {
@@ -3049,12 +5691,23 @@ export class FraudBusterScene extends GameShellScene {
       }
       return false;
     } else if (type === "end") {
+      // 返回按钮释放
+      if (this.pressedBack) {
+        this.pressedBack = false;
+        if (hitTest(local.x, local.y, this.getBackBtnRect())) {
+          this.gameState = "modeSelect";
+          playSfx("click");
+          vibrateShort();
+        }
+        return true;
+      }
       const pressed = this.pressedDifficulty;
       this.pressedDifficulty = null;
       if (pressed) {
         const r = this.getDifficultyRect(pressed);
         if (hitTest(local.x, local.y, r)) {
           this.engine?.setDifficulty(pressed);
+          this.engine?.startMode("endless");
           this.gameState = "playing";
           playSfx("click");
           vibrateShort();
@@ -3063,6 +5716,139 @@ export class FraudBusterScene extends GameShellScene {
       return true;
     }
     return false;
+  }
+
+  /** v3 模式选择触摸处理（modeSelect 状态） */
+  private handleModeTouch(type: "start" | "move" | "end", x: number, y: number): boolean {
+    const cw = this.engineCanvas?.width ?? CANVAS_W;
+    const ch = this.engineCanvas?.height ?? CANVAS_H;
+    const local = this.director.screenToLocal(x, y, cw, ch);
+    if (type === "start") {
+      // 返回按钮（回到 Hub）
+      if (hitTest(local.x, local.y, this.getBackBtnRect())) {
+        this.pressedBack = true;
+        return true;
+      }
+      // v3 Phase 4：教育入口按钮
+      for (const entry of EDU_ENTRIES) {
+        const r = this.getEduBtnRect(entry.id);
+        if (hitTest(local.x, local.y, r)) {
+          this.pressedEdu = entry.id;
+          return true;
+        }
+      }
+      for (const mode of MODE_ORDER) {
+        const locked = mode === "review" && this.lastWrongRecords.length === 0;
+        if (locked) continue;
+        const r = this.getModeRect(mode);
+        if (hitTest(local.x, local.y, r)) {
+          this.pressedMode = mode;
+          return true;
+        }
+      }
+      return false;
+    } else if (type === "end") {
+      // 返回按钮释放
+      if (this.pressedBack) {
+        this.pressedBack = false;
+        if (hitTest(local.x, local.y, this.getBackBtnRect())) {
+          this.director.replace(new HubScene(this.director), undefined, "slide");
+          playSfx("click");
+          vibrateShort();
+        }
+        return true;
+      }
+      // v3 Phase 4：教育入口按钮释放
+      if (this.pressedEdu) {
+        const id = this.pressedEdu;
+        this.pressedEdu = null;
+        const r = this.getEduBtnRect(id);
+        if (hitTest(local.x, local.y, r)) {
+          this.openEduScene(id);
+        }
+        return true;
+      }
+      const pressed = this.pressedMode;
+      this.pressedMode = null;
+      if (pressed) {
+        const r = this.getModeRect(pressed);
+        if (hitTest(local.x, local.y, r)) {
+          this.startMode(pressed);
+        }
+      }
+      return true;
+    }
+    return false;
+  }
+
+  /** v3 Phase 4：打开教育场景（图鉴 / 96110 通话器） */
+  private openEduScene(id: "codex" | "hotline"): void {
+    playSfx("click");
+    vibrateShort();
+    if (id === "codex") {
+      this.director.push(new FBCodexScene(this.director), undefined, "slide");
+    } else {
+      this.director.push(new FBHotlineScene(this.director), undefined, "slide");
+    }
+  }
+
+  /**
+   * v3 启动指定游戏模式
+   * - endless → 进入 ready 状态选难度
+   * - story → 从存档读取下一个未通关关卡（全部通关则重玩第 1 关）
+   * - speedrun / hardcore / daily → 直接启动
+   * - review → 复用内存错题记录启动
+   */
+  private startMode(mode: FBGameMode): void {
+    this.selectedMode = mode;
+    if (mode === "endless") {
+      // endless 仍需选难度
+      this.gameState = "ready";
+      playSfx("click");
+      vibrateShort();
+      return;
+    }
+    if (mode === "story") {
+      // 找到第一个未通关的关卡
+      const save = loadFBSave();
+      const cleared = new Set(save.storyClearedStages);
+      let stageIdx = 0;
+      for (let i = 0; i < STORY_STAGES.length; i++) {
+        if (!cleared.has(i)) { stageIdx = i; break; }
+        if (i === STORY_STAGES.length - 1) stageIdx = 0; // 全通关则重玩第 1 关
+      }
+      this.lastStoryStageIdx = stageIdx;
+      this.engine?.startMode("story", { storyStageIdx: stageIdx });
+      this.gameState = "playing";
+      playSfx("click");
+      vibrateShort();
+      return;
+    }
+    if (mode === "review") {
+      if (this.lastWrongRecords.length === 0) {
+        this.toast = { text: "暂无错题，请先在其他模式答错题目", tone: "bad", until: this.t + 2.5 };
+        this.toastTimer = 0;
+        return;
+      }
+      const reviewQs = this.wrongRecordsToQuestions(this.lastWrongRecords);
+      this.engine?.startMode("review", { reviewQuestions: reviewQs });
+      this.gameState = "playing";
+      playSfx("click");
+      vibrateShort();
+      return;
+    }
+    // speedrun / hardcore / daily
+    this.engine?.startMode(mode);
+    this.gameState = "playing";
+    playSfx("click");
+    vibrateShort();
+  }
+
+  /** 将错题记录转换为题目数组（按 questionId 从题库查找） */
+  private wrongRecordsToQuestions(records: FBWrongRecord[]): import("@/games/fraudBuster/types").FBQuestion[] {
+    return records
+      .map((r) => QUESTION_BANK.find((q) => q.id === r.questionId))
+      .filter((q): q is NonNullable<typeof q> => !!q);
   }
 
   /** 填空题触摸处理：提交按钮 */

@@ -18,6 +18,7 @@ import { postFX } from "@/engine/PostFX";
 import { roundRect } from "@/engine/Renderer";
 import { ENEMIES, titleFor, DIFFICULTIES, type ThunderFinalStats } from "@/games/thunder/data";
 import type { GameResultPayload } from "@/types";
+import type { ThunderFraudArchive, ThunderSeasonPassReward } from "@/games/thunder/types";
 
 export interface ThunderResultCallbacks {
   onRetry?: () => void;
@@ -28,6 +29,11 @@ const MODE_LABEL: Record<string, string> = {
   campaign: "战役模式",
   endless: "无尽模式",
   daily: "每日挑战",
+  bossRush: "BOSS连战",
+  weekly: "周常挑战",
+  survival: "生存防守",
+  challenge: "极限挑战",
+  ranked: "段位赛",
 };
 
 /** deathCause 缺失时的通用回退文案 */
@@ -64,6 +70,10 @@ export class ThunderResultOverlay {
   private unlockedAchievements: { name: string; desc: string; emoji: string; color: string }[] = [];
   /** 96110 拨打提示 toast 消失时刻（pulse 时间轴） */
   private hotlineToastUntil = 0;
+  /** v4：分享战报 toast 消失时刻 */
+  private shareToastUntil = 0;
+  /** v4：分享战报文案 */
+  private shareText = "";
 
   constructor(director: SceneDirector, result: GameResultPayload, cb: ThunderResultCallbacks = {}) {
     this.director = director;
@@ -98,6 +108,43 @@ export class ThunderResultOverlay {
       this.unlockedAchievements = newly.map((a) => ({ name: a.name, desc: a.desc, emoji: "🏆", color: a.color }));
       playSfx("good");
     }
+  }
+
+  /** v4：生成可分享的战报文案 */
+  private buildShareText(): string {
+    const r = this.result;
+    const s = this.stats;
+    const modeLabel = s ? (MODE_LABEL[s.mode] ?? s.mode) : "雷霆反诈";
+    const diffLabel = s ? (DIFFICULTIES[s.difficulty]?.name ?? s.difficulty) : "";
+    const lines: string[] = [];
+    lines.push("⚡ 雷霆反诈 · 战报");
+    lines.push(`模式：${modeLabel}${diffLabel ? ` · ${diffLabel}` : ""}`);
+    lines.push(`结果：${r.win ? "✅ 反诈胜利" : "❌ 反诈失利"}`);
+    lines.push(`识破分：${r.score.toLocaleString()}`);
+    if (s) {
+      lines.push(`击败 BOSS：${s.bossesDefeated} · 最高连击：×${s.maxCombo}`);
+      lines.push(`用时：${Math.round(s.elapsedSec)}s · 波次：${s.wave}`);
+    }
+    lines.push("—— 守护钱包，从识破每一句话术开始");
+    return lines.join("\n");
+  }
+
+  /** v4：尝试复制到剪贴板（浏览器环境） */
+  private tryCopyToClipboard(text: string): void {
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        navigator.clipboard.writeText(text).catch(() => { /* ignore */ });
+      } else if (typeof document !== "undefined") {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand("copy"); } catch { /* ignore */ }
+        document.body.removeChild(ta);
+      }
+    } catch { /* ignore */ }
   }
 
   update(dt: number): void {
@@ -162,7 +209,10 @@ export class ThunderResultOverlay {
         } else if (pressed === "back") {
           this.cb.onBack?.();
         } else if (pressed === "share") {
-          // 分享战报：留空，仅播放点击音效
+          // v4：生成战报文案并尝试复制到剪贴板
+          this.shareText = this.buildShareText();
+          this.shareToastUntil = this.pulse + 2.5;
+          this.tryCopyToClipboard(this.shareText);
         }
         return true;
       }
@@ -178,6 +228,32 @@ export class ThunderResultOverlay {
       this.renderLoss(ctx, screenW, screenH);
     }
     this.particles.render(ctx);
+    // v4：分享战报 toast
+    if (this.shareToastUntil > 0 && this.pulse < this.shareToastUntil) {
+      this.renderShareToast(ctx, screenW, screenH);
+    }
+  }
+
+  /** v4：分享战报成功提示 */
+  private renderShareToast(ctx: CanvasRenderingContext2D, screenW: number, _screenH: number): void {
+    const txt = "📋 战报已复制到剪贴板";
+    ctx.save();
+    ctx.font = `600 12px ${Theme.fonts.mono}`;
+    const tw = ctx.measureText(txt).width + 28;
+    const th = 28;
+    const tx = (screenW - tw) / 2;
+    const ty = 60;
+    roundRect(ctx, tx, ty, tw, th, 6);
+    ctx.fillStyle = "rgba(10,25,41,0.95)";
+    ctx.fill();
+    ctx.strokeStyle = withAlpha("#52C41A", 0.7);
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = "#52C41A";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(txt, tx + tw / 2, ty + th / 2);
+    ctx.restore();
   }
 
   // ============ 失败死亡复盘 ============
@@ -495,6 +571,33 @@ export class ThunderResultOverlay {
       cy += 8;
     }
 
+    // v4：BossRush 各阶段用时
+    if (s && s.bossRushStages && s.bossRushStages.length > 0) {
+      ctx.save();
+      ctx.globalAlpha = this.enterT * this.stag(0.35);
+      cy = this.drawBossRushStages(ctx, px + 16, cy, w - 32, s);
+      ctx.restore();
+      cy += 8;
+    }
+
+    // v5：段位赛 / 擦弹 / 案例剧场
+    if (s) {
+      ctx.save();
+      ctx.globalAlpha = this.enterT * this.stag(0.38);
+      cy = this.drawV5Stats(ctx, px + 16, cy, w - 32, s);
+      ctx.restore();
+      cy += 8;
+    }
+
+    // v6 升级：格挡 / 口诀 / AI 对话识破 / 档案 / 通行证
+    if (s) {
+      ctx.save();
+      ctx.globalAlpha = this.enterT * this.stag(0.39);
+      cy = this.drawV6Stats(ctx, px + 16, cy, w - 32, s);
+      ctx.restore();
+      cy += 8;
+    }
+
     // 最高连击曲线
     if (s && s.comboHistory && s.comboHistory.length > 1) {
       ctx.save();
@@ -646,6 +749,276 @@ export class ThunderResultOverlay {
     return axisY + 22;
   }
 
+  /** v4：BossRush 各阶段用时列表 */
+  private drawBossRushStages(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, s: ThunderFinalStats): number {
+    const stages = s.bossRushStages ?? [];
+    ctx.save();
+    ctx.font = `700 11px ${Theme.fonts.mono}`;
+    ctx.fillStyle = Theme.colors.ink.muted;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    const totalLabel = s.bossRushTotalTimeSec != null ? ` · 总用时 ${s.bossRushTotalTimeSec.toFixed(1)}s` : "";
+    ctx.fillText(`BOSS 连战阶段${totalLabel}`, x, y);
+    ctx.restore();
+    let cy = y + 18;
+    const rowH = 20;
+    for (const st of stages) {
+      ctx.save();
+      // 阶段编号
+      ctx.font = `700 11px ${Theme.fonts.mono}`;
+      ctx.fillStyle = "#FF00E5";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(`第 ${st.stage} 战`, x, cy + rowH / 2);
+      // emoji + 名称
+      ctx.font = `700 12px ${Theme.fonts.body}`;
+      ctx.fillStyle = Theme.colors.ink.DEFAULT;
+      ctx.fillText(`${st.emoji} ${st.bossName}`, x + 56, cy + rowH / 2);
+      // 用时
+      ctx.font = `700 11px ${Theme.fonts.mono}`;
+      ctx.fillStyle = "#FFD666";
+      ctx.textAlign = "right";
+      ctx.fillText(`${st.timeSec.toFixed(1)}s`, x + w, cy + rowH / 2);
+      ctx.restore();
+      cy += rowH;
+    }
+    return cy;
+  }
+
+  /** v5 结算区块：段位赛 / 擦弹统计 / 案例剧场 */
+  private drawV5Stats(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, s: ThunderFinalStats): number {
+    let cy = y;
+    // 段位赛结算
+    if (s.rankDelta !== undefined) {
+      ctx.save();
+      ctx.font = `700 13px ${Theme.fonts.mono}`;
+      ctx.fillStyle = Theme.colors.ink.DEFAULT;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText("段位赛结算", x, cy);
+      cy += 20;
+      // 新段位徽章
+      if (s.rankNewTierEmoji && s.rankNewTierName) {
+        ctx.font = `600 16px ${Theme.fonts.mono}`;
+        ctx.fillStyle = "#B388FF";
+        ctx.fillText(`${s.rankNewTierEmoji} ${s.rankNewTierName}`, x, cy);
+        cy += 22;
+      }
+      // 积分变化
+      const delta = s.rankDelta;
+      const deltaColor = delta >= 0 ? "#52C41A" : "#FF4D4F";
+      const deltaText = delta >= 0 ? `+${delta}` : `${delta}`;
+      ctx.font = `700 18px ${Theme.fonts.mono}`;
+      ctx.fillStyle = deltaColor;
+      ctx.textAlign = "left";
+      ctx.fillText(`积分 ${deltaText}`, x, cy);
+      // 晋升/降级提示
+      if (s.rankTierUp) {
+        ctx.font = `600 12px ${Theme.fonts.mono}`;
+        ctx.fillStyle = "#FFD666";
+        ctx.fillText("▲ 段位晋升！", x + 120, cy + 4);
+      } else if (s.rankTierDown) {
+        ctx.font = `600 12px ${Theme.fonts.mono}`;
+        ctx.fillStyle = "#FF4D4F";
+        ctx.fillText("▼ 段位降级", x + 120, cy + 4);
+      }
+      cy += 26;
+      ctx.restore();
+    }
+    // 擦弹统计
+    if (s.grazeCount !== undefined && s.grazeCount > 0) {
+      ctx.save();
+      ctx.font = `600 12px ${Theme.fonts.mono}`;
+      ctx.fillStyle = Theme.colors.ink.muted;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText(`擦弹次数：${s.grazeCount}`, x, cy);
+      cy += 18;
+      ctx.restore();
+    }
+    // 案例剧场触发卡片
+    if (s.caseTheaterTrigger) {
+      const ct = s.caseTheaterTrigger;
+      ctx.save();
+      const cardH = 80;
+      // 卡片背景
+      ctx.fillStyle = "rgba(255,0,229,0.08)";
+      ctx.strokeStyle = "rgba(255,0,229,0.4)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.rect(x, cy, w, cardH);
+      ctx.fill();
+      ctx.stroke();
+      // 标题
+      ctx.font = `700 13px ${Theme.fonts.mono}`;
+      ctx.fillStyle = "#FF00E5";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText(`🎬 案例剧场：${ct.emoji} ${ct.bossName}`, x + 10, cy + 8);
+      // 案例文案（截断到 2 行）
+      ctx.font = `500 11px ${Theme.fonts.mono}`;
+      ctx.fillStyle = Theme.colors.ink.muted;
+      const lines = wrapText(ctx, ct.caseStory, w - 20);
+      for (let i = 0; i < Math.min(2, lines.length); i++) {
+        ctx.fillText(lines[i], x + 10, cy + 30 + i * 16);
+      }
+      // 底部提示
+      ctx.font = `600 10px ${Theme.fonts.mono}`;
+      ctx.fillStyle = "#FF00E5";
+      ctx.textAlign = "right";
+      ctx.fillText("点击查看详情 →", x + w - 10, cy + cardH - 16);
+      ctx.restore();
+      cy += cardH + 8;
+    }
+    return cy;
+  }
+
+  /** v6 升级：格挡 / 口诀 / AI 对话识破 / 档案解锁 / 通行证奖励 统计区块 */
+  private drawV6Stats(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, s: ThunderFinalStats): number {
+    let cy = y;
+    const hasParry = (s.parryCount ?? 0) > 0;
+    const hasMantra = (s.mantraTriggeredCount ?? 0) > 0;
+    const hasAIDialog = (s.aiDialogBustedCount ?? 0) > 0;
+    const hasArchives = s.unlockedArchives && s.unlockedArchives.length > 0;
+    const hasSeasonPass = (s.seasonPassGainedExp ?? 0) > 0 || (s.seasonPassUnlockedRewards && s.seasonPassUnlockedRewards.length > 0);
+    if (!hasParry && !hasMantra && !hasAIDialog && !hasArchives && !hasSeasonPass) return cy;
+
+    // 区块标题
+    ctx.save();
+    ctx.font = `700 13px ${Theme.fonts.mono}`;
+    ctx.fillStyle = "#FF00E5";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillText("v6 反诈新技能", x, cy);
+    cy += 20;
+    ctx.restore();
+
+    // 三栏统计：格挡 / 口诀 / AI识破
+    if (hasParry || hasMantra || hasAIDialog) {
+      ctx.save();
+      const statW = (w - 16) / 3;
+      const statH = 44;
+      const items = [
+        { label: "格挡反击", value: s.parryCount ?? 0, color: "#3B7FEF", emoji: "🛡️" },
+        { label: "口诀连招", value: s.mantraTriggeredCount ?? 0, color: "#00E5FF", emoji: "🔤" },
+        { label: "AI识破", value: s.aiDialogBustedCount ?? 0, color: "#FF00E5", emoji: "💬" },
+      ];
+      for (let i = 0; i < 3; i++) {
+        const sx = x + i * (statW + 8);
+        ctx.fillStyle = "rgba(255,255,255,0.04)";
+        roundRect(ctx, sx, cy, statW, statH, 6);
+        ctx.fill();
+        ctx.strokeStyle = withAlpha(items[i].color, 0.4);
+        ctx.lineWidth = 1;
+        roundRect(ctx, sx, cy, statW, statH, 6);
+        ctx.stroke();
+        ctx.font = `700 16px ${Theme.fonts.mono}`;
+        ctx.fillStyle = items[i].color;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(`${items[i].emoji} ×${items[i].value}`, sx + statW / 2, cy + 16);
+        ctx.font = `500 9px ${Theme.fonts.mono}`;
+        ctx.fillStyle = Theme.colors.ink.muted;
+        ctx.fillText(items[i].label, sx + statW / 2, cy + 32);
+      }
+      ctx.restore();
+      cy += statH + 8;
+    }
+
+    // 诈骗溯源档案解锁列表
+    if (hasArchives) {
+      const archives: ThunderFraudArchive[] = s.unlockedArchives!;
+      ctx.save();
+      ctx.font = `700 11px ${Theme.fonts.mono}`;
+      ctx.fillStyle = "#00E5FF";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText(`📁 解锁档案 ×${archives.length}`, x, cy);
+      cy += 16;
+      const archH = 22;
+      const maxShow = 3;
+      for (let i = 0; i < Math.min(maxShow, archives.length); i++) {
+        const a = archives[i];
+        ctx.fillStyle = "rgba(0,229,255,0.06)";
+        roundRect(ctx, x, cy, w, archH, 4);
+        ctx.fill();
+        ctx.strokeStyle = withAlpha("#00E5FF", 0.3);
+        ctx.lineWidth = 1;
+        roundRect(ctx, x, cy, w, archH, 4);
+        ctx.stroke();
+        ctx.font = `600 10px ${Theme.fonts.mono}`;
+        ctx.fillStyle = "#00E5FF";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+        const title = a.title.length > 24 ? a.title.slice(0, 22) + "…" : a.title;
+        ctx.fillText(`📄 ${title}`, x + 8, cy + archH / 2);
+        ctx.font = `400 9px ${Theme.fonts.mono}`;
+        ctx.fillStyle = Theme.colors.ink.muted;
+        ctx.textAlign = "right";
+        ctx.fillText(a.date, x + w - 8, cy + archH / 2);
+        cy += archH + 4;
+      }
+      if (archives.length > maxShow) {
+        ctx.font = `600 9px ${Theme.fonts.mono}`;
+        ctx.fillStyle = Theme.colors.ink.muted;
+        ctx.textAlign = "right";
+        ctx.fillText(`+${archives.length - maxShow} 个更多`, x + w, cy);
+        cy += 14;
+      }
+      ctx.restore();
+      cy += 4;
+    }
+
+    // 赛季通行证奖励
+    if (hasSeasonPass) {
+      ctx.save();
+      ctx.font = `700 11px ${Theme.fonts.mono}`;
+      ctx.fillStyle = "#FFD666";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      const expText = (s.seasonPassGainedExp ?? 0) > 0 ? `🏆 赛季通行证 +${s.seasonPassGainedExp} EXP` : "🏆 赛季通行证奖励";
+      ctx.fillText(expText, x, cy);
+      cy += 16;
+      const rewards: ThunderSeasonPassReward[] = s.seasonPassUnlockedRewards ?? [];
+      if (rewards.length > 0) {
+        const maxShow = 4;
+        const pillH = 22;
+        const pillGap = 4;
+        for (let i = 0; i < Math.min(maxShow, rewards.length); i++) {
+          const r = rewards[i];
+          ctx.fillStyle = "rgba(255,214,102,0.08)";
+          roundRect(ctx, x, cy, w, pillH, 4);
+          ctx.fill();
+          ctx.strokeStyle = withAlpha("#FFD666", 0.4);
+          ctx.lineWidth = 1;
+          roundRect(ctx, x, cy, w, pillH, 4);
+          ctx.stroke();
+          ctx.font = `600 10px ${Theme.fonts.mono}`;
+          ctx.fillStyle = "#FFD666";
+          ctx.textAlign = "left";
+          ctx.textBaseline = "middle";
+          const name = r.amount > 1 ? `${r.emoji} ${r.name} ×${r.amount}` : `${r.emoji} ${r.name}`;
+          ctx.fillText(name, x + 8, cy + pillH / 2);
+          ctx.font = `400 8px ${Theme.fonts.mono}`;
+          ctx.fillStyle = Theme.colors.ink.muted;
+          ctx.textAlign = "right";
+          ctx.fillText(r.type, x + w - 8, cy + pillH / 2);
+          cy += pillH + pillGap;
+        }
+        if (rewards.length > maxShow) {
+          ctx.font = `600 9px ${Theme.fonts.mono}`;
+          ctx.fillStyle = Theme.colors.ink.muted;
+          ctx.textAlign = "right";
+          ctx.fillText(`+${rewards.length - maxShow} 个更多`, x + w, cy);
+          cy += 14;
+        }
+      }
+      ctx.restore();
+      cy += 4;
+    }
+    return cy;
+  }
+
   /** 最高连击曲线（折线图，峰值标注 MAX ×N） */
   private drawComboCurve(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, s: ThunderFinalStats): number {
     ctx.save();
@@ -767,6 +1140,41 @@ export class ThunderResultOverlay {
     }
     if (s && s.bossKillTimes && s.bossKillTimes.length > 0) {
       h += 18 + 36 + 22 + 8;
+    }
+    // v4：BossRush 阶段列表
+    if (s && s.bossRushStages && s.bossRushStages.length > 0) {
+      h += 18 + s.bossRushStages.length * 20 + 8;
+    }
+    // v5：段位赛 / 擦弹 / 案例剧场（粗略估算）
+    if (s) {
+      if (s.rankDelta !== undefined) h += 20 + 22 + 26;
+      if (s.grazeCount !== undefined && s.grazeCount > 0) h += 18;
+      if (s.caseTheaterTrigger) h += 80 + 8;
+    }
+    // v6：格挡 / 口诀 / AI识破 / 档案 / 通行证
+    if (s) {
+      const hasParry = (s.parryCount ?? 0) > 0;
+      const hasMantra = (s.mantraTriggeredCount ?? 0) > 0;
+      const hasAIDialog = (s.aiDialogBustedCount ?? 0) > 0;
+      const hasArchives = s.unlockedArchives && s.unlockedArchives.length > 0;
+      const hasSeasonPass = (s.seasonPassGainedExp ?? 0) > 0 || (s.seasonPassUnlockedRewards && s.seasonPassUnlockedRewards.length > 0);
+      if (hasParry || hasMantra || hasAIDialog || hasArchives || hasSeasonPass) {
+        h += 20; // 标题
+        if (hasParry || hasMantra || hasAIDialog) h += 44 + 8;
+        if (hasArchives) {
+          h += 16 + Math.min(3, s.unlockedArchives!.length) * 26 + 4;
+          if (s.unlockedArchives!.length > 3) h += 14;
+        }
+        if (hasSeasonPass) {
+          h += 16;
+          const rewards = s.seasonPassUnlockedRewards ?? [];
+          if (rewards.length > 0) {
+            h += Math.min(4, rewards.length) * 26 + 4;
+            if (rewards.length > 4) h += 14;
+          }
+        }
+        h += 8;
+      }
     }
     if (s && s.comboHistory && s.comboHistory.length > 1) {
       h += 18 + 70 + 8;
